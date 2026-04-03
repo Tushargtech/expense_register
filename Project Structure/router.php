@@ -1,26 +1,23 @@
 <?php
 
-$route = trim((string) ($_GET['route'] ?? 'login'));
-$route = $route === '' ? 'login' : $route;
+$route = trim((string) ($_GET['route'] ?? 'view2'));
+$route = $route === '' ? 'view2' : $route;
 
-$authController = new AuthController(new AuthModel($db));
-$isLoggedIn = $authController->isAuthenticated();
-
-if ($route === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-	$authController->login($_POST);
-}
+$userModel = new User($dbConfig);
+$authController = new AuthController($userModel);
+$dashboardController = new DashboardController();
 
 switch ($route) {
-	case 'login':
-		if ($isLoggedIn) {
-			header('Location: ?route=dashboard');
-			exit;
-		}
+	case 'module-1':
+		$dashboardController->index();
+		break;
+
+	case 'view2':
 		$authController->showLogin();
 		break;
 
-	case 'dashboard':
-		$authController->dashboard();
+	case 'auth':
+		$authController->login();
 		break;
 
 	case 'logout':
