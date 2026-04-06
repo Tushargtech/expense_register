@@ -1,12 +1,12 @@
 <?php
 
-$route = trim((string) ($_GET['route'] ?? 'view2'));
-$route = $route === '' ? 'view2' : $route;
+$route = trim((string) ($_GET['route'] ?? 'dashboard'), '/');
+$route = $route === '' ? 'dashboard' : $route;
 
 $auth = new AuthController();
 
 switch ($route) {
-    case 'view2':
+    case 'dashboard':
         $auth->showLogin();
         break;
 
@@ -16,6 +16,12 @@ switch ($route) {
 
     case 'module-1':
         $auth->dashboard();
+        break;
+
+    case 'users':
+    case '/users':
+        $userController = new UserController();
+        $userController->list();
         break;
 
     case 'logout':

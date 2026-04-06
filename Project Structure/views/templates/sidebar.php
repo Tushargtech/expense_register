@@ -1,19 +1,39 @@
 <?php
 
 $activeMenu = isset($activeMenu) ? (string) $activeMenu : 'dashboard';
+
+$sidebarGroups = [
+	[
+		'label' => 'Main',
+		'items' => [
+			[
+				'label' => 'Dashboard',
+				'href' => '?route=module-1',
+				'key' => 'dashboard',
+			],
+			[
+				'label' => 'User List',
+				'href' => '?route=users',
+				'key' => 'user-list',
+			],
+		],
+	],
+];
 ?>
 <aside class="sidebar d-flex flex-column">
-	<div class="sidebar-section">
-		<div class="sidebar-section-title">Main</div>
-		<nav class="nav flex-column gap-2" aria-label="Main Navigation">
-			<a href="?route=module-1" class="nav-link sidebar-link <?php echo $activeMenu === 'dashboard' ? 'active' : ''; ?>">Dashboard</a>
-		</nav>
-	</div>
-	<div class="sidebar-section mt-2">
-		<div class="sidebar-section-title">Expenses</div>
-		<nav class="nav flex-column gap-2" aria-label="Expense Navigation">
-			<a href="#" class="nav-link sidebar-link <?php echo $activeMenu === 'create-expense' ? 'active' : ''; ?>">Create Expense</a>
-			<a href="#" class="nav-link sidebar-link <?php echo $activeMenu === 'expense-history' ? 'active' : ''; ?>">Expense History</a>
-		</nav>
-	</div>
+	<?php foreach ($sidebarGroups as $group): ?>
+		<div class="sidebar-section">
+			<div class="sidebar-section-title"><?php echo htmlspecialchars($group['label'], ENT_QUOTES, 'UTF-8'); ?></div>
+			<nav class="nav flex-column gap-2" aria-label="<?php echo htmlspecialchars($group['label'], ENT_QUOTES, 'UTF-8'); ?> Navigation">
+				<?php foreach ($group['items'] as $item): ?>
+					<a
+						href="<?php echo htmlspecialchars($item['href'], ENT_QUOTES, 'UTF-8'); ?>"
+						class="nav-link sidebar-link <?php echo $activeMenu === $item['key'] ? 'active' : ''; ?>"
+					>
+						<?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?>
+					</a>
+				<?php endforeach; ?>
+			</nav>
+		</div>
+	<?php endforeach; ?>
 </aside>

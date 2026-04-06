@@ -63,6 +63,7 @@ class AuthController
             'user_id' => (int) ($user['id'] ?? 0),
             'name' => (string) ($user['name'] ?? 'User'),
             'email' => (string) ($user['email'] ?? $email),
+            'role' => (string) ($user['role'] ?? ''),
         ];
 
         unset($_SESSION['old_email']);
