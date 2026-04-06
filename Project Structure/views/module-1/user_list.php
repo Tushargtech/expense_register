@@ -22,6 +22,8 @@ $baseQuery = [
 <main class="main">
 	<div class="page-shell user-list-page">
 		<section class="user-list-panel">
+			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
+
 			<form class="user-filter-bar search-bar" method="GET" action="">
 				<input type="hidden" name="route" value="users">
 				<div class="filter-layout">
@@ -74,7 +76,7 @@ $baseQuery = [
 						</div>
 					</div>
 					<div class="add-employee-wrap">
-						<a href="#" class="btn btn-primary add-employee-btn add-btn">
+						<a href="?route=users/create" class="btn btn-primary add-employee-btn add-btn">
 							<i class="bi bi-plus-lg me-1"></i>Add Employee
 						</a>
 					</div>
@@ -118,7 +120,7 @@ $baseQuery = [
 									<td><?php echo htmlspecialchars((string) ($row['manager_name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><span class="status-pill <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span></td>
 									<td class="text-end pe-3">
-										<a href="#" class="btn btn-sm btn-warning edit-btn">Edit</a>
+										<a href="?route=users/edit&id=<?php echo (int) ($row['user_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn">Edit</a>
 									</td>
 								</tr>
 							<?php endforeach; ?>

@@ -108,5 +108,103 @@ class UserModel
 		$stmt->execute();
 		return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'department_name');
 	}
+
+	public function getManagerOptions(): array
+	{
+		$stmt = $this->db->prepare(
+			"SELECT user_id, user_name FROM users WHERE user_is_active = 1 ORDER BY user_name ASC"
+		);
+		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function createUser(array $userData): bool
+	{
+		$defaultPassword = password_hash('Welcome@123', PASSWORD_BCRYPT);
+		$departmentId = isset($userData['department_id']) && (int) $userData['department_id'] > 0
+			? (int) $userData['department_id']
+			: null;
+		$managerId = isset($userData['manager_id']) && (int) $userData['manager_id'] > 0
+			? (int) $userData['manager_id']
+			: null;
+		$isActive = isset($userData['user_is_active']) && (int) $userData['user_is_active'] === 0 ? 0 : 1;
+
+		$sql = "INSERT INTO users (
+					user_name,
+					user_email,
+					user_password_hash,
+					user_role,
+					department_id,
+					manager_id,
+					user_is_active
+				) VALUES (
+					:name,
+					:email,
+					:password_hash,
+					:role,
+					:department_id,
+					:manager_id,
+					:user_is_active
+				)";
+
+		$stmt = $this->db->prepare($sql);
+
+		try {
+			return $stmt->execute([
+				':name' => (string) ($userData['name'] ?? ''),
+				':email' => (string) ($userData['email'] ?? ''),
+				':password_hash' => $defaultPassword,
+				':role' => (string) ($userData['role'] ?? 'employee'),
+				':department_id' => $departmentId,
+				':manager_id' => $managerId,
+				':user_is_active' => $isActive,
+			]);
+		} catch (Throwable $error) {
+			return false;
+		}
+	}
+
+	public function getUserById(int $userId): ?array
+	{
+		$stmt = $this->db->prepare(
+			"SELECT user_id, user_name, user_email, user_role, department_id, manager_id, user_is_active
+			 FROM users
+			 WHERE user_id = :user_id
+			 LIMIT 1"
+		);
+		$stmt->execute([':user_id' => $userId]);
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return $row !== false ? $row : null;
+	}
+
+	public function updateUser(int $userId, array $userData): bool
+	{
+		$sql = "UPDATE users
+				SET
+					user_name = :name,
+					user_email = :email,
+					user_role = :role,
+					department_id = :department_id,
+					manager_id = :manager_id,
+					user_is_active = :user_is_active
+				WHERE user_id = :user_id";
+
+		$stmt = $this->db->prepare($sql);
+
+		try {
+			return $stmt->execute([
+				':name' => (string) ($userData['name'] ?? ''),
+				':email' => (string) ($userData['email'] ?? ''),
+				':role' => (string) ($userData['role'] ?? 'employee'),
+				':department_id' => (int) ($userData['department_id'] ?? 0),
+				':manager_id' => (int) ($userData['manager_id'] ?? 0),
+				':user_is_active' => (int) ($userData['user_is_active'] ?? 1),
+				':user_id' => $userId,
+			]);
+		} catch (Throwable $error) {
+			return false;
+		}
+	}
 }
 

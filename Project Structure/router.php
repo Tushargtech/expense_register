@@ -24,6 +24,26 @@ switch ($route) {
         $userController->list();
         break;
 
+    case 'users/create':
+    case '/users/create':
+        $userController = new UserController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $userController->store();
+        } else {
+            $userController->create();
+        }
+        break;
+
+    case 'users/edit':
+    case '/users/edit':
+        $userController = new UserController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $userController->update();
+        } else {
+            $userController->edit();
+        }
+        break;
+
     case 'logout':
         $auth->logout();
         break;
