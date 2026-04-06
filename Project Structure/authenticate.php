@@ -1,5 +1,5 @@
 <?php
-
-$userModel = new User($dbConfig);
-$authController = new AuthController($userModel);
-$authController->login();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: /login");
+    exit();
+}

@@ -3,30 +3,26 @@
 $route = trim((string) ($_GET['route'] ?? 'view2'));
 $route = $route === '' ? 'view2' : $route;
 
-$userModel = new User($dbConfig);
-$authController = new AuthController($userModel);
-$dashboardController = new DashboardController();
+$auth = new AuthController();
 
 switch ($route) {
-	case 'module-1':
-		$dashboardController->index();
-		break;
+    case 'view2':
+        $auth->showLogin();
+        break;
 
-	case 'view2':
-		$authController->showLogin();
-		break;
+    case 'auth':
+        $auth->login();
+        break;
 
-	case 'auth':
-		$authController->login();
-		break;
+    case 'module-1':
+        $auth->dashboard();
+        break;
 
-	case 'logout':
-		$authController->logout();
-		break;
+    case 'logout':
+        $auth->logout();
+        break;
 
-	default:
-		http_response_code(404);
-		echo '404 - Route not found';
-		break;
+    default:
+        header('Location: ?route=view2');
+        exit;
 }
-

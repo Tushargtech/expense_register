@@ -7,13 +7,6 @@ $configuredBasePath = isset($envConfig['app']['base_path']) ? (string) $envConfi
 $runtimeBasePath = (string) dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'));
 $basePath = $configuredBasePath !== '' ? $configuredBasePath : $runtimeBasePath;
 
-/**
- * Build a browser-safe URL for local assets.
- *
- * This project folder includes a space in "Project Structure", so a literal
- * path can fail in some clients. We encode each URL segment to keep slashes
- * intact while safely handling spaces and special characters.
- */
 function buildAssetUrl(string $basePath, string $assetPath): string
 {
 	$joinedPath = '/' . trim($basePath, '/') . '/' . ltrim($assetPath, '/');

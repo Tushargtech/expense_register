@@ -1,10 +1,36 @@
 <?php
 
-/**
- * Environment defaults for local AMPPS setup.
- *
- * Update these values if your AMPPS MySQL settings are different.
- */
+if (!defined('DB_HOST')) {
+	define('DB_HOST', '127.0.0.1');
+}
+if (!defined('DB_NAME')) {
+	define('DB_NAME', 'expense_register');
+}
+if (!defined('DB_USER')) {
+	define('DB_USER', 'root');
+}
+if (!defined('DB_PASS')) {
+	define('DB_PASS', '');
+}
+if (!defined('DB_PORT')) {
+	define('DB_PORT', '3307');
+}
+
+if (!function_exists('getDB')) {
+	function getDB(): PDO
+	{
+		return new PDO(
+			'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+			DB_USER,
+			DB_PASS,
+			[
+				PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+				PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+			]
+		);
+	}
+}
+
 return [
 	'app' => [
 		'name' => 'Expense Register',

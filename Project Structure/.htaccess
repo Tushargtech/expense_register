@@ -1,13 +1,4 @@
 RewriteEngine On
-
-# If the requested path is an existing file or directory, don't apply rewrites
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-
-# Check if the request ends with index.php or a specific file - if so, skip
-RewriteCond %{REQUEST_URI} !^/index\.php
-
-# Rewrite clean URLs to index.php with route parameter
-# /login -> index.php?route=login
-# /dashboard -> index.php?route=dashboard
-RewriteRule ^(.*)$ index.php?route=$1 [QSA,L]
+RewriteRule ^(.*)$ index.php [QSA,L]

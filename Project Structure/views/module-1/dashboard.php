@@ -24,7 +24,6 @@ $userName = isset($userName) ? (string) $userName : 'User';
 	<div class="page-shell">
 		<section class="hero">
 			<h1>Welcome, <?php echo htmlspecialchars($userName, ENT_QUOTES, 'UTF-8'); ?></h1>
-			<p>Your expense dashboard is active. This screen is only available after successful login.</p>
 		</section>
 
 		<section class="cards-grid">

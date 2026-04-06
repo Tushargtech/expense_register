@@ -7,22 +7,8 @@ session_start();
 
 define('ROOT_PATH', __DIR__);
 
-$dbConfig = require ROOT_PATH . '/configs/db.php';
 $envConfig = require ROOT_PATH . '/configs/env.php';
+$dbConfig = $envConfig['db'];
 
-spl_autoload_register(function (string $className): void {
-	$directories = [
-		ROOT_PATH . '/libraries/',
-		ROOT_PATH . '/models/',
-		ROOT_PATH . '/controllers/',
-	];
-
-	foreach ($directories as $directory) {
-		$filePath = $directory . $className . '.php';
-		if (is_file($filePath)) {
-			require_once $filePath;
-			return;
-		}
-	}
-});
-
+require_once ROOT_PATH . '/models/AuthModel.php';
+require_once ROOT_PATH . '/controllers/AuthController.php';
