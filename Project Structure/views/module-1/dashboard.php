@@ -4,21 +4,10 @@ $pageTitle = 'Dashboard - Expense Register';
 $pageStyles = ['assets/css/dashboard.css'];
 require ROOT_PATH . '/views/templates/header.php';
 require ROOT_PATH . '/views/templates/navbar.php';
+require ROOT_PATH . '/views/templates/sidebar.php';
 
 $userName = isset($userName) ? (string) $userName : 'User';
 ?>
-
-<aside class="sidebar">
-	<div class="sidebar-section">
-		<div class="sidebar-section-title">Main</div>
-		<a href="?route=module-1" class="active">Dashboard</a>
-	</div>
-	<div class="sidebar-section">
-		<div class="sidebar-section-title">Expenses</div>
-		<a href="#">Create Expense</a>
-		<a href="#">Expense History</a>
-	</div>
-</aside>
 
 <main class="main">
 	<div class="page-shell">
