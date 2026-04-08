@@ -32,7 +32,7 @@ class UserController
 	{
 		if (empty($_SESSION['auth']['is_logged_in'])) {
 			$_SESSION['auth_error'] = 'Please login to continue.';
-			header('Location: ?route=view2');
+			header('Location: ?route=dashboard');
 			exit;
 		}
 	}
@@ -42,7 +42,7 @@ class UserController
 		$this->ensureAuthenticated();
 		$sessionRole = (string) ($_SESSION['auth']['role'] ?? $_SESSION['role'] ?? '');
 		$normalizedRole = strtolower(trim($sessionRole));
-		$allowedRoles = ['admin', 'hr', 'system administrator', 'employee', 'emp', 'manager', 'finance'];
+		$allowedRoles = ['admin', 'hr', 'employee', 'emp', 'manager', 'finance'];
 
 		if ($normalizedRole !== '' && !in_array($normalizedRole, $allowedRoles, true)) {
 			header('Location: ?route=module-1&error=unauthorized');

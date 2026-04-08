@@ -7,6 +7,7 @@ $auth = new AuthController();
 
 switch ($route) {
     case 'dashboard':
+    case 'view2':
         $auth->showLogin();
         break;
 
@@ -70,11 +71,17 @@ switch ($route) {
         }
         break;
 
+    case 'budget-categories':
+    case '/budget-categories':
+        $budgetCategoryController = new BudgetCategoryController();
+        $budgetCategoryController->list();
+        break;
+
     case 'logout':
         $auth->logout();
         break;
 
     default:
-        header('Location: ?route=view2');
+        header('Location: ?route=dashboard');
         exit;
 }

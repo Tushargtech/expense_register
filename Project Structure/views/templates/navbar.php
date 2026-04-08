@@ -1,6 +1,10 @@
 <?php
 
 $displayName = (string) ($_SESSION['auth']['name'] ?? 'User');
+$normalizedDisplayName = strtolower(trim($displayName));
+if ($normalizedDisplayName === 'system administrator' || $normalizedDisplayName === 'system admininstrator') {
+	$displayName = 'Admin';
+}
 ?>
 <nav class="navbar navbar-dark fixed-top app-navbar">
 	<div class="container-fluid px-3 px-md-4">

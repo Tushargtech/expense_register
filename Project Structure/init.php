@@ -13,6 +13,8 @@ $dbConfig = $envConfig['db'];
 require_once ROOT_PATH . '/models/AuthModel.php';
 require_once ROOT_PATH . '/models/UserModel.php';
 require_once ROOT_PATH . '/models/DepartmentModel.php';
+require_once ROOT_PATH . '/models/BudgetCategoryModel.php';
 require_once ROOT_PATH . '/controllers/AuthController.php';
 require_once ROOT_PATH . '/controllers/UserController.php';
 require_once ROOT_PATH . '/controllers/DepartmentController.php';
+require_once ROOT_PATH . '/controllers/BudgetCategoryController.php';

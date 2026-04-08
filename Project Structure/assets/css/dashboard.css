@@ -98,7 +98,9 @@ body {
 }
 
 .sidebar-link {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     color: rgba(255, 255, 255, 0.94);
     text-decoration: none;
     margin: 0;
@@ -109,6 +111,12 @@ body {
     border-left: 4px solid transparent;
     line-height: 1.2;
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar-link-icon {
+    width: 18px;
+    text-align: center;
+    font-size: 15px;
 }
 
 .sidebar-link:hover,

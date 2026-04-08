@@ -11,7 +11,7 @@ class DepartmentController
 		}
 		$userRole = (string) ($_SESSION['auth']['role'] ?? $_SESSION['role'] ?? '');
 		$normalizedRole = strtolower(trim($userRole));
-		return in_array($normalizedRole, ['admin', 'hr', 'system administrator'], true);
+		return in_array($normalizedRole, ['admin', 'hr'], true);
 	}
 
 	
@@ -19,7 +19,7 @@ class DepartmentController
 	{
 		if (empty($_SESSION['auth']['is_logged_in'])) {
 			$_SESSION['auth_error'] = 'Please login to continue.';
-			header('Location: ?route=view2');
+			header('Location: ?route=dashboard');
 			exit;
 		}
 		if (!$this->isAuthorizedForDepartmentAccess()) {
@@ -71,7 +71,7 @@ class DepartmentController
 	{
 		if (empty($_SESSION['auth']['is_logged_in'])) {
 			$_SESSION['auth_error'] = 'Please login to continue.';
-			header('Location: ?route=view2');
+			header('Location: ?route=dashboard');
 			exit;
 		}
 
@@ -109,7 +109,7 @@ class DepartmentController
 	{
 		if (empty($_SESSION['auth']['is_logged_in'])) {
 			$_SESSION['auth_error'] = 'Please login to continue.';
-			header('Location: ?route=view2');
+			header('Location: ?route=dashboard');
 			exit;
 		}
 
@@ -172,7 +172,7 @@ class DepartmentController
 	{
 		if (empty($_SESSION['auth']['is_logged_in'])) {
 			$_SESSION['auth_error'] = 'Please login to continue.';
-			header('Location: ?route=view2');
+			header('Location: ?route=dashboard');
 			exit;
 		}
 
@@ -205,7 +205,7 @@ class DepartmentController
 	{
 		if (empty($_SESSION['auth']['is_logged_in'])) {
 			$_SESSION['auth_error'] = 'Please login to continue.';
-			header('Location: ?route=view2');
+			header('Location: ?route=dashboard');
 			exit;
 		}
 

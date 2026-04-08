@@ -21,7 +21,7 @@ class AuthController
     public function login(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            header('Location: ?route=view2');
+            header('Location: ?route=dashboard');
             exit;
         }
 
@@ -32,7 +32,7 @@ class AuthController
 
         if ($email === '' || $password === '') {
             $_SESSION['auth_error'] = 'Email and password are required.';
-            header('Location: ?route=view2');
+            header('Location: ?route=dashboard');
             exit;
         }
 
@@ -42,7 +42,7 @@ class AuthController
             $user = $authModel->getUserByEmail($email);
         } catch (Throwable $error) {
             $_SESSION['auth_error'] = 'Unable to validate credentials from database. Please check DB configuration.';
-            header('Location: ?route=view2');
+            header('Location: ?route=dashboard');
             exit;
         }
 
@@ -54,16 +54,18 @@ class AuthController
 
         if (!$isValid) {
             $_SESSION['auth_error'] = 'Invalid Credentials';
-            header('Location: ?route=view2');
+            header('Location: ?route=dashboard');
             exit;
         }
+
+        $sessionRole = strtolower(trim((string) ($user['role'] ?? '')));
 
         $_SESSION['auth'] = [
             'is_logged_in' => true,
             'user_id' => (int) ($user['id'] ?? 0),
             'name' => (string) ($user['name'] ?? 'User'),
             'email' => (string) ($user['email'] ?? $email),
-            'role' => (string) ($user['role'] ?? ''),
+            'role' => $sessionRole,
         ];
 
         unset($_SESSION['old_email']);
@@ -77,7 +79,7 @@ class AuthController
     {
         if (empty($_SESSION['auth']['is_logged_in'])) {
             $_SESSION['auth_error'] = 'Please login to continue.';
-            header('Location: ?route=view2');
+            header('Location: ?route=dashboard');
             exit;
         }
 
@@ -92,7 +94,7 @@ class AuthController
         unset($_SESSION['auth']);
         session_regenerate_id(true);
         $_SESSION['auth_success'] = 'Logged out successfully.';
-        header('Location: ?route=view2');
+        header('Location: ?route=dashboard');
         exit;
     }
 }
