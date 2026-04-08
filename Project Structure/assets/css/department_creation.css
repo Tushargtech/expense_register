@@ -1,0 +1,390 @@
+
+.department-list-page {
+	background: whitesmoke;
+}
+
+.department-list-panel {
+	background: white;
+	border: 1px solid lightgray;
+	border-radius: 12px;
+	box-shadow: 0 6px 20px lightgray;
+	overflow: hidden;
+}
+
+.department-filter-bar {
+	padding: 12px 14px;
+	background: ghostwhite;
+	border-bottom: 1px solid lightgray;
+}
+
+.search-bar {
+	display: flex;
+	gap: 8px;
+}
+
+.filter-layout {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	width: 100%;
+}
+
+.filter-left {
+	flex: 1;
+	min-width: 0;
+}
+
+.filter-grid {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: nowrap;
+	min-width: 0;
+}
+
+.search-field {
+	flex: 1;
+	min-width: 180px;
+}
+
+.filter-field {
+	min-width: 130px;
+}
+
+.filter-field .form-control,
+.filter-field .form-select,
+.search-bar input,
+.search-bar select,
+.search-bar button {
+	padding: 5px 8px;
+	font-size: 12px;
+	border: 1px solid silver;
+	border-radius: 5px;
+	min-width: 0;
+}
+
+.filter-field .form-control,
+.filter-field .form-select {
+	height: 36px;
+	border-color: lightgray;
+	background-color: white;
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.filter-actions {
+	display: flex;
+	gap: 8px;
+	white-space: nowrap;
+}
+
+.btn-filter {
+	font-size: 13px;
+	height: 34px;
+	min-width: 72px;
+	border-radius: 5px;
+	font-weight: 500;
+	background: dodgerblue;
+	color: white;
+	border: none;
+	transition: all 0.3s ease;
+}
+
+.btn-filter:hover {
+	background: steelblue;
+	color: white;
+}
+
+.add-department-wrap {
+	display: flex;
+	justify-content: flex-end;
+	margin-left: auto;
+	flex-shrink: 0;
+	white-space: nowrap;
+	align-self: center;
+}
+
+.add-department-btn {
+	background: dodgerblue;
+	color: white;
+	padding: 8px 12px;
+	font-size: 12px;
+	border-radius: 5px;
+	cursor: pointer;
+	border: none;
+	white-space: nowrap;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	text-decoration: none;
+	transition: all 0.3s ease;
+}
+
+.add-department-btn:hover {
+	background: steelblue;
+}
+
+.department-table-wrapper {
+	flex: 1;
+	overflow-x: auto;
+	position: relative;
+}
+
+.department-table {
+	width: 100%;
+	border-collapse: collapse;
+	min-width: 1024px;
+	font-size: 14px;
+	margin-bottom: 0;
+}
+
+.department-table thead th {
+	background: steelblue;
+	color: white;
+	font-size: 12px;
+	font-weight: 600;
+	padding: 9px 6px;
+	border: 0;
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	white-space: nowrap;
+}
+
+.department-table thead .col-name {
+	color: white;
+}
+
+.department-table thead .col-serial,
+.department-table thead .col-code,
+.department-table thead .col-head,
+.department-table thead .col-head-email,
+.department-table thead .col-actions {
+	color: white;
+}
+
+.department-table tbody td {
+	padding: 8px 6px;
+	border-color: lightgray;
+	vertical-align: middle;
+	line-height: 1.2;
+	color: black;
+}
+
+.department-table tbody tr:nth-child(odd) {
+	background: aliceblue;
+}
+
+.department-table .col-serial {
+	width: 60px;
+	text-align: center;
+	color: slategray;
+	font-weight: 600;
+}
+
+.department-table .col-code {
+	width: 120px;
+	font-family: 'Courier New', monospace;
+	color: black;
+	font-weight: 600;
+}
+
+.department-table .col-name {
+	min-width: 150px;
+	font-weight: 600;
+	color: black;
+}
+
+.department-table .col-head {
+	min-width: 150px;
+	color: black;
+}
+
+.department-table .col-head-email {
+	min-width: 180px;
+	color: black;
+	font-size: 12px;
+}
+
+.department-table .col-actions {
+	width: 100px;
+	text-align: center;
+	white-space: nowrap;
+}
+
+.department-empty-state {
+	padding: 40px 20px;
+	text-align: center;
+	color: slategray;
+	background: whitesmoke;
+}
+
+.department-empty-state-icon {
+	font-size: 48px;
+	margin-bottom: 10px;
+	color: silver;
+}
+
+.department-empty-state-text {
+	font-size: 14px;
+	margin-bottom: 5px;
+}
+
+.department-empty-state-subtext {
+	font-size: 12px;
+	color: cadetgray;
+}
+
+.btn-edit-department {
+	background: orange;
+	color: white;
+	border: none;
+	padding: 4px 10px;
+	font-size: 12px;
+	font-weight: 600;
+	border-radius: 7px;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	text-decoration: none;
+	transition: all 0.3s ease;
+}
+
+.btn-edit-department:hover {
+	background: darkorange;
+	transform: translateY(-1px);
+}
+
+.btn-delete-department {
+	background: tomato;
+	color: white;
+	border: none;
+	padding: 4px 10px;
+	font-size: 12px;
+	font-weight: 600;
+	border-radius: 7px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: 4px;
+}
+
+.btn-delete-department:hover {
+	background: firebrick;
+	transform: translateY(-1px);
+}
+
+.department-pagination {
+	padding: 8px 10px;
+	display: flex;
+	justify-content: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	border-top: 1px solid lightgray;
+	background: white;
+}
+
+.department-pagination button,
+.department-pagination a {
+	color: steelblue;
+	border-color: lightgray;
+	font-size: 11px;
+	font-weight: 500;
+	min-width: 30px;
+	padding: 4px 8px;
+	line-height: 1.2;
+	text-align: center;
+	text-decoration: none;
+	display: inline-block;
+}
+
+.department-pagination button.active {
+	background: steelblue;
+	border-color: steelblue;
+	color: white;
+}
+
+.department-pagination button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.pagination-info {
+	font-size: 11px;
+	color: slategray;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+@media (max-width: 1200px) {
+	.department-table-wrapper {
+		max-width: 100%;
+	}
+}
+
+@media (max-width: 992px) {
+	.filter-grid {
+		flex-wrap: wrap;
+	}
+
+	.search-field {
+		min-width: 100%;
+	}
+
+	.add-department-wrap {
+		margin-left: 0;
+	}
+}
+
+@media (max-width: 768px) {
+	.department-table thead th,
+	.department-table tbody td {
+		padding: 8px 6px;
+	}
+
+	.department-table .col-code {
+		width: auto;
+	}
+
+	.add-department-btn {
+		width: 100%;
+		justify-content: center;
+	}
+
+	.filter-actions {
+		justify-content: stretch;
+		width: 100%;
+	}
+
+	.filter-actions .btn-filter {
+		flex: 1;
+	}
+}
+
+@media (max-width: 480px) {
+	.department-table-wrapper {
+		min-width: 300px;
+	}
+
+	.department-table thead th,
+	.department-table tbody td {
+		padding: 7px 5px;
+		font-size: 11px;
+	}
+
+	.btn-edit-department,
+	.btn-delete-department {
+		padding: 4px 8px;
+		font-size: 11px;
+	}
+
+	.filter-field .form-control,
+	.filter-field .form-select {
+		font-size: 11px;
+	}
+}

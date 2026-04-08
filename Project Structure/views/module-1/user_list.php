@@ -87,7 +87,7 @@ $baseQuery = [
 				<table class="table user-list-table align-middle mb-0">
 					<thead>
 						<tr>
-							<th>User ID</th>
+							<th>Serial No.</th>
 							<th>User Name</th>
 							<th>Email</th>
 							<th>Role</th>
@@ -104,14 +104,15 @@ $baseQuery = [
 								<td colspan="10" class="text-center py-4 text-muted">No users found for the selected filters.</td>
 							</tr>
 						<?php else: ?>
-							<?php foreach ($users as $row): ?>
+							<?php foreach ($users as $index => $row): ?>
 								<?php
 								$isActive = (int) ($row['user_is_active'] ?? 0) === 1;
 								$statusClass = $isActive ? 'status-active' : 'status-inactive';
 								$statusLabel = $isActive ? 'Active' : 'Inactive';
+								$serialNumber = (($currentPage - 1) * 10) + $index + 1;
 								?>
 								<tr>
-									<td><?php echo (int) ($row['user_id'] ?? 0); ?></td>
+									<td><?php echo $serialNumber; ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['user_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['user_email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['user_role'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>

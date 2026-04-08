@@ -8,8 +8,8 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: #f5f5f5;
-    color: #333;
+    background: whitesmoke;
+    color: dimgray;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -30,13 +30,13 @@ body {
 .app-brand {
     font-size: 24px;
     font-weight: 700;
-    color: #3498db;
+    color: dodgerblue;
 }
 
 .profile-icon {
     width: 40px;
     height: 40px;
-    background: #3498db;
+    background: dodgerblue;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -94,7 +94,7 @@ body {
     letter-spacing: 1.8px;
     margin-bottom: 10px;
     padding-left: 8px;
-    border-left: 4px solid #2da8ff;
+    border-left: 4px solid deepskyblue;
 }
 
 .sidebar-link {
@@ -114,8 +114,8 @@ body {
 .sidebar-link:hover,
 .sidebar-link.active {
     background: rgba(255, 255, 255, 0.10);
-    border-left-color: #3bb0ff;
-    color: #ffffff;
+    border-left-color: deepskyblue;
+    color: white;
     transform: translateX(2px);
 }
 
@@ -136,7 +136,7 @@ body {
 .tickets-panel {
     background: white;
     border-radius: 18px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid gainsboro;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
@@ -148,13 +148,13 @@ body {
 .hero h1 {
     font-size: 30px;
     font-weight: 700;
-    color: #111827;
+    color: midnightblue;
     margin-bottom: 8px;
 }
 
 .hero p {
     font-size: 14px;
-    color: #6b7280;
+    color: gray;
 }
 
 .cards-grid {
@@ -184,24 +184,24 @@ body {
 .metric-value {
     font-size: 26px;
     font-weight: 800;
-    color: #111827;
+    color: midnightblue;
 }
 
-.metric-card.total-tickets { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-color: #93c5fd; }
-.metric-card.accepted-tickets { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-color: #6ee7b7; }
-.metric-card.rejected-tickets { background: linear-gradient(135deg, #fef2f2, #fee2e2); border-color: #fca5a5; }
-.metric-card.department-budget { background: linear-gradient(135deg, #f5f3ff, #ede9fe); border-color: #c4b5fd; }
-.metric-card.total-expense { background: linear-gradient(135deg, #fff7ed, #ffedd5); border-color: #fdba74; }
-.metric-card.budget-remaining { background: linear-gradient(135deg, #ecfeff, #cffafe); border-color: #67e8f9; }
+.metric-card.total-tickets { background: linear-gradient(135deg, aliceblue, aliceblue); border-color: lightblue; }
+.metric-card.accepted-tickets { background: linear-gradient(135deg, honeydew, honeydew); border-color: aquamarine; }
+.metric-card.rejected-tickets { background: linear-gradient(135deg, mistyrose, mistyrose); border-color: lightcoral; }
+.metric-card.department-budget { background: linear-gradient(135deg, lavenderblush, lavender); border-color: plum; }
+.metric-card.total-expense { background: linear-gradient(135deg, seashell, peachpuff); border-color: sandybrown; }
+.metric-card.budget-remaining { background: linear-gradient(135deg, azure, azure); border-color: paleturquoise; }
 
 .tickets-panel { padding: 20px; }
 
 .tabs { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
 
 .tab-btn {
-    border: 1px solid #d1d5db;
+    border: 1px solid lightgray;
     background: white;
-    color: #4b5563;
+    color: dimgray;
     border-radius: 999px;
     padding: 10px 16px;
     font-size: 14px;
@@ -210,9 +210,9 @@ body {
 }
 
 .tab-btn.active {
-    background: #eff6ff;
-    color: #1d4ed8;
-    border-color: #93c5fd;
+    background: aliceblue;
+    color: royalblue;
+    border-color: lightblue;
 }
 
 .ticket-list {
@@ -222,12 +222,12 @@ body {
 }
 
 .ticket-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid gainsboro;
     border-radius: 16px;
     padding: 18px;
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    background: #fcfcfd;
+    background: snow;
 }
 
 .ticket-card:hover {
@@ -243,8 +243,8 @@ body {
     margin-bottom: 12px;
 }
 
-.ticket-id { font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 4px; }
-.ticket-title { font-size: 14px; color: #6b7280; }
+.ticket-id { font-size: 16px; font-weight: 700; color: midnightblue; margin-bottom: 4px; }
+.ticket-title { font-size: 14px; color: gray; }
 
 .status-badge {
     font-size: 12px;
@@ -255,9 +255,9 @@ body {
     letter-spacing: 0.4px;
 }
 
-.status-pending { background: #fff7ed; color: #c2410c; }
-.status-approved { background: #ecfdf5; color: #15803d; }
-.status-rejected { background: #fef2f2; color: #b91c1c; }
+.status-pending { background: seashell; color: chocolate; }
+.status-approved { background: honeydew; color: green; }
+.status-rejected { background: mistyrose; color: firebrick; }
 
 .ticket-meta {
     display: grid;
@@ -269,21 +269,21 @@ body {
 .meta-label {
     font-size: 11px;
     font-weight: 700;
-    color: #9ca3af;
+    color: darkgray;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 4px;
 }
 
-.meta-value { font-size: 14px; font-weight: 600; color: #1f2937; }
-.ticket-footer { font-size: 13px; color: #2563eb; font-weight: 600; }
+.meta-value { font-size: 14px; font-weight: 600; color: darkslategray; }
+.ticket-footer { font-size: 13px; color: royalblue; font-weight: 600; }
 
 .empty-state {
-    border: 1px dashed #d1d5db;
+    border: 1px dashed lightgray;
     border-radius: 16px;
     padding: 32px;
     text-align: center;
-    color: #6b7280;
+    color: gray;
 }
 
 .app-footer {
@@ -326,15 +326,15 @@ body {
     .profile-icon { width: 36px; height: 36px; font-size: 18px; }
 }
 
-/* New dashboard content styles merged from dashboard-home.css */
+
 .dashboard-page {
-    background-color: #f4f6f9;
+    background-color: whitesmoke;
 }
 
 .top-bar {
-    border: 1px solid #e5e7eb;
+    border: 1px solid gainsboro;
     border-radius: 0.8rem;
-    background: #ffffff;
+    background: white;
     padding: 0.9rem 1rem;
     margin-bottom: 1rem;
 }
@@ -345,7 +345,7 @@ body {
 
 .small-help {
     font-size: 0.78rem;
-    color: #6b7280;
+    color: gray;
 }
 
 .kpi-grid {
@@ -362,22 +362,22 @@ body {
 }
 
 .kpi-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid gainsboro;
     border-radius: 0.8rem;
-    background: #ffffff;
+    background: white;
     padding: 1rem;
 }
 
 .dashboard-page .kpi-card {
-    border: 1px solid #d9e1ea !important;
+    border: 1px solid lightgray !important;
     border-radius: 0.8rem !important;
-    background: #ffffff !important;
+    background: white !important;
     padding: 1rem !important;
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
 }
 
 .kpi-label {
-    color: #6b7280;
+    color: gray;
     font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -386,7 +386,7 @@ body {
 }
 
 .kpi-value {
-    color: #111827;
+    color: midnightblue;
     font-size: 1.45rem;
     font-weight: 700;
     margin: 0;
@@ -403,7 +403,7 @@ body {
     font-size: 0.82rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    color: #4b5563;
+    color: dimgray;
 }
 
 .status-badge {
@@ -416,34 +416,34 @@ body {
 }
 
 .badge-approved {
-    background: #d1fae5;
-    color: #065f46;
+    background: honeydew;
+    color: darkgreen;
 }
 
 .badge-pending {
-    background: #fef3c7;
-    color: #92400e;
+    background: moccasin;
+    color: saddlebrown;
 }
 
 .badge-rejected {
-    background: #fee2e2;
-    color: #991b1b;
+    background: mistyrose;
+    color: firebrick;
 }
 
 .quick-link {
     display: block;
-    border: 1px solid #e5e7eb;
+    border: 1px solid gainsboro;
     border-radius: 0.7rem;
     text-decoration: none;
-    color: #0f172a;
-    background: #ffffff;
+    color: midnightblue;
+    background: white;
     padding: 0.75rem 0.85rem;
     margin-bottom: 0.55rem;
 }
 
 .quick-link:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
+    background: aliceblue;
+    border-color: lightgray;
 }
     .profile-icon { width: 36px; height: 36px; font-size: 18px; 
 }

@@ -12,9 +12,14 @@ $sidebarGroups = [
 				'key' => 'dashboard',
 			],
 			[
-				'label' => 'User List',
+				'label' => 'Users',
 				'href' => '?route=users',
 				'key' => 'user-list',
+			],
+			[
+				'label' => 'Departments',
+				'href' => '?route=departments',
+				'key' => 'department-list',
 			],
 		],
 	],

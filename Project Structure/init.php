@@ -15,3 +15,4 @@ require_once ROOT_PATH . '/models/UserModel.php';
 require_once ROOT_PATH . '/models/DepartmentModel.php';
 require_once ROOT_PATH . '/controllers/AuthController.php';
 require_once ROOT_PATH . '/controllers/UserController.php';
+require_once ROOT_PATH . '/controllers/DepartmentController.php';

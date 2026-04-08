@@ -40,9 +40,6 @@ class UserController
 	public function list(): void
 	{
 		$this->ensureAuthenticated();
-
-		// Keep role-aware behavior but avoid blocking valid logged-in sessions
-		// when role is not yet present in session (legacy sessions or stale cookies).
 		$sessionRole = (string) ($_SESSION['auth']['role'] ?? $_SESSION['role'] ?? '');
 		$normalizedRole = strtolower(trim($sessionRole));
 		$allowedRoles = ['admin', 'hr', 'system administrator', 'employee', 'emp', 'manager', 'finance'];

@@ -44,6 +44,32 @@ switch ($route) {
         }
         break;
 
+    case 'departments':
+    case '/departments':
+        $deptController = new DepartmentController();
+        $deptController->list();
+        break;
+
+    case 'departments/create':
+    case '/departments/create':
+        $deptController = new DepartmentController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $deptController->store();
+        } else {
+            $deptController->create();
+        }
+        break;
+
+    case 'departments/edit':
+    case '/departments/edit':
+        $deptController = new DepartmentController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $deptController->update();
+        } else {
+            $deptController->edit();
+        }
+        break;
+
     case 'logout':
         $auth->logout();
         break;
