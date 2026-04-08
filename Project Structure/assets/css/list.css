@@ -37,17 +37,18 @@
 	display: flex;
 	gap: 8px;
 	align-items: center;
-	flex-wrap: nowrap;
+	flex-wrap: wrap;
 	min-width: 0;
 }
 
 .search-field {
-	flex: 1;
-	min-width: 180px;
+	flex: 2 1 260px;
+	min-width: 220px;
 }
 
 .filter-field {
-	min-width: 130px;
+	flex: 1 1 150px;
+	min-width: 150px;
 }
 
 .filter-field .form-control,
@@ -75,6 +76,7 @@
 	display: flex;
 	gap: 8px;
 	white-space: nowrap;
+	flex-wrap: wrap;
 }
 
 .btn-filter {
@@ -94,7 +96,7 @@
 	color: white;
 }
 
-.add-employee-wrap {
+.add-record-wrap {
 	display: flex;
 	justify-content: flex-end;
 	margin-left: auto;
@@ -118,10 +120,8 @@
 	background: steelblue;
 }
 
-.add-employee-btn {
-    position: absolute;
-    right: 30px;
-    top: 13%;
+.add-record-btn {
+	position: static;
 	height: 34px;
 	padding: 0 12px;
 	border-radius: 5px;
@@ -227,7 +227,7 @@
 		flex-wrap: wrap;
 	}
 
-	.add-employee-wrap {
+	.add-record-wrap {
 		justify-content: flex-start;
 		margin-left: 0;
 	}
@@ -236,7 +236,12 @@
 		flex-wrap: wrap;
 	}
 
-	.add-employee-wrap,
+	.filter-field,
+	.search-field {
+		flex: 1 1 220px;
+	}
+
+	.add-record-wrap,
 	.filter-actions {
 		justify-content: flex-start;
 	}
@@ -248,11 +253,22 @@
 	}
 
 	.filter-grid {
-		grid-template-columns: 1fr;
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.filter-field,
+	.search-field,
+	.filter-actions {
+		width: 100%;
+	}
+
+	.filter-actions .btn-filter {
+		flex: 1 1 auto;
 	}
 
 	.btn-filter,
-	.add-employee-btn {
+	.add-record-btn {
 		width: 100%;
 	}
 }

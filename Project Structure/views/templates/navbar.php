@@ -8,7 +8,7 @@ if ($normalizedDisplayName === 'system administrator' || $normalizedDisplayName 
 ?>
 <nav class="navbar navbar-dark fixed-top app-navbar">
 	<div class="container-fluid px-3 px-md-4">
-		<a class="navbar-brand fw-bold app-brand" href="?route=module-1">Expense Register</a>
+		<a class="navbar-brand fw-bold app-brand" href="?route=home">Expense Register</a>
 		<div class="d-flex align-items-center gap-3 ms-auto">
 			<span class="navbar-text text-white fw-semibold d-none d-md-inline"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></span>
 			<div class="dropdown profile-container">

@@ -11,14 +11,14 @@ $baseQuery = [
 ?>
 
 <main class="main">
-	<div class="page-shell department-list-page">
+	<div class="page-shell user-list-page">
 		
-		<section class="department-list-panel">
+		<section class="user-list-panel">
 			
 			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
 
 			
-			<form class="department-filter-bar search-bar" method="GET" action="">
+			<form class="user-filter-bar search-bar" method="GET" action="">
 				<input type="hidden" name="route" value="departments">
 				
 				<div class="filter-layout">
@@ -49,8 +49,8 @@ $baseQuery = [
 					</div>
 
 					
-					<div class="add-department-wrap">
-						<a href="?route=departments/create" class="add-department-btn">
+					<div class="add-record-wrap">
+						<a href="?route=departments/create" class="btn btn-primary add-record-btn add-btn">
 							<i class="bi bi-plus-lg"></i>Add Department
 						</a>
 					</div>
@@ -58,18 +58,18 @@ $baseQuery = [
 			</form>
 
 			
-			<div class="department-table-wrapper">
+			<div class="table-responsive user-table-wrap">
 				<?php if (count($departments) > 0): ?>
-					<table class="department-table">
+					<table class="table table-hover align-middle mb-0 user-list-table">
 						
 						<thead>
 							<tr>
-								<th class="col-serial">Serial No.</th>
-								<th class="col-code">Department Code</th>
-								<th class="col-name">Department Name</th>
-								<th class="col-head">Department Head</th>
-								<th class="col-head-email">Head Email</th>
-								<th class="col-actions">Actions</th>
+								<th>Serial No.</th>
+								<th>Department Code</th>
+								<th>Department Name</th>
+								<th>Department Head</th>
+								<th>Head Email</th>
+								<th class="text-end pe-3">Actions</th>
 							</tr>
 						</thead>
 
@@ -79,24 +79,21 @@ $baseQuery = [
 							<?php foreach ($departments as $index => $dept): ?>
 								<?php $serialNumber = (($currentPage - 1) * 10) + $index + 1; ?>
 								<tr>
-									
-									<td class="col-serial">
+									<td>
 										<?php echo htmlspecialchars((string) $serialNumber, ENT_QUOTES, 'UTF-8'); ?>
 									</td>
 
-									
-									<td class="col-code">
+									<td>
 										<?php echo htmlspecialchars((string) ($dept['department_code'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
 									</td>
 
-									
-									<td class="col-name">
+									<td>
 										<?php echo htmlspecialchars((string) ($dept['department_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
 									</td>
 
 									
 									
-									<td class="col-head">
+									<td>
 										<?php 
 											$headName = (string) ($dept['head_name'] ?? '');
 											echo !empty($headName) ? htmlspecialchars($headName, ENT_QUOTES, 'UTF-8') : '<em style="color: cadetgray;">Not Assigned</em>';
@@ -105,19 +102,18 @@ $baseQuery = [
 
 									
 									
-									<td class="col-head-email">
+									<td>
 										<?php 
 											$headEmail = (string) ($dept['head_email'] ?? '');
 											echo !empty($headEmail) ? htmlspecialchars($headEmail, ENT_QUOTES, 'UTF-8') : '<em style="color: cadetgray;">Not Assigned</em>';
 										?>
 									</td>
 
-									
-									<td class="col-actions">
+									<td class="text-end pe-3">
 										
 										
 										<a href="?route=departments/edit&id=<?php echo htmlspecialchars((string) ($dept['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" 
-										   class="btn-edit-department">
+										   class="btn btn-sm btn-warning edit-btn">
 											<i class="bi bi-pencil-square"></i>Edit
 										</a>
 
@@ -131,10 +127,9 @@ $baseQuery = [
 					</table>
 				<?php else: ?>
 					
-					<div class="department-empty-state">
-						<div class="department-empty-state-icon">📭</div>
-						<div class="department-empty-state-text">No departments found</div>
-						<div class="department-empty-state-subtext">
+					<div class="text-center py-4 text-muted">
+						<div class="mb-1">No departments found</div>
+						<div>
 							<?php if (!empty($searchValue)): ?>
 								Try adjusting your search filters or <a href="?route=departments">view all departments</a>.
 							<?php else: ?>
@@ -147,50 +142,29 @@ $baseQuery = [
 
 			
 			<?php if ($totalPages > 1): ?>
-				<div class="department-pagination">
-					
-					<?php if ($currentPage > 1): ?>
-						<a href="?<?php echo http_build_query(array_merge($baseQuery, ['page' => $currentPage - 1])); ?>">
-							<i class="bi bi-chevron-left me-1"></i>Prev
-						</a>
-					<?php else: ?>
-						<span>
-							<i class="bi bi-chevron-left me-1"></i>Prev
-						</span>
-					<?php endif; ?>
+				<nav class="user-pagination-wrap" aria-label="Department list pagination">
+					<ul class="pagination user-pagination mb-0">
+						<?php $prevPage = max(1, $currentPage - 1); ?>
+						<li class="page-item <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>">
+							<a class="page-link" href="?<?php echo htmlspecialchars(http_build_query($baseQuery + ['page' => $prevPage]), ENT_QUOTES, 'UTF-8'); ?>">Prev</a>
+						</li>
 
-					
-					<?php for ($page = 1; $page <= $totalPages; $page++): ?>
-						<?php if ($page === $currentPage): ?>
-							
-							<span class="active">
-								<?php echo htmlspecialchars((string) $page, ENT_QUOTES, 'UTF-8'); ?>
-							</span>
-						<?php else: ?>
-							
-							<a href="?<?php echo http_build_query(array_merge($baseQuery, ['page' => $page])); ?>">
-								<?php echo htmlspecialchars((string) $page, ENT_QUOTES, 'UTF-8'); ?>
-							</a>
-						<?php endif; ?>
-					<?php endfor; ?>
+						<?php
+						$startPage = max(1, $currentPage - 2);
+						$endPage = min($totalPages, $currentPage + 2);
+						for ($page = $startPage; $page <= $endPage; $page++):
+						?>
+							<li class="page-item <?php echo $page === $currentPage ? 'active' : ''; ?>">
+								<a class="page-link" href="?<?php echo htmlspecialchars(http_build_query($baseQuery + ['page' => $page]), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $page; ?></a>
+							</li>
+						<?php endfor; ?>
 
-					
-					<?php if ($currentPage < $totalPages): ?>
-						<a href="?<?php echo http_build_query(array_merge($baseQuery, ['page' => $currentPage + 1])); ?>">
-							Next<i class="bi bi-chevron-right ms-1"></i>
-						</a>
-					<?php else: ?>
-						<span>
-							Next<i class="bi bi-chevron-right ms-1"></i>
-						</span>
-					<?php endif; ?>
-
-					
-					<span class="pagination-info">
-						Page <?php echo htmlspecialchars((string) $currentPage, ENT_QUOTES, 'UTF-8'); ?> of 
-						<?php echo htmlspecialchars((string) max(1, $totalPages), ENT_QUOTES, 'UTF-8'); ?>
-					</span>
-				</div>
+						<?php $nextPage = min($totalPages, $currentPage + 1); ?>
+						<li class="page-item <?php echo $currentPage >= $totalPages ? 'disabled' : ''; ?>">
+							<a class="page-link" href="?<?php echo htmlspecialchars(http_build_query($baseQuery + ['page' => $nextPage]), ENT_QUOTES, 'UTF-8'); ?>">Next</a>
+						</li>
+					</ul>
+				</nav>
 			<?php endif; ?>
 		</section>
 	</div>

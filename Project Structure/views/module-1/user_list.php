@@ -75,8 +75,8 @@ $baseQuery = [
 							</div>
 						</div>
 					</div>
-					<div class="add-employee-wrap">
-						<a href="?route=users/create" class="btn btn-primary add-employee-btn add-btn">
+					<div class="add-record-wrap">
+						<a href="?route=users/create" class="btn btn-primary add-record-btn add-btn">
 							<i class="bi bi-plus-lg me-1"></i>Add Employee
 						</a>
 					</div>

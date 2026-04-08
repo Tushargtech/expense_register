@@ -4,7 +4,7 @@ class AuthController
     public function showLogin(): void
     {
         if (!empty($_SESSION['auth']['is_logged_in'])) {
-            header('Location: ?route=module-1');
+            header('Location: ?route=home');
             exit;
         }
 
@@ -71,7 +71,7 @@ class AuthController
         unset($_SESSION['old_email']);
         $_SESSION['auth_success'] = 'Login successful.';
 
-        header('Location: ?route=module-1');
+        header('Location: ?route=home');
         exit;
     }
 

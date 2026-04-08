@@ -3,10 +3,43 @@
 class UserModel
 {
 	private PDO $db;
+	private ?string $userCreatedAtColumn = null;
+	private bool $checkedUserCreatedAtColumn = false;
 
 	public function __construct()
 	{
 		$this->db = getDB();
+	}
+
+	private function getCurrentIstDateTime(): string
+	{
+		$istNow = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+
+		return $istNow->format('Y-m-d H:i:s');
+	}
+
+	private function resolveUserCreatedAtColumn(): void
+	{
+		if ($this->checkedUserCreatedAtColumn) {
+			return;
+		}
+
+		$this->checkedUserCreatedAtColumn = true;
+		$createdCandidates = ['user_created_at', 'created_at'];
+
+		foreach ($createdCandidates as $column) {
+			try {
+				$stmt = $this->db->prepare('SHOW COLUMNS FROM users LIKE :column_name');
+				$stmt->execute([':column_name' => $column]);
+				if ($stmt->fetch(PDO::FETCH_ASSOC) !== false) {
+					$this->userCreatedAtColumn = $column;
+					break;
+				}
+			} catch (Throwable $error) {
+				break;
+			}
+		}
+
 	}
 
 	private function buildFilterSql(array $filters): array
@@ -120,6 +153,7 @@ class UserModel
 
 	public function createUser(array $userData): bool
 	{
+		$this->resolveUserCreatedAtColumn();
 		$defaultPassword = password_hash('Welcome@123', PASSWORD_BCRYPT);
 		$departmentId = isset($userData['department_id']) && (int) $userData['department_id'] > 0
 			? (int) $userData['department_id']
@@ -129,36 +163,48 @@ class UserModel
 			: null;
 		$isActive = isset($userData['user_is_active']) && (int) $userData['user_is_active'] === 0 ? 0 : 1;
 
-		$sql = "INSERT INTO users (
-					user_name,
-					user_email,
-					user_password_hash,
-					user_role,
-					department_id,
-					manager_id,
-					user_is_active
-				) VALUES (
-					:name,
-					:email,
-					:password_hash,
-					:role,
-					:department_id,
-					:manager_id,
-					:user_is_active
-				)";
+		$columns = [
+			'user_name',
+			'user_email',
+			'user_password_hash',
+			'user_role',
+			'department_id',
+			'manager_id',
+			'user_is_active',
+		];
+
+		$placeholders = [
+			':name',
+			':email',
+			':password_hash',
+			':role',
+			':department_id',
+			':manager_id',
+			':user_is_active',
+		];
+
+		$params = [
+			':name' => (string) ($userData['name'] ?? ''),
+			':email' => (string) ($userData['email'] ?? ''),
+			':password_hash' => $defaultPassword,
+			':role' => (string) ($userData['role'] ?? 'employee'),
+			':department_id' => $departmentId,
+			':manager_id' => $managerId,
+			':user_is_active' => $isActive,
+		];
+
+		if ($this->userCreatedAtColumn !== null) {
+			$columns[] = $this->userCreatedAtColumn;
+			$placeholders[] = ':created_at';
+			$params[':created_at'] = $this->getCurrentIstDateTime();
+		}
+
+		$sql = 'INSERT INTO users (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $placeholders) . ')';
 
 		$stmt = $this->db->prepare($sql);
 
 		try {
-			return $stmt->execute([
-				':name' => (string) ($userData['name'] ?? ''),
-				':email' => (string) ($userData['email'] ?? ''),
-				':password_hash' => $defaultPassword,
-				':role' => (string) ($userData['role'] ?? 'employee'),
-				':department_id' => $departmentId,
-				':manager_id' => $managerId,
-				':user_is_active' => $isActive,
-			]);
+			return $stmt->execute($params);
 		} catch (Throwable $error) {
 			return false;
 		}
@@ -180,28 +226,34 @@ class UserModel
 
 	public function updateUser(int $userId, array $userData): bool
 	{
+		$setClauses = [
+			'user_name = :name',
+			'user_email = :email',
+			'user_role = :role',
+			'department_id = :department_id',
+			'manager_id = :manager_id',
+			'user_is_active = :user_is_active',
+		];
+
+		$params = [
+			':name' => (string) ($userData['name'] ?? ''),
+			':email' => (string) ($userData['email'] ?? ''),
+			':role' => (string) ($userData['role'] ?? 'employee'),
+			':department_id' => (int) ($userData['department_id'] ?? 0),
+			':manager_id' => (int) ($userData['manager_id'] ?? 0),
+			':user_is_active' => (int) ($userData['user_is_active'] ?? 1),
+			':user_id' => $userId,
+		];
+
 		$sql = "UPDATE users
 				SET
-					user_name = :name,
-					user_email = :email,
-					user_role = :role,
-					department_id = :department_id,
-					manager_id = :manager_id,
-					user_is_active = :user_is_active
+					" . implode(",\n\t\t\t\t\t", $setClauses) . "
 				WHERE user_id = :user_id";
 
 		$stmt = $this->db->prepare($sql);
 
 		try {
-			return $stmt->execute([
-				':name' => (string) ($userData['name'] ?? ''),
-				':email' => (string) ($userData['email'] ?? ''),
-				':role' => (string) ($userData['role'] ?? 'employee'),
-				':department_id' => (int) ($userData['department_id'] ?? 0),
-				':manager_id' => (int) ($userData['manager_id'] ?? 0),
-				':user_is_active' => (int) ($userData['user_is_active'] ?? 1),
-				':user_id' => $userId,
-			]);
+			return $stmt->execute($params);
 		} catch (Throwable $error) {
 			return false;
 		}

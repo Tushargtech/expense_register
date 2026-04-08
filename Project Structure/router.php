@@ -15,6 +15,7 @@ switch ($route) {
         $auth->login();
         break;
 
+    case 'home':
     case 'module-1':
         $auth->dashboard();
         break;
@@ -75,6 +76,26 @@ switch ($route) {
     case '/budget-categories':
         $budgetCategoryController = new BudgetCategoryController();
         $budgetCategoryController->list();
+        break;
+
+    case 'budget-categories/create':
+    case '/budget-categories/create':
+        $budgetCategoryController = new BudgetCategoryController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $budgetCategoryController->store();
+        } else {
+            $budgetCategoryController->create();
+        }
+        break;
+
+    case 'budget-categories/edit':
+    case '/budget-categories/edit':
+        $budgetCategoryController = new BudgetCategoryController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $budgetCategoryController->update();
+        } else {
+            $budgetCategoryController->edit();
+        }
         break;
 
     case 'logout':

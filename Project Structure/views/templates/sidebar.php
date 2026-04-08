@@ -8,7 +8,7 @@ $sidebarGroups = [
 		'items' => [
 			[
 				'label' => 'Dashboard',
-				'href' => '?route=module-1',
+				'href' => '?route=home',
 				'key' => 'dashboard',
 				'icon' => 'bi-display',
 			],

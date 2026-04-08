@@ -9,6 +9,14 @@ class DepartmentModel
 		$this->db = getDB();
 	}
 
+	private function getCurrentIstDateTime(): string
+	{
+		$istNow = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+
+		return $istNow->format('Y-m-d H:i:s');
+	}
+
+
 	public function getAllDepartments(): array
 	{
 		$sql = "SELECT
@@ -28,12 +36,6 @@ class DepartmentModel
 
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
-
-	public function getAll(): array
-	{
-		return $this->getAllDepartments();
-	}
-
 
 	public function getDepartmentById(int $departmentId): ?array
 	{
@@ -69,7 +71,7 @@ class DepartmentModel
 			':name' => $departmentData['department_name'] ?? '',
 			':code' => $departmentData['department_code'] ?? '',
 			':head_user_id' => (int) ($departmentData['department_head_user_id'] ?? 0),
-			':created_at' => date('Y-m-d H:i:s'),
+			':created_at' => $this->getCurrentIstDateTime(),
 		]);
 
 		return $result === true;
@@ -78,20 +80,26 @@ class DepartmentModel
 	
 	public function updateDepartment(int $departmentId, array $departmentData): bool
 	{
-		$sql = "UPDATE departments 
-			SET department_name = :name, 
-				department_code = :code, 
-				department_head_user_id = :head_user_id
-			WHERE id = :id";
+		$setClauses = [
+			'department_name = :name',
+			'department_code = :code',
+			'department_head_user_id = :head_user_id',
+		];
 
-		$stmt = $this->db->prepare($sql);
-		
-		$result = $stmt->execute([
+		$params = [
 			':id' => $departmentId,
 			':name' => $departmentData['department_name'] ?? '',
 			':code' => $departmentData['department_code'] ?? '',
 			':head_user_id' => (int) ($departmentData['department_head_user_id'] ?? 0),
-		]);
+		];
+
+		$sql = "UPDATE departments 
+			SET " . implode(",\n\t\t\t\t", $setClauses) . "
+			WHERE id = :id";
+
+		$stmt = $this->db->prepare($sql);
+		
+		$result = $stmt->execute($params);
 
 		return $result === true;
 	}

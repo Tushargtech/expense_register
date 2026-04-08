@@ -45,7 +45,7 @@ class UserController
 		$allowedRoles = ['admin', 'hr', 'employee', 'emp', 'manager', 'finance'];
 
 		if ($normalizedRole !== '' && !in_array($normalizedRole, $allowedRoles, true)) {
-			header('Location: ?route=module-1&error=unauthorized');
+			header('Location: ?route=home&error=unauthorized');
 			exit;
 		}
 
@@ -72,7 +72,7 @@ class UserController
 		$departmentOptions = $userModel->getDepartmentOptions();
 
 		$pageTitle = 'User Management - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/user_list.css'];
+		$pageStyles = ['assets/css/dashboard.css', 'assets/css/list.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'user-list';
@@ -89,12 +89,12 @@ class UserController
 		$this->ensureAuthenticated();
 
 		$deptModel = new DepartmentModel();
-		$departments = $deptModel->getAll();
+		$departments = $deptModel->getAllDepartments();
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
 
 		$pageTitle = 'Add Employee - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/user_creation.css'];
+		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'user-list';
@@ -131,7 +131,7 @@ class UserController
 		}
 
 		$deptModel = new DepartmentModel();
-		$departments = $deptModel->getAll();
+		$departments = $deptModel->getAllDepartments();
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
 		$user = $userModel->getUserById($userId);
@@ -142,7 +142,7 @@ class UserController
 		}
 
 		$pageTitle = 'Edit Employee - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/user_creation.css'];
+		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'user-list';

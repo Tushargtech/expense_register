@@ -1,6 +1,9 @@
 <?php
-class AuthModel {
-    public function getUserByEmail($email) {
+
+class AuthModel
+{
+    public function getUserByEmail(string $email): array|false
+    {
         $db = getDB();
         $stmt = $db->prepare(
             "SELECT
@@ -15,6 +18,7 @@ class AuthModel {
              LIMIT 1"
         );
         $stmt->execute([$email]);
+
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 }

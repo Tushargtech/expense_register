@@ -23,7 +23,7 @@ class DepartmentController
 			exit;
 		}
 		if (!$this->isAuthorizedForDepartmentAccess()) {
-			header('Location: ?route=module-1&error=' . urlencode('access_denied'));
+			header('Location: ?route=home&error=' . urlencode('access_denied'));
 			exit;
 		}
 		$deptModel = new DepartmentModel();
@@ -55,7 +55,7 @@ class DepartmentController
 		$offset = ($currentPage - 1) * $perPage;
 		$departments = array_slice($filteredDepartments, $offset, $perPage);
 		$pageTitle = 'Department Management - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/department_list.css'];
+		$pageStyles = ['assets/css/dashboard.css', 'assets/css/list.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'department-list'; // Used by sidebar to highlight current menu item
@@ -76,13 +76,13 @@ class DepartmentController
 		}
 
 		if (!$this->isAuthorizedForDepartmentAccess()) {
-			header('Location: ?route=module-1&error=' . urlencode('access_denied'));
+			header('Location: ?route=home&error=' . urlencode('access_denied'));
 			exit;
 		}
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
 		$pageTitle = 'Create Department - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/user_creation.css'];
+		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'department-list';
@@ -114,7 +114,7 @@ class DepartmentController
 		}
 
 		if (!$this->isAuthorizedForDepartmentAccess()) {
-			header('Location: ?route=module-1&error=' . urlencode('access_denied'));
+			header('Location: ?route=home&error=' . urlencode('access_denied'));
 			exit;
 		}
 		$deptId = (int) ($_GET['id'] ?? 0);
@@ -131,7 +131,7 @@ class DepartmentController
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
 		$pageTitle = 'Edit Department - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/user_creation.css'];
+		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'department-list';
@@ -177,7 +177,7 @@ class DepartmentController
 		}
 
 		if (!$this->isAuthorizedForDepartmentAccess()) {
-			header('Location: ?route=module-1&error=' . urlencode('access_denied'));
+			header('Location: ?route=home&error=' . urlencode('access_denied'));
 			exit;
 		}
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -210,7 +210,7 @@ class DepartmentController
 		}
 
 		if (!$this->isAuthorizedForDepartmentAccess()) {
-			header('Location: ?route=module-1&error=' . urlencode('access_denied'));
+			header('Location: ?route=home&error=' . urlencode('access_denied'));
 			exit;
 		}
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
