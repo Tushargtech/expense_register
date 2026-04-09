@@ -41,6 +41,12 @@ $sidebarGroups = [
 				'key' => 'budget-uploader',
 				'icon' => 'bi-upload',
 			],
+			[
+				'label' => 'Budget Monitor',
+				'href' => '?route=budget-monitor',
+				'key' => 'budget-monitor',
+				'icon' => 'bi-graph-up',
+			]
 		],
 	],
 ];
