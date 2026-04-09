@@ -1,179 +1,201 @@
 # Expense Register
 
-Expense Register is a PHP-based expense management application built for XAMPP/Apache with a MySQL backend. It includes authentication, a dashboard, user management, department management, and budget category management.
+Expense Register is a PHP + MySQL application for managing users, departments, budget categories, and department budgets from uploaded files.
 
-## Features
+## Current Features
 
 - Login/logout authentication
-- Dashboard home screen
-- User management with list, search, filters, pagination, create, and edit flows
-- Department management with list, search, pagination, create, and edit flows
-- Budget category management with list, search, status filter, pagination, and action buttons
-- Sidebar navigation with page-specific icons
-- Responsive Bootstrap-based UI with shared layouts and reusable templates
+- Dashboard with role-based navigation
+- User management: list, filter, pagination, create, edit
+- Department management: list, create, edit
+- Budget category management: list, filter, create, edit
+- Budget uploader for Finance/Admin:
+	- CSV upload
+	- Excel upload (`.xlsx`, `.xls`)
+	- Image upload (`.jpg`, `.jpeg`, `.png`) via OCR
+- Upload preview table showing row-by-row parsed values
+- Department name shown in preview
+- Budget category ID shown in preview
+- File-level atomic save for uploader:
+	- If any row has errors, no rows are inserted
+	- Insert starts only when full file validates
 
 ## Requirements
 
-- PHP 8.2 or later
+- PHP 8.2+ (current dependency set is compatible with PHP >= 8.1)
 - MySQL or MariaDB
-- Apache web server
-- XAMPP recommended for local development
+- Apache (XAMPP recommended)
+- Composer
+- Tesseract OCR (for image uploads)
 
 ## Project Structure
 
 ```text
 expense_portal/
-├── Project Structure/
-│   ├── assets/
-│   │   └── css/
-│   ├── configs/
-│   ├── controllers/
-│   ├── models/
-│   ├── views/
-│   │   ├── module-1/
-│   │   └── templates/
-│   ├── authenticate.php
-│   ├── index.php
-│   ├── init.php
-│   └── router.php
+├── assets/
+│   ├── css/
+│   └── js/
+├── configs/
+├── controllers/
+├── libraries/
+├── models/
+├── views/
+│   ├── module-1/
+│   └── templates/
+├── vendor/
+├── authenticate.php
+├── composer.json
+├── composer.lock
+├── index.php
+├── init.php
+├── router.php
 └── README.md
 ```
 
 ## Setup
 
-1. Copy the repository into your XAMPP `htdocs` folder.
-2. Start Apache and MySQL from XAMPP.
-3. Open [Project Structure/configs/env.php](Project%20Structure/configs/env.php) and confirm the database settings:
-	- Host: `127.0.0.1`
-	- Port: `3307`
-	- Database: `expense_register`
-	- Username: `root`
-	- Password: empty by default
-4. Create the required database and tables in MySQL if they are not already present.
-5. Open the app in your browser.
+1. Place project in XAMPP `htdocs`.
+2. Start Apache and MySQL.
+3. Configure database in [configs/env.php](configs/env.php):
+	 - host: `127.0.0.1`
+	 - port: `3307`
+	 - database: `expense_register`
+	 - username: `root`
+	 - password: empty by default
+4. Run Composer install in project root:
 
-## Local URL
+```bash
+composer install
+```
 
-Use this URL in your browser:
+5. Install Tesseract (needed for image upload parsing).
+6. Open app in browser:
 
-`http://localhost/expense_portal/Project%20Structure/index.php?route=dashboard`
-
-## Login
-
-The login screen is available from the dashboard route. A demo credential shown in the UI is:
-
-- Email: `admin@example.com`
-- Password: `admin123`
+```text
+http://localhost/expense_portal/index.php?route=dashboard
+```
 
 ## Routes
 
 - `?route=dashboard` - Login page
-- `?route=auth` - Login submit handler
-- `?route=module-1` - Dashboard
+- `?route=auth` - Login submit
+- `?route=home` - Dashboard
 - `?route=users` - User list
-- `?route=users/create` - Create user
-- `?route=users/edit&id=ID` - Edit user
+- `?route=users/create` - Create user (GET/POST)
+- `?route=users/edit&id=ID` - Edit user (GET/POST)
 - `?route=departments` - Department list
-- `?route=departments/create` - Create department
-- `?route=departments/edit&id=ID` - Edit department
+- `?route=departments/create` - Create department (GET/POST)
+- `?route=departments/edit&id=ID` - Edit department (GET/POST)
 - `?route=budget-categories` - Budget category list
+- `?route=budget-categories/create` - Create budget category (GET/POST)
+- `?route=budget-categories/edit&id=ID` - Edit budget category (GET/POST)
+- `?route=budget-uploader` - Budget uploader (GET/POST)
 - `?route=logout` - Logout
 
 ## Access Control
 
-The application uses role-based access control for module pages.
+- `admin`: full access
+- `hr`: users and departments
+- `finance`: budget categories and budget uploader
 
-- `admin` can access administrative areas
-- `hr` can access user and department management
-- `finance` can access budget category management
+## Budget Uploader (Important)
 
-## Pages
+### Supported file types
 
-### Login
+- CSV
+- XLSX / XLS
+- JPG / JPEG / PNG
 
-The login page uses the shared header/footer layout and shows validation feedback for required fields.
+### Validation and Insert Behavior
 
-### Dashboard
+- Upload is validated row by row.
+- Data is not inserted while validation is still in progress.
+- If one or more rows fail validation, no row is inserted from that file.
+- If all rows pass, all rows are inserted in a transaction.
 
-The dashboard is the landing page after login and uses the shared app shell with sidebar navigation.
+### What preview shows
 
-### Users
+- Row number
+- Department name
+- Fiscal year
+- Fiscal period
+- Category
+- Category ID
+- Amount
+- Currency
+- Status and row issues
 
-The user list supports:
+## Test Upload Templates (README-only)
 
-- Search
-- Role filter
-- Department filter
-- Status filter
-- Pagination
-- Edit action
+Sample test content is documented here so test files do not need to be committed to GitHub/Bitbucket.
 
-### Departments
+### CSV Template
 
-The department module supports:
+Create a local `.csv` file with this content:
 
-- Search
-- Pagination
-- Create department
-- Edit department
-- Department head display
+```csv
+Department,Budget_Fiscal_Year,Budget_Fiscal_Period,Budget_Category,Budget_Allocated_Amount,Budget_Currency,Budget_Notes
+Finance,2026,Qt,Operations,150000,INR,Quarter 1 operating budget
+HR,2026,Q2,Recruitment,80000,INR,Hiring drive allocation
+IT,2026,Q3,Infrastructure,220000,INR,Server and cloud costs
+Sales,2026,Q4,Travel,60000,INR,Client visit travel budget
+```
 
-### Budget Categories
+### Excel Template
 
-The budget category module supports:
+Create an `.xlsx` file with the same headers as the CSV template:
 
-- Search by code or name
-- Status filtering
-- Pagination
-- Edit/Delete action buttons in the list view
+- `Department`
+- `Budget_Fiscal_Year`
+- `Budget_Fiscal_Period`
+- `Budget_Category`
+- `Budget_Allocated_Amount`
+- `Budget_Currency`
+- `Budget_Notes`
 
-## Controllers
+Add the same sample rows as above.
 
-- [Project Structure/controllers/AuthController.php](Project%20Structure/controllers/AuthController.php)
-- [Project Structure/controllers/UserController.php](Project%20Structure/controllers/UserController.php)
-- [Project Structure/controllers/DepartmentController.php](Project%20Structure/controllers/DepartmentController.php)
-- [Project Structure/controllers/BudgetCategoryController.php](Project%20Structure/controllers/BudgetCategoryController.php)
+### Image OCR Template
 
-## Models
+Create an image containing key-value lines like this:
 
-- [Project Structure/models/AuthModel.php](Project%20Structure/models/AuthModel.php)
-- [Project Structure/models/UserModel.php](Project%20Structure/models/UserModel.php)
-- [Project Structure/models/DepartmentModel.php](Project%20Structure/models/DepartmentModel.php)
-- [Project Structure/models/BudgetCategoryModel.php](Project%20Structure/models/BudgetCategoryModel.php)
+```text
+Department: Finance
+Budget Fiscal Year: 2026
+Budget Fiscal Period: Qt
+Budget Category: Operations
+Budget Allocated Amount: 150000
+Budget Currency: INR
+Budget Notes: Quarter 1 operating budget
+```
 
-## Views
+Notes:
 
-- [Project Structure/views/module-1/login.php](Project%20Structure/views/module-1/login.php)
-- [Project Structure/views/module-1/dashboard.php](Project%20Structure/views/module-1/dashboard.php)
-- [Project Structure/views/module-1/user_list.php](Project%20Structure/views/module-1/user_list.php)
-- [Project Structure/views/module-1/user_create.php](Project%20Structure/views/module-1/user_create.php)
-- [Project Structure/views/module-1/department_list.php](Project%20Structure/views/module-1/department_list.php)
-- [Project Structure/views/module-1/department_creation.php](Project%20Structure/views/module-1/department_creation.php)
-- [Project Structure/views/module-1/budget_category_list.php](Project%20Structure/views/module-1/budget_category_list.php)
-- [Project Structure/views/templates/header.php](Project%20Structure/views/templates/header.php)
-- [Project Structure/views/templates/navbar.php](Project%20Structure/views/templates/navbar.php)
-- [Project Structure/views/templates/sidebar.php](Project%20Structure/views/templates/sidebar.php)
-- [Project Structure/views/templates/footer.php](Project%20Structure/views/templates/footer.php)
+- Keep text high contrast (dark text on white background) for better OCR.
+- Use one field per line.
 
-## Styling
+## Dependency Notes
 
-Shared styles live in [Project Structure/assets/css](Project%20Structure/assets/css). The app currently uses dedicated CSS files for login, dashboard, user list, user creation, department list, department creation, and budget category list pages.
+Current spreadsheet dependencies are pinned for PHP 8.2 compatibility:
 
-## Notes
+- `phpoffice/phpspreadsheet` `^2.2`
+- `maennchen/zipstream-php` `^2.4`
 
-- The app is configured to use `?route=dashboard` as the login entry point.
-- Legacy `system administrator` naming has been normalized to `admin` in the application logic.
-- Logout redirects back to the login page through the dashboard route.
+If Composer dependencies are changed, run:
+
+```bash
+composer update
+```
 
 ## Development
 
-When you change PHP files, lint them with:
+Lint one file:
 
 ```bash
 php -l path/to/file.php
 ```
 
-For a full syntax check of the project, run:
+Lint all PHP files:
 
 ```bash
 find . -name '*.php' -print0 | xargs -0 -n1 php -l
