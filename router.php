@@ -114,6 +114,26 @@ switch ($route) {
         $workflowController->list();
         break;
 
+    case 'workflows/create':
+    case '/workflows/create':
+        $workflowCreationController = new WorkflowCreationController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $workflowCreationController->store();
+        } else {
+            $workflowCreationController->create();
+        }
+        break;
+
+    case 'workflows/edit':
+    case '/workflows/edit':
+        $workflowCreationController = new WorkflowCreationController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $workflowCreationController->update();
+        } else {
+            $workflowCreationController->edit();
+        }
+        break;
+
     case 'logout':
         $auth->logout();
         break;

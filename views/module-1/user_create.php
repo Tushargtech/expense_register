@@ -1,6 +1,7 @@
 <?php
 $departments = isset($departments) && is_array($departments) ? $departments : [];
 $managers = isset($managers) && is_array($managers) ? $managers : [];
+$roleOptions = isset($roleOptions) && is_array($roleOptions) ? $roleOptions : [];
 $formError = isset($formError) ? (string) $formError : '';
 $isEdit = isset($isEdit) ? (bool) $isEdit : false;
 $formAction = isset($formAction) ? (string) $formAction : '?route=users/create';
@@ -50,10 +51,14 @@ $selectedStatus = (int) ($user['user_is_active'] ?? 1);
 						<div class="user-create-field">
 							<label class="user-create-label" for="role">Role</label>
 							<select class="user-create-select" id="role" name="role" required>
-								<option value="employee" <?php echo $selectedRole === 'employee' ? 'selected' : ''; ?>>Employee</option>
-								<option value="hr" <?php echo $selectedRole === 'hr' ? 'selected' : ''; ?>>HR</option>
-								<option value="manager" <?php echo $selectedRole === 'manager' ? 'selected' : ''; ?>>Manager</option>
-								<option value="admin" <?php echo $selectedRole === 'admin' ? 'selected' : ''; ?>>Admin</option>
+								<?php foreach ($roleOptions as $roleOption): ?>
+									<?php $roleValue = strtolower(trim((string) ($roleOption['value'] ?? ''))); ?>
+									<?php $roleLabel = (string) ($roleOption['label'] ?? ucfirst($roleValue)); ?>
+									<?php if ($roleValue === '') { continue; } ?>
+									<option value="<?php echo htmlspecialchars($roleValue, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedRole === $roleValue ? 'selected' : ''; ?>>
+										<?php echo htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8'); ?>
+									</option>
+								<?php endforeach; ?>
 							</select>
 						</div>
 

@@ -42,9 +42,12 @@ $baseQuery = [
 							<div class="filter-field">
 								<select name="role" class="form-select">
 									<option value="">All Roles</option>
-									<?php foreach ($roleOptions as $role): ?>
-										<option value="<?php echo htmlspecialchars((string) $role, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedRole === (string) $role ? 'selected' : ''; ?>>
-											<?php echo htmlspecialchars((string) $role, ENT_QUOTES, 'UTF-8'); ?>
+									<?php foreach ($roleOptions as $roleOption): ?>
+										<?php $roleValue = strtolower(trim((string) ($roleOption['value'] ?? ''))); ?>
+										<?php $roleLabel = (string) ($roleOption['label'] ?? ucfirst($roleValue)); ?>
+										<?php if ($roleValue === '') { continue; } ?>
+										<option value="<?php echo htmlspecialchars($roleValue, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedRole === $roleValue ? 'selected' : ''; ?>>
+											<?php echo htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8'); ?>
 										</option>
 									<?php endforeach; ?>
 								</select>

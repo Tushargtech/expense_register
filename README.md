@@ -13,6 +13,12 @@ Expense Register is a PHP + MySQL application for managing users, departments, b
 	- CSV upload
 	- Excel upload (`.xlsx`, `.xls`)
 	- Image upload (`.jpg`, `.jpeg`, `.png`) via OCR
+- Workflow management:
+	- Workflow list with search, status filter, pagination
+	- Workflow create and edit
+	- Multi-step approval flow with drag-and-drop ordering
+	- Step-level approver type, approver role, approver user, amount range, required toggle, timeout hours
+	- Approval flow in list generated from workflow step names
 - Upload preview table showing row-by-row parsed values
 - Department name shown in preview
 - Budget category ID shown in preview
@@ -90,6 +96,9 @@ http://localhost/expense_portal/index.php?route=dashboard
 - `?route=budget-categories/create` - Create budget category (GET/POST)
 - `?route=budget-categories/edit&id=ID` - Edit budget category (GET/POST)
 - `?route=budget-uploader` - Budget uploader (GET/POST)
+- `?route=workflows` - Workflow list
+- `?route=workflows/create` - Create workflow (GET/POST)
+- `?route=workflows/edit&id=ID` - Edit workflow (GET/POST)
 - `?route=logout` - Logout
 
 ## Access Control
@@ -97,6 +106,47 @@ http://localhost/expense_portal/index.php?route=dashboard
 - `admin`: full access
 - `hr`: users and departments
 - `finance`: budget categories and budget uploader
+
+## Workflow Module
+
+### Workflow Details
+
+- Workflow name
+- Workflow description
+- Workflow type (`Expense` or `Purchase`)
+- Workflow amount range
+- Workflow status and default toggle
+
+### Workflow Steps
+
+- Step order
+- Step name
+- Approver type (`role`, `user`, `department_head`)
+- Approver role (from `roles` table)
+- Approver user (from active users)
+- Step amount range
+- Required toggle
+- Timeout hours
+
+### Edit Behavior
+
+- Workflow list `Edit` opens workflow form with existing workflow details and all steps prefilled.
+- Step order can be changed by drag and drop.
+
+## Roles Source of Truth
+
+- Role options used in user and workflow forms are sourced from `roles` table.
+- For user creation/edit, role options are constrained by `users.user_role` enum values.
+- If you add a new role slug in `roles`, also add it to `users.user_role` enum if that role should be assignable to users.
+
+Current `users.user_role` enum expected:
+
+- `admin`
+- `hr`
+- `manager`
+- `employee`
+- `finance`
+- `department_head`
 
 ## Budget Uploader (Important)
 

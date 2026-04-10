@@ -109,10 +109,10 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 									<td><?php echo htmlspecialchars((string) ($row['workflow_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['workflow_type'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars($amountRange, ENT_QUOTES, 'UTF-8'); ?></td>
-									<td><?php echo htmlspecialchars((string) ($row['workflow_description'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
+									<td><?php echo htmlspecialchars((string) ($row['approval_flow'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><span class="status-pill <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span></td>
 									<td class="text-end pe-3">
-										<button type="button" class="btn btn-sm btn-warning edit-btn" disabled title="Edit action can be added in next step">Edit</button>
+										<a href="?route=workflows/edit&id=<?php echo (int) ($row['workflow_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn">Edit</a>
 									</td>
 								</tr>
 							<?php endforeach; ?>

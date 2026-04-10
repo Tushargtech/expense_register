@@ -62,12 +62,19 @@ class WorkflowListModel
 		$sql = 'SELECT
 					w.workflow_id,
 					w.workflow_name,
-					w.workflow_description,
+					step_flow.approval_flow,
 					w.workflow_type,
 					w.workflow_amount_min,
 					w.workflow_amount_max,
 					w.workflow_is_active
-				FROM ' . $this->workflowTable . ' w' .
+				FROM ' . $this->workflowTable . ' w
+				LEFT JOIN (
+					SELECT
+						workflow_id,
+						GROUP_CONCAT(step_name ORDER BY step_order SEPARATOR " -> ") AS approval_flow
+					FROM workflow_steps
+					GROUP BY workflow_id
+				) step_flow ON step_flow.workflow_id = w.workflow_id' .
 				$whereSql .
 				' ORDER BY w.workflow_id DESC LIMIT :limit OFFSET :offset';
 

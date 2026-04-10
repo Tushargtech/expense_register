@@ -16,7 +16,8 @@ class UserController
 
 	private function isValidUserPayload(array $userData): bool
 	{
-		$allowedRoles = ['admin', 'hr', 'manager', 'employee'];
+		$userModel = new UserModel();
+		$allowedRoles = $userModel->getAllowedUserRoles();
 
 		return (
 			$userData['name'] !== '' &&
@@ -68,7 +69,7 @@ class UserController
 		$offset = ($currentPage - 1) * $perPage;
 
 		$users = $userModel->getAllUsers($filters, $perPage, $offset);
-		$roleOptions = $userModel->getRoleOptions();
+		$roleOptions = $userModel->getUserRoleOptions();
 		$departmentOptions = $userModel->getDepartmentOptions();
 
 		$pageTitle = 'User Management - Expense Register';
@@ -92,6 +93,7 @@ class UserController
 		$departments = $deptModel->getAllDepartments();
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
+		$roleOptions = $userModel->getUserRoleOptions();
 
 		$pageTitle = 'Add Employee - Expense Register';
 		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
@@ -134,6 +136,7 @@ class UserController
 		$departments = $deptModel->getAllDepartments();
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
+		$roleOptions = $userModel->getUserRoleOptions();
 		$user = $userModel->getUserById($userId);
 
 		if ($user === null) {
