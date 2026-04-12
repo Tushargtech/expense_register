@@ -4,7 +4,7 @@
 			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
 
 			<section class="user-create-hero">
-				<p class="user-create-kicker">Finance Automation</p>
+				<p class="user-create-kicker">Budget Management</p>
 				<h1 class="user-create-title">Budget Upload</h1>
 			</section>
 
@@ -45,11 +45,8 @@
 			</form>
 
 			<?php
-			
 			$preview = isset($_SESSION['budget_uploader_preview']) ? $_SESSION['budget_uploader_preview'] : [];
-			$successMsg = isset($_SESSION['budget_upload_success']) ? $_SESSION['budget_upload_success'] : '';
-			$errorMsg = isset($_SESSION['budget_upload_error']) ? $_SESSION['budget_upload_error'] : '';
-			
+
 			if (!empty($preview)): ?>
 				<section class="user-create-section" style="margin-top: 30px; background: #f8f9fa; border-radius: 12px; padding: 20px;">
 					<div class="user-create-head">
@@ -136,10 +133,7 @@
 				</section>
 
 				<?php
-				
 				unset($_SESSION['budget_uploader_preview']);
-				unset($_SESSION['budget_upload_success']);
-				unset($_SESSION['budget_upload_error']);
 				?>
 			<?php endif; ?>
 		</div>

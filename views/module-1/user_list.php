@@ -3,6 +3,7 @@ $users = isset($users) && is_array($users) ? $users : [];
 $filters = isset($filters) && is_array($filters) ? $filters : [];
 $roleOptions = isset($roleOptions) && is_array($roleOptions) ? $roleOptions : [];
 $departmentOptions = isset($departmentOptions) && is_array($departmentOptions) ? $departmentOptions : [];
+$canManageUsers = isset($canManageUsers) ? (bool) $canManageUsers : false;
 
 $searchValue = (string) ($filters['search'] ?? '');
 $selectedRole = (string) ($filters['role'] ?? '');
@@ -78,11 +79,13 @@ $baseQuery = [
 							</div>
 						</div>
 					</div>
-					<div class="add-record-wrap">
-						<a href="?route=users/create" class="btn btn-primary add-record-btn add-btn">
-							<i class="bi bi-plus-lg me-1"></i>Add Employee
-						</a>
-					</div>
+					<?php if ($canManageUsers): ?>
+						<div class="add-record-wrap">
+							<a href="?route=users/create" class="btn btn-primary add-record-btn add-btn">
+								<i class="bi bi-plus-lg me-1"></i>Add Employee
+							</a>
+						</div>
+					<?php endif; ?>
 				</div>
 			</form>
 
@@ -124,7 +127,11 @@ $baseQuery = [
 									<td><?php echo htmlspecialchars((string) ($row['manager_name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><span class="status-pill <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span></td>
 									<td class="text-end pe-3">
-										<a href="?route=users/edit&id=<?php echo (int) ($row['user_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn">Edit</a>
+										<?php if ($canManageUsers): ?>
+											<a href="?route=users/edit&id=<?php echo (int) ($row['user_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn">Edit</a>
+										<?php else: ?>
+											<span class="text-muted small">View Only</span>
+										<?php endif; ?>
 									</td>
 								</tr>
 							<?php endforeach; ?>

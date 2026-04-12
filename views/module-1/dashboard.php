@@ -31,10 +31,12 @@ $userName = isset($userName) ? (string) $userName : 'User';
 				<div class="kpi-label">Approved Amount</div>
 				<p class="kpi-value">INR 1,86,700.00</p>
 			</article>
+			<?php if (!empty($canViewBudgetUtilization)): ?>
 			<article class="kpi-card">
 				<div class="kpi-label">Budget Utilization</div>
 				<p class="kpi-value">62%</p>
 			</article>
+			<?php endif; ?>
 			<article class="kpi-card">
 				<div class="kpi-label">Pending/In Review</div>
 				<p class="kpi-value">6</p>

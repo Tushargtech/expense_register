@@ -2,6 +2,29 @@
 
 class UserController
 {
+	private function rbac(): RbacService
+	{
+		return new RbacService();
+	}
+
+	private function ensureUserCrudAccess(): void
+	{
+		$this->ensureAuthenticated();
+		if (!$this->rbac()->canManageUsers()) {
+			header('Location: ?route=forbidden&code=rbac_user_crud');
+			exit;
+		}
+	}
+
+	private function ensureUserListAccess(): void
+	{
+		$this->ensureAuthenticated();
+		if (!$this->rbac()->canViewUsers()) {
+			header('Location: ?route=forbidden&code=rbac_user_list');
+			exit;
+		}
+	}
+
 	private function normalizeUserPayload(array $source): array
 	{
 		return [
@@ -16,8 +39,7 @@ class UserController
 
 	private function isValidUserPayload(array $userData): bool
 	{
-		$userModel = new UserModel();
-		$allowedRoles = $userModel->getAllowedUserRoles();
+		$allowedRoles = ['admin', 'hr', 'finance', 'dept_head', 'department_head', 'manager', 'employee'];
 
 		return (
 			$userData['name'] !== '' &&
@@ -32,7 +54,7 @@ class UserController
 	private function ensureAuthenticated(): void
 	{
 		if (empty($_SESSION['auth']['is_logged_in'])) {
-			$_SESSION['auth_error'] = 'Please login to continue.';
+			flash_error('Please login to continue.');
 			header('Location: ?route=dashboard');
 			exit;
 		}
@@ -40,15 +62,7 @@ class UserController
 
 	public function list(): void
 	{
-		$this->ensureAuthenticated();
-		$sessionRole = (string) ($_SESSION['auth']['role'] ?? $_SESSION['role'] ?? '');
-		$normalizedRole = strtolower(trim($sessionRole));
-		$allowedRoles = ['admin', 'hr', 'employee', 'emp', 'manager', 'finance'];
-
-		if ($normalizedRole !== '' && !in_array($normalizedRole, $allowedRoles, true)) {
-			header('Location: ?route=home&error=unauthorized');
-			exit;
-		}
+		$this->ensureUserListAccess();
 
 		$userModel = new UserModel();
 
@@ -57,7 +71,13 @@ class UserController
 			'role' => trim((string) ($_GET['role'] ?? '')),
 			'department' => trim((string) ($_GET['department'] ?? '')),
 			'status' => trim((string) ($_GET['status'] ?? '')),
+			'department_id_scope' => 0,
 		];
+
+		if ($this->rbac()->isDepartmentScopedUserViewer()) {
+			$filters['department_id_scope'] = $this->rbac()->departmentId();
+			$filters['department'] = '';
+		}
 
 		$perPage = 10;
 		$currentPage = max(1, (int) ($_GET['page'] ?? 1));
@@ -69,7 +89,7 @@ class UserController
 		$offset = ($currentPage - 1) * $perPage;
 
 		$users = $userModel->getAllUsers($filters, $perPage, $offset);
-		$roleOptions = $userModel->getUserRoleOptions();
+		$roleOptions = $userModel->getRoleOptions();
 		$departmentOptions = $userModel->getDepartmentOptions();
 
 		$pageTitle = 'User Management - Expense Register';
@@ -77,6 +97,7 @@ class UserController
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'user-list';
+		$canManageUsers = $this->rbac()->canManageUsers();
 
 		require ROOT_PATH . '/views/templates/header.php';
 		require ROOT_PATH . '/views/templates/navbar.php';
@@ -87,13 +108,13 @@ class UserController
 
 	public function create(): void
 	{
-		$this->ensureAuthenticated();
+		$this->ensureUserCrudAccess();
 
 		$deptModel = new DepartmentModel();
 		$departments = $deptModel->getAllDepartments();
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
-		$roleOptions = $userModel->getUserRoleOptions();
+		$roleOptions = $userModel->getRoleOptions();
 
 		$pageTitle = 'Add Employee - Expense Register';
 		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
@@ -124,11 +145,12 @@ class UserController
 
 	public function edit(): void
 	{
-		$this->ensureAuthenticated();
+		$this->ensureUserCrudAccess();
 
 		$userId = (int) ($_GET['id'] ?? 0);
 		if ($userId <= 0) {
-			header('Location: ?route=users&error=' . urlencode('Invalid user id'));
+			flash_error('Invalid user id');
+			header('Location: ?route=users');
 			exit;
 		}
 
@@ -136,11 +158,12 @@ class UserController
 		$departments = $deptModel->getAllDepartments();
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
-		$roleOptions = $userModel->getUserRoleOptions();
+		$roleOptions = $userModel->getRoleOptions();
 		$user = $userModel->getUserById($userId);
 
 		if ($user === null) {
-			header('Location: ?route=users&error=' . urlencode('User not found'));
+			flash_error('User not found');
+			header('Location: ?route=users');
 			exit;
 		}
 
@@ -164,7 +187,7 @@ class UserController
 
 	public function store(): void
 	{
-		$this->ensureAuthenticated();
+		$this->ensureUserCrudAccess();
 
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 			header('Location: ?route=users/create');
@@ -174,7 +197,8 @@ class UserController
 		$userData = $this->normalizeUserPayload($_POST);
 
 		if (!$this->isValidUserPayload($userData)) {
-			header('Location: ?route=users/create&error=' . urlencode('Please fill all required fields correctly.'));
+			flash_error('Please fill all required fields correctly.');
+			header('Location: ?route=users/create');
 			exit;
 		}
 
@@ -182,16 +206,19 @@ class UserController
 		$success = $userModel->createUser($userData);
 
 		if ($success) {
-			header('Location: ?route=users&success=' . urlencode('Employee created successfully.'));
+			RbacService::audit('user_create', ['email' => $userData['email'], 'role' => $userData['role']]);
+			flash_success('Employee created successfully.');
+			header('Location: ?route=users');
 		} else {
-			header('Location: ?route=users/create&error=' . urlencode('Failed to create employee.'));
+			flash_error('Failed to create employee.');
+			header('Location: ?route=users/create');
 		}
 		exit;
 	}
 
 	public function update(): void
 	{
-		$this->ensureAuthenticated();
+		$this->ensureUserCrudAccess();
 
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 			header('Location: ?route=users');
@@ -200,24 +227,35 @@ class UserController
 
 		$userId = (int) ($_GET['id'] ?? 0);
 		if ($userId <= 0) {
-			header('Location: ?route=users&error=' . urlencode('Invalid user id'));
-			exit;
-		}
-
-		$userData = $this->normalizeUserPayload($_POST);
-
-		if (!$this->isValidUserPayload($userData)) {
-			header('Location: ?route=users/edit&id=' . $userId . '&error=' . urlencode('Please fill all required fields correctly.'));
+			flash_error('Invalid user id');
+			header('Location: ?route=users');
 			exit;
 		}
 
 		$userModel = new UserModel();
+		$existingUser = $userModel->getUserById($userId);
+		$userData = $this->normalizeUserPayload($_POST);
+
+		if (!$this->isValidUserPayload($userData)) {
+			flash_error('Please fill all required fields correctly.');
+			header('Location: ?route=users/edit&id=' . $userId);
+			exit;
+		}
+
 		$success = $userModel->updateUser($userId, $userData);
 
 		if ($success) {
-			header('Location: ?route=users&success=' . urlencode('Employee updated successfully.'));
+			RbacService::audit('user_update', ['user_id' => $userId, 'role' => $userData['role']]);
+			$oldRole = strtolower(trim((string) ($existingUser['user_role'] ?? '')));
+			$newRole = strtolower(trim((string) ($userData['role'] ?? '')));
+			if ($oldRole !== '' && $newRole !== '' && $oldRole !== $newRole) {
+				RbacService::audit('user_role_change', ['user_id' => $userId, 'from' => $oldRole, 'to' => $newRole]);
+			}
+			flash_success('Employee updated successfully.');
+			header('Location: ?route=users');
 		} else {
-			header('Location: ?route=users/edit&id=' . $userId . '&error=' . urlencode('Failed to update employee.'));
+			flash_error('Failed to update employee.');
+			header('Location: ?route=users/edit&id=' . $userId);
 		}
 		exit;
 	}

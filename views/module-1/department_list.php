@@ -4,6 +4,7 @@ $filters = isset($filters) && is_array($filters) ? $filters : [];
 $searchValue = (string) ($filters['search'] ?? '');
 $currentPage = isset($currentPage) ? (int) $currentPage : 1;
 $totalPages = isset($totalPages) ? (int) $totalPages : 1;
+$canManageDepartments = isset($canManageDepartments) ? (bool) $canManageDepartments : false;
 $baseQuery = [
 	'route' => 'departments',
 	'search' => $searchValue,
@@ -49,11 +50,13 @@ $baseQuery = [
 					</div>
 
 					
-					<div class="add-record-wrap">
-						<a href="?route=departments/create" class="btn btn-primary add-record-btn add-btn">
-							<i class="bi bi-plus-lg"></i>Add Department
-						</a>
-					</div>
+					<?php if ($canManageDepartments): ?>
+						<div class="add-record-wrap">
+							<a href="?route=departments/create" class="btn btn-primary add-record-btn add-btn">
+								<i class="bi bi-plus-lg"></i>Add Department
+							</a>
+						</div>
+					<?php endif; ?>
 				</div>
 			</form>
 
@@ -112,10 +115,14 @@ $baseQuery = [
 									<td class="text-end pe-3">
 										
 										
-										<a href="?route=departments/edit&id=<?php echo htmlspecialchars((string) ($dept['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" 
-										   class="btn btn-sm btn-warning edit-btn">
-											<i class="bi bi-pencil-square"></i>Edit
-										</a>
+										<?php if ($canManageDepartments): ?>
+											<a href="?route=departments/edit&id=<?php echo htmlspecialchars((string) ($dept['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" 
+											   class="btn btn-sm btn-warning edit-btn">
+												<i class="bi bi-pencil-square"></i>Edit
+											</a>
+										<?php else: ?>
+											<span class="text-muted small">View Only</span>
+										<?php endif; ?>
 
 										
 										

@@ -90,8 +90,8 @@ if (count($workflowSteps) === 0) {
 						<div class="user-create-field">
 							<label class="user-create-label" for="workflow_is_active">Status</label>
 							<select class="user-create-select" id="workflow_is_active" name="workflow_is_active" required>
-								<option value="1" selected>Active</option>
-								<option value="0">Inactive</option>
+									<option value="1" <?php echo $workflowIsActive === 1 ? 'selected' : ''; ?>>Active</option>
+									<option value="0" <?php echo $workflowIsActive === 0 ? 'selected' : ''; ?>>Inactive</option>
 							</select>
 						</div>
 
@@ -142,7 +142,7 @@ if (count($workflowSteps) === 0) {
 
 							<div class="user-create-field">
 								<label class="user-create-label">Approver Type</label>
-								<select class="user-create-select" name="step_approver_type[]">
+								<select class="user-create-select approver-type-select" name="step_approver_type[]">
 									<option value="role" <?php echo (string) ($step['step_approver_type'] ?? 'role') === 'role' ? 'selected' : ''; ?>>Role</option>
 									<option value="user" <?php echo (string) ($step['step_approver_type'] ?? '') === 'user' ? 'selected' : ''; ?>>User</option>
 									<option value="department_head" <?php echo (string) ($step['step_approver_type'] ?? '') === 'department_head' ? 'selected' : ''; ?>>Department Head</option>
@@ -151,7 +151,7 @@ if (count($workflowSteps) === 0) {
 
 							<div class="user-create-field">
 								<label class="user-create-label">Approver Role</label>
-								<select class="user-create-select" name="step_approver_role[]" required>
+								<select class="user-create-select approver-role-select" name="step_approver_role[]">
 									<option value="">Select Role</option>
 									<?php foreach ($roles as $role): ?>
 										<option value="<?php echo htmlspecialchars((string) ($role['role_slug'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) ($step['step_approver_role'] ?? '') === (string) ($role['role_slug'] ?? '') ? 'selected' : ''; ?>>
@@ -163,7 +163,7 @@ if (count($workflowSteps) === 0) {
 
 							<div class="user-create-field">
 								<label class="user-create-label">Approver User</label>
-								<select class="user-create-select" name="step_approver_user_id[]">
+								<select class="user-create-select approver-user-select" name="step_approver_user_id[]">
 									<option value="">Select User</option>
 									<?php foreach ($users as $user): ?>
 										<?php $userId = (int) ($user['user_id'] ?? 0); ?>
@@ -211,7 +211,7 @@ if (count($workflowSteps) === 0) {
 					</div>
 					<div class="user-create-actions">
 						<a href="?route=workflows" class="user-create-btn user-create-btn-secondary">Back to Workflow List</a>
-						<button type="submit" class="user-create-btn user-create-btn-primary">Save Workflow</button>
+						<button type="submit" class="user-create-btn user-create-btn-primary"><?php echo htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8'); ?></button>
 					</div>
 				</div>
 			</form>
@@ -243,6 +243,43 @@ if (count($workflowSteps) === 0) {
 			if (badge) {
 				badge.textContent = String(index + 1);
 			}
+		});
+	};
+
+	const syncApproverInputs = function (row) {
+		const typeSelect = row.querySelector('.approver-type-select');
+		const roleSelect = row.querySelector('.approver-role-select');
+		const userSelect = row.querySelector('.approver-user-select');
+		if (!typeSelect || !roleSelect || !userSelect) {
+			return;
+		}
+
+		const approverType = typeSelect.value;
+		if (approverType === 'role') {
+			roleSelect.required = true;
+			roleSelect.disabled = false;
+			userSelect.required = false;
+			userSelect.disabled = true;
+			userSelect.value = '';
+		} else if (approverType === 'user') {
+			roleSelect.required = false;
+			roleSelect.disabled = true;
+			roleSelect.value = '';
+			userSelect.required = true;
+			userSelect.disabled = false;
+		} else {
+			roleSelect.required = false;
+			roleSelect.disabled = true;
+			roleSelect.value = '';
+			userSelect.required = false;
+			userSelect.disabled = true;
+			userSelect.value = '';
+		}
+	};
+
+	const syncAllApproverInputs = function () {
+		container.querySelectorAll('.workflow-step-row').forEach(function (row) {
+			syncApproverInputs(row);
 		});
 	};
 
@@ -302,6 +339,7 @@ if (count($workflowSteps) === 0) {
 		});
 
 		container.appendChild(clone);
+		syncApproverInputs(clone);
 		syncRequiredHiddenValues();
 		refreshRemoveButtons();
 	});
@@ -383,6 +421,12 @@ if (count($workflowSteps) === 0) {
 		}
 
 		if (!target.classList.contains('required-toggle')) {
+			if (target.classList.contains('approver-type-select')) {
+				const row = target.closest('.workflow-step-row');
+				if (row) {
+					syncApproverInputs(row);
+				}
+			}
 			return;
 		}
 
@@ -397,6 +441,7 @@ if (count($workflowSteps) === 0) {
 	}
 
 	syncRequiredHiddenValues();
+	syncAllApproverInputs();
 	refreshRemoveButtons();
 })();
 </script>

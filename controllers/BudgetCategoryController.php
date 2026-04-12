@@ -2,10 +2,15 @@
 
 class BudgetCategoryController
 {
+	private function rbac(): RbacService
+	{
+		return new RbacService();
+	}
+
 	private function ensureAuthenticated(): void
 	{
 		if (empty($_SESSION['auth']['is_logged_in'])) {
-			$_SESSION['auth_error'] = 'Please login to continue.';
+			flash_error('Please login to continue.');
 			header('Location: ?route=dashboard');
 			exit;
 		}
@@ -13,10 +18,12 @@ class BudgetCategoryController
 
 	private function isAuthorizedForBudgetCategoryAccess(): bool
 	{
-		$sessionRole = (string) ($_SESSION['auth']['role'] ?? $_SESSION['role'] ?? '');
-		$normalizedRole = strtolower(trim($sessionRole));
+		return $this->rbac()->canViewBudgetCategories();
+	}
 
-		return in_array($normalizedRole, ['finance', 'admin'], true);
+	private function isAuthorizedForBudgetCategoryManage(): bool
+	{
+		return $this->rbac()->canManageBudgetCategories();
 	}
 
 	public function list(): void
@@ -24,7 +31,7 @@ class BudgetCategoryController
 		$this->ensureAuthenticated();
 
 		if (!$this->isAuthorizedForBudgetCategoryAccess()) {
-			header('Location: ?route=home&error=unauthorized');
+			header('Location: ?route=forbidden&code=rbac_budget_category');
 			exit;
 		}
 
@@ -53,6 +60,7 @@ class BudgetCategoryController
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'budget-category-list';
+		$canManageBudgetCategories = $this->rbac()->canManageBudgetCategories();
 
 		require ROOT_PATH . '/views/templates/header.php';
 		require ROOT_PATH . '/views/templates/navbar.php';
@@ -91,8 +99,8 @@ class BudgetCategoryController
 	{
 		$this->ensureAuthenticated();
 
-		if (!$this->isAuthorizedForBudgetCategoryAccess()) {
-			header('Location: ?route=home&error=unauthorized');
+		if (!$this->isAuthorizedForBudgetCategoryManage()) {
+			header('Location: ?route=forbidden&code=rbac_budget_category');
 			exit;
 		}
 
@@ -126,14 +134,15 @@ class BudgetCategoryController
 	{
 		$this->ensureAuthenticated();
 
-		if (!$this->isAuthorizedForBudgetCategoryAccess()) {
-			header('Location: ?route=home&error=unauthorized');
+		if (!$this->isAuthorizedForBudgetCategoryManage()) {
+			header('Location: ?route=forbidden&code=rbac_budget_category');
 			exit;
 		}
 
 		$categoryId = (int) ($_GET['id'] ?? 0);
 		if ($categoryId <= 0) {
-			header('Location: ?route=budget-categories&error=' . urlencode('Invalid budget category id'));
+			flash_error('Invalid budget category id');
+			header('Location: ?route=budget-categories');
 			exit;
 		}
 
@@ -141,7 +150,8 @@ class BudgetCategoryController
 		$category = $categoryModel->getCategoryById($categoryId);
 
 		if ($category === null) {
-			header('Location: ?route=budget-categories&error=' . urlencode('Budget category not found'));
+			flash_error('Budget category not found');
+			header('Location: ?route=budget-categories');
 			exit;
 		}
 
@@ -167,8 +177,8 @@ class BudgetCategoryController
 	{
 		$this->ensureAuthenticated();
 
-		if (!$this->isAuthorizedForBudgetCategoryAccess()) {
-			header('Location: ?route=home&error=unauthorized');
+		if (!$this->isAuthorizedForBudgetCategoryManage()) {
+			header('Location: ?route=forbidden&code=rbac_budget_category');
 			exit;
 		}
 
@@ -180,7 +190,8 @@ class BudgetCategoryController
 		$categoryData = $this->normalizeCategoryPayload($_POST);
 
 		if (!$this->isValidCategoryPayload($categoryData)) {
-			header('Location: ?route=budget-categories/create&error=' . urlencode('Please fill all required fields correctly.'));
+			flash_error('Please fill all required fields correctly.');
+			header('Location: ?route=budget-categories/create');
 			exit;
 		}
 
@@ -188,9 +199,12 @@ class BudgetCategoryController
 		$success = $categoryModel->createCategory($categoryData);
 
 		if ($success) {
-			header('Location: ?route=budget-categories&success=' . urlencode('Budget category created successfully.'));
+			RbacService::audit('budget_category_create', ['code' => $categoryData['budget_category_code']]);
+			flash_success('Budget category created successfully.');
+			header('Location: ?route=budget-categories');
 		} else {
-			header('Location: ?route=budget-categories/create&error=' . urlencode('Failed to create budget category.'));
+			flash_error('Failed to create budget category.');
+			header('Location: ?route=budget-categories/create');
 		}
 		exit;
 	}
@@ -199,8 +213,8 @@ class BudgetCategoryController
 	{
 		$this->ensureAuthenticated();
 
-		if (!$this->isAuthorizedForBudgetCategoryAccess()) {
-			header('Location: ?route=home&error=unauthorized');
+		if (!$this->isAuthorizedForBudgetCategoryManage()) {
+			header('Location: ?route=forbidden&code=rbac_budget_category');
 			exit;
 		}
 
@@ -211,14 +225,16 @@ class BudgetCategoryController
 
 		$categoryId = (int) ($_GET['id'] ?? 0);
 		if ($categoryId <= 0) {
-			header('Location: ?route=budget-categories&error=' . urlencode('Invalid budget category id'));
+			flash_error('Invalid budget category id');
+			header('Location: ?route=budget-categories');
 			exit;
 		}
 
 		$categoryData = $this->normalizeCategoryPayload($_POST);
 
 		if (!$this->isValidCategoryPayload($categoryData)) {
-			header('Location: ?route=budget-categories/edit&id=' . $categoryId . '&error=' . urlencode('Please fill all required fields correctly.'));
+			flash_error('Please fill all required fields correctly.');
+			header('Location: ?route=budget-categories/edit&id=' . $categoryId);
 			exit;
 		}
 
@@ -226,9 +242,12 @@ class BudgetCategoryController
 		$success = $categoryModel->updateCategory($categoryId, $categoryData);
 
 		if ($success) {
-			header('Location: ?route=budget-categories&success=' . urlencode('Budget category updated successfully.'));
+			RbacService::audit('budget_category_update', ['budget_category_id' => $categoryId]);
+			flash_success('Budget category updated successfully.');
+			header('Location: ?route=budget-categories');
 		} else {
-			header('Location: ?route=budget-categories/edit&id=' . $categoryId . '&error=' . urlencode('Failed to update budget category.'));
+			flash_error('Failed to update budget category.');
+			header('Location: ?route=budget-categories/edit&id=' . $categoryId);
 		}
 		exit;
 	}

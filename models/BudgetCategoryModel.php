@@ -62,6 +62,23 @@ class BudgetCategoryModel
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 
+	public function getSelectableCategories(): array
+	{
+		$sql = "SELECT
+				budget_category_id,
+				budget_category_name,
+				budget_category_type,
+				budget_category_is_active
+			FROM budget_categories
+			WHERE budget_category_is_active = 1
+			ORDER BY budget_category_name ASC";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute();
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
 	public function countFilteredCategories(array $filters): int
 	{
 		$whereClauses = [];

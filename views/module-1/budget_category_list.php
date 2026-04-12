@@ -6,6 +6,7 @@ $statusValue = (string) ($filters['status'] ?? '');
 $typeValue = (string) ($filters['type'] ?? '');
 $currentPage = isset($currentPage) ? (int) $currentPage : 1;
 $totalPages = isset($totalPages) ? (int) $totalPages : 1;
+$canManageBudgetCategories = isset($canManageBudgetCategories) ? (bool) $canManageBudgetCategories : false;
 
 $baseQuery = [
 	'route' => 'budget-categories',
@@ -54,11 +55,13 @@ $baseQuery = [
 						</div>
 					</div>
 
-					<div class="add-record-wrap">
-						<a href="?route=budget-categories/create" class="btn btn-primary add-record-btn add-btn">
-							<i class="bi bi-plus-lg me-1"></i>Add Budget Category
-						</a>
-					</div>
+					<?php if ($canManageBudgetCategories): ?>
+						<div class="add-record-wrap">
+							<a href="?route=budget-categories/create" class="btn btn-primary add-record-btn add-btn">
+								<i class="bi bi-plus-lg me-1"></i>Add Budget Category
+							</a>
+						</div>
+					<?php endif; ?>
 				</div>
 			</form>
 
@@ -96,7 +99,11 @@ $baseQuery = [
 									</td>
 									<td class="text-end">
 										<div class="d-inline-flex gap-2 flex-wrap justify-content-end">
-											<a href="?route=budget-categories/edit&id=<?php echo (int) ($category['budget_category_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn">Edit</a>
+											<?php if ($canManageBudgetCategories): ?>
+												<a href="?route=budget-categories/edit&id=<?php echo (int) ($category['budget_category_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn">Edit</a>
+											<?php else: ?>
+												<span class="text-muted small">View Only</span>
+											<?php endif; ?>
 										</div>
 									</td>
 								</tr>

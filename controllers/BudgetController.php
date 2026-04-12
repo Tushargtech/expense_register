@@ -4,10 +4,15 @@ require_once ROOT_PATH . '/libraries/BudgetFileParser.php';
 
 class BudgetController
 {
+	private function rbac(): RbacService
+	{
+		return new RbacService();
+	}
+
 	private function ensureAuthenticated(): void
 	{
 		if (empty($_SESSION['auth']['is_logged_in'])) {
-			$_SESSION['auth_error'] = 'Please login to continue.';
+			flash_error('Please login to continue.');
 			header('Location: ?route=dashboard');
 			exit;
 		}
@@ -15,10 +20,7 @@ class BudgetController
 
 	private function isAuthorizedForBudgetUpload(): bool
 	{
-		$sessionRole = (string) ($_SESSION['auth']['role'] ?? $_SESSION['role'] ?? '');
-		$normalizedRole = strtolower(trim($sessionRole));
-
-		return in_array($normalizedRole, ['finance', 'admin'], true);
+		return $this->rbac()->canManageFinancialSetup();
 	}
 
 	private function parseAmount(string $rawAmount): ?float
@@ -135,7 +137,7 @@ class BudgetController
 		$this->ensureAuthenticated();
 
 		if (!$this->isAuthorizedForBudgetUpload()) {
-			header('Location: ?route=home&error=unauthorized');
+			header('Location: ?route=forbidden&code=rbac_budget_upload');
 			exit;
 		}
 
@@ -157,7 +159,7 @@ class BudgetController
 		$this->ensureAuthenticated();
 
 		if (!$this->isAuthorizedForBudgetUpload()) {
-			header('Location: ?route=home&error=unauthorized');
+			header('Location: ?route=forbidden&code=rbac_budget_upload');
 			exit;
 		}
 
@@ -167,14 +169,16 @@ class BudgetController
 		}
 
 		if (!isset($_FILES['budget_file']) || !is_array($_FILES['budget_file'])) {
-			header('Location: ?route=budget-uploader&error=' . urlencode('Please select a file to upload.'));
+			flash_error('Please select a file to upload.');
+			header('Location: ?route=budget-uploader');
 			exit;
 		}
 
 		$file = $_FILES['budget_file'];
 		$uploadError = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
 		if ($uploadError !== UPLOAD_ERR_OK) {
-			header('Location: ?route=budget-uploader&error=' . urlencode('Failed to upload file. Please ensure the file size is not too large and try again.'));
+			flash_error('Failed to upload file. Please ensure the file size is not too large and try again.');
+			header('Location: ?route=budget-uploader');
 			exit;
 		}
 
@@ -184,7 +188,8 @@ class BudgetController
 
 		$allowed = ['csv', 'xlsx', 'xls', 'jpg', 'jpeg', 'png'];
 		if (!in_array($extension, $allowed, true)) {
-			header('Location: ?route=budget-uploader&error=' . urlencode('Unsupported file format. Please use CSV, Excel, or Image (JPG/PNG) files.'));
+			flash_error('Unsupported file format. Please use CSV, Excel, or Image (JPG/PNG) files.');
+			header('Location: ?route=budget-uploader');
 			exit;
 		}
 
@@ -196,7 +201,8 @@ class BudgetController
 
 		if (empty($rows)) {
 			$errorMessage = !empty($errors) ? $errors[0] : 'No data found in the file. Please ensure the file contains budget rows.';
-			header('Location: ?route=budget-uploader&error=' . urlencode($errorMessage));
+			flash_error($errorMessage);
+			header('Location: ?route=budget-uploader');
 			exit;
 		}
 
@@ -262,7 +268,7 @@ class BudgetController
 			if (count($rowErrors) > 5) {
 				$errorSummary .= ' (...and ' . (count($rowErrors) - 5) . ' more)';
 			}
-			$_SESSION['budget_upload_error'] = $errorSummary;
+			flash_error($errorSummary);
 
 			header('Location: ?route=budget-uploader');
 			exit;
@@ -292,7 +298,8 @@ class BudgetController
 			if (!empty($warnings)) {
 				$successMessage .= ' Note: ' . $warnings[0];
 			}
-			$_SESSION['budget_upload_success'] = $successMessage;
+			RbacService::audit('budget_upload_import', ['rows' => count($validRows)]);
+			flash_success($successMessage);
 		} catch (Throwable $error) {
 			if ($db->inTransaction()) {
 				$db->rollBack();
@@ -306,7 +313,7 @@ class BudgetController
 			}
 
 			$_SESSION['budget_uploader_preview'] = $parsedPreview;
-			$_SESSION['budget_upload_error'] = 'No data was saved because database insert failed. Please try again.';
+			flash_error('No data was saved because database insert failed. Please try again.');
 		}
 
 		header('Location: ?route=budget-uploader');

@@ -20,6 +20,11 @@ switch ($route) {
         $auth->dashboard();
         break;
 
+    case 'forbidden':
+    case '/forbidden':
+        $auth->forbidden();
+        break;
+
     case 'users':
     case '/users':
         $userController = new UserController();
@@ -108,15 +113,55 @@ switch ($route) {
         }
         break;
 
+    case 'budget-monitor':
+    case '/budget-monitor':
+        $budgetMonitorController = new BudgetMonitorController();
+        $budgetMonitorController->index();
+        break;
+
+    case 'expenses':
+    case '/expenses':
+        $expenseController = new ExpenseController();
+        $expenseController->list();
+        break;
+
+    case 'expenses/create':
+    case '/expenses/create':
+        $expenseController = new ExpenseController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $expenseController->store();
+        } else {
+            $expenseController->create();
+        }
+        break;
+
+    case 'expenses/review':
+    case '/expenses/review':
+        $expenseController = new ExpenseController();
+        $expenseController->review();
+        break;
+
+    case 'expenses/attachment/download':
+    case '/expenses/attachment/download':
+        $expenseController = new ExpenseController();
+        $expenseController->downloadAttachment();
+        break;
+
+    case 'expenses/attachment/view':
+    case '/expenses/attachment/view':
+        $expenseController = new ExpenseController();
+        $expenseController->viewAttachment();
+        break;
+    
     case 'workflows':
     case '/workflows':
-        $workflowController = new WorkflowListController();
+        $workflowController = new WorkflowController();
         $workflowController->list();
         break;
 
     case 'workflows/create':
     case '/workflows/create':
-        $workflowCreationController = new WorkflowCreationController();
+        $workflowCreationController = new WorkflowController();
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $workflowCreationController->store();
         } else {
@@ -126,7 +171,7 @@ switch ($route) {
 
     case 'workflows/edit':
     case '/workflows/edit':
-        $workflowCreationController = new WorkflowCreationController();
+        $workflowCreationController = new WorkflowController();
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $workflowCreationController->update();
         } else {

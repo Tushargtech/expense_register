@@ -8,11 +8,17 @@ $currentPage = isset($currentPage) ? (int) $currentPage : 1;
 $totalPages = isset($totalPages) ? (int) $totalPages : 1;
 $perPage = isset($perPage) ? max(1, (int) $perPage) : 10;
 
+$selectedWorkflowType = (string) ($filters['workflow_type'] ?? '');
+
 $baseQuery = [
 	'route' => 'workflows',
 	'search' => $searchValue,
 	'status' => $selectedStatus,
+	'workflow_type' => $selectedWorkflowType,
 ];
+
+$workflowTypes = isset($workflowTypes) && is_array($workflowTypes) ? $workflowTypes : [];
+$canCreateWorkflow = isset($canCreateWorkflow) ? (bool) $canCreateWorkflow : false;
 
 function formatWorkflowAmountRange($minAmount, $maxAmount): string
 {
@@ -62,16 +68,28 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 									<option value="0" <?php echo $selectedStatus === '0' ? 'selected' : ''; ?>>Inactive</option>
 								</select>
 							</div>
+							<div class="filter-field">
+								<select name="workflow_type" class="form-select">
+									<option value="">Workflow Types</option>
+									<?php foreach ($workflowTypes as $type): ?>
+										<option value="<?php echo htmlspecialchars($type, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedWorkflowType === $type ? 'selected' : ''; ?>>
+											<?php echo htmlspecialchars($type, ENT_QUOTES, 'UTF-8'); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</div>
 
 							<div class="filter-actions">
 								<button type="submit" class="btn btn-primary btn-filter">Search</button>
 								<a href="?route=workflows" class="btn btn-outline-secondary btn-filter">Reset</a>
 							</div>
-                            <div class="add-record-wrap">
+							<?php if ($canCreateWorkflow): ?>
+							<div class="add-record-wrap">
 						      <a href="?route=workflows/create" class="btn btn-primary add-record-btn add-btn">
 							  <i class="bi bi-plus-lg me-1"></i>Add Workflow
 						      </a>
 					        </div>
+							<?php endif; ?>
 						</div>
 					</div>
 				</div>

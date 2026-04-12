@@ -1,12 +1,16 @@
 <?php
+$flash = function_exists('flash_consume') ? flash_consume() : ['type' => '', 'message' => ''];
+$flashType = trim((string) ($flash['type'] ?? ''));
+$flashMessage = trim((string) ($flash['message'] ?? ''));
 $flashSuccess = trim((string) ($_GET['success'] ?? ''));
 $flashError = trim((string) ($_GET['error'] ?? ''));
 
-if (empty($flashSuccess) && isset($_SESSION['budget_upload_success'])) {
-	$flashSuccess = $_SESSION['budget_upload_success'];
-}
-if (empty($flashError) && isset($_SESSION['budget_upload_error'])) {
-	$flashError = $_SESSION['budget_upload_error'];
+if ($flashMessage !== '') {
+	if ($flashType === 'error') {
+		$flashError = $flashMessage;
+	} else {
+		$flashSuccess = $flashMessage;
+	}
 }
 ?>
 

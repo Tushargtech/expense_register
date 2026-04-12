@@ -1,40 +1,33 @@
 # Expense Register
 
-Expense Register is a PHP + MySQL application for managing users, departments, budget categories, and department budgets from uploaded files.
+Expense Register is a PHP 8.2 + MySQL expense workflow application with role-based access control, budget management, and attachment handling stored in database records.
 
-## Current Features
+## Overview
 
-- Login/logout authentication
-- Dashboard with role-based navigation
-- User management: list, filter, pagination, create, edit
-- Department management: list, create, edit
-- Budget category management: list, filter, create, edit
-- Budget uploader for Finance/Admin:
-	- CSV upload
-	- Excel upload (`.xlsx`, `.xls`)
-	- Image upload (`.jpg`, `.jpeg`, `.png`) via OCR
-- Workflow management:
-	- Workflow list with search, status filter, pagination
-	- Workflow create and edit
-	- Multi-step approval flow with drag-and-drop ordering
-	- Step-level approver type, approver role, approver user, amount range, required toggle, timeout hours
-	- Approval flow in list generated from workflow step names
-- Upload preview table showing row-by-row parsed values
-- Department name shown in preview
-- Budget category ID shown in preview
-- File-level atomic save for uploader:
-	- If any row has errors, no rows are inserted
-	- Insert starts only when full file validates
+The application provides:
 
-## Requirements
+- Authentication, session management, and protected routes
+- Role-aware dashboard and navigation
+- User and department administration
+- Expense request creation, listing, and review
+- Attachment view/download directly from database payloads
+- Budget category management
+- Budget upload from CSV, Excel, and OCR-supported images
+- Budget monitor views with department scope enforcement
+- Workflow creation/editing with multi-step approval rules
+- Centralized flash-message system for redirects and status feedback
 
-- PHP 8.2+ (current dependency set is compatible with PHP >= 8.1)
-- MySQL or MariaDB
+## Tech Stack
+
+- PHP 8.2+
+- MariaDB / MySQL
 - Apache (XAMPP recommended)
-- Composer
-- Tesseract OCR (for image uploads)
+- Composer dependencies:
+  - phpoffice/phpspreadsheet
+  - maennchen/zipstream-php
+- Tesseract OCR for image-based budget parsing
 
-## Project Structure
+## Current Project Layout
 
 ```text
 expense_portal/
@@ -42,9 +35,31 @@ expense_portal/
 │   ├── css/
 │   └── js/
 ├── configs/
+│   ├── db.php
+│   ├── env.php
+│   └── schema.sql
 ├── controllers/
+│   ├── AuthController.php
+│   ├── UserController.php
+│   ├── DepartmentController.php
+│   ├── BudgetCategoryController.php
+│   ├── BudgetController.php
+│   ├── BudgetMonitorController.php
+│   ├── ExpenseController.php
+│   └── WorkflowController.php
 ├── libraries/
+│   ├── BudgetFileParser.php
+│   ├── FlashMessage.php
+│   └── RbacService.php
 ├── models/
+│   ├── AuthModel.php
+│   ├── UserModel.php
+│   ├── DepartmentModel.php
+│   ├── BudgetCategoryModel.php
+│   ├── BudgetModel.php
+│   ├── BudgetMonitorModel.php
+│   ├── ExpenseModel.php
+│   └── WorkflowModel.php
 ├── views/
 │   ├── module-1/
 │   └── templates/
@@ -60,184 +75,155 @@ expense_portal/
 
 ## Setup
 
-1. Place project in XAMPP `htdocs`.
-2. Start Apache and MySQL.
-3. Configure database in [configs/env.php](configs/env.php):
-	 - host: `127.0.0.1`
-	 - port: `3307`
-	 - database: `expense_register`
-	 - username: `root`
-	 - password: empty by default
-4. Run Composer install in project root:
+1. Place the project in your htdocs directory.
+2. Start Apache and MySQL from XAMPP.
+3. Import schema from configs/schema.sql.
+4. Confirm environment config in configs/env.php.
+5. Install dependencies:
 
 ```bash
 composer install
 ```
 
-5. Install Tesseract (needed for image upload parsing).
-6. Open app in browser:
+6. Install Tesseract OCR if image upload parsing is required.
+7. Open the app:
 
 ```text
 http://localhost/expense_portal/index.php?route=dashboard
 ```
 
-## Routes
+## Configuration
 
-- `?route=dashboard` - Login page
-- `?route=auth` - Login submit
-- `?route=home` - Dashboard
-- `?route=users` - User list
-- `?route=users/create` - Create user (GET/POST)
-- `?route=users/edit&id=ID` - Edit user (GET/POST)
-- `?route=departments` - Department list
-- `?route=departments/create` - Create department (GET/POST)
-- `?route=departments/edit&id=ID` - Edit department (GET/POST)
-- `?route=budget-categories` - Budget category list
-- `?route=budget-categories/create` - Create budget category (GET/POST)
-- `?route=budget-categories/edit&id=ID` - Edit budget category (GET/POST)
-- `?route=budget-uploader` - Budget uploader (GET/POST)
-- `?route=workflows` - Workflow list
-- `?route=workflows/create` - Create workflow (GET/POST)
-- `?route=workflows/edit&id=ID` - Edit workflow (GET/POST)
-- `?route=logout` - Logout
+Default environment settings are defined in configs/env.php:
 
-## Access Control
+- host: 127.0.0.1
+- port: 3307
+- database: expense_register
+- username: root
+- password: empty by default
 
-- `admin`: full access
-- `hr`: users and departments
-- `finance`: budget categories and budget uploader
+Adjust these values per your local setup.
 
-## Workflow Module
+## Route Map
 
-### Workflow Details
+Authentication and shell:
 
-- Workflow name
-- Workflow description
-- Workflow type (`Expense` or `Purchase`)
-- Workflow amount range
-- Workflow status and default toggle
+- ?route=dashboard
+- ?route=auth
+- ?route=home
+- ?route=logout
+- ?route=forbidden
 
-### Workflow Steps
+Users and departments:
 
-- Step order
-- Step name
-- Approver type (`role`, `user`, `department_head`)
-- Approver role (from `roles` table)
-- Approver user (from active users)
-- Step amount range
-- Required toggle
-- Timeout hours
+- ?route=users
+- ?route=users/create
+- ?route=users/edit&id=ID
+- ?route=departments
+- ?route=departments/create
+- ?route=departments/edit&id=ID
 
-### Edit Behavior
+Budget:
 
-- Workflow list `Edit` opens workflow form with existing workflow details and all steps prefilled.
-- Step order can be changed by drag and drop.
+- ?route=budget-categories
+- ?route=budget-categories/create
+- ?route=budget-categories/edit&id=ID
+- ?route=budget-uploader
+- ?route=budget-monitor
 
-## Roles Source of Truth
+Expenses:
 
-- Role options used in user and workflow forms are sourced from `roles` table.
-- For user creation/edit, role options are constrained by `users.user_role` enum values.
-- If you add a new role slug in `roles`, also add it to `users.user_role` enum if that role should be assignable to users.
+- ?route=expenses
+- ?route=expenses/create
+- ?route=expenses/review&id=ID
+- ?route=expenses/attachment/view&request_id=ID&attachment_id=ID
+- ?route=expenses/attachment/download&request_id=ID&attachment_id=ID
 
-Current `users.user_role` enum expected:
+Workflows:
 
-- `admin`
-- `hr`
-- `manager`
-- `employee`
-- `finance`
-- `department_head`
+- ?route=workflows
+- ?route=workflows/create
+- ?route=workflows/edit&id=ID
 
-## Budget Uploader (Important)
+## RBAC Policy (Current)
 
-### Supported file types
+### Admin
+
+- Can view dashboard
+- Can view all users
+- Cannot create or edit users
+- Can view, create, and edit departments
+- Can view and create expenses
+- Can view budget categories
+- Cannot create or edit budget categories
+- Cannot access budget upload
+- Cannot access budget monitor
+- Can view, create, and edit workflows
+
+### Finance
+
+- Can manage budget categories
+- Can access budget upload
+- Can create/edit workflows
+- Can access expense requests
+
+### HR and HR-Scoped Leads
+
+- HR can manage users and departments
+- HR can access expense requests
+
+### Manager and Department Head
+
+- Department-scoped user visibility
+- Expense access based on role scope
+- Budget monitor is restricted to manager/dept_head in Admin department only
+- Budget monitor data is restricted to own department scope
+
+### Employee
+
+- Department-scoped user visibility
+- Own-scope expense access
+
+## Budget Upload Behavior
+
+Supported formats:
 
 - CSV
 - XLSX / XLS
-- JPG / JPEG / PNG
+- JPG / JPEG / PNG via OCR
 
-### Validation and Insert Behavior
+Validation and persistence behavior:
 
-- Upload is validated row by row.
-- Data is not inserted while validation is still in progress.
-- If one or more rows fail validation, no row is inserted from that file.
-- If all rows pass, all rows are inserted in a transaction.
+- File rows are parsed and validated before insert commit
+- If any row is invalid, no row is inserted
+- If all rows are valid, rows are saved in one transaction
+- Upload preview is stored in session and rendered post-redirect
 
-### What preview shows
+## Expense and Attachment Behavior
 
-- Row number
-- Department name
-- Fiscal year
-- Fiscal period
-- Category
-- Category ID
-- Amount
-- Currency
-- Status and row issues
+- Expense creation requires valid category and workflow mapping
+- Attachments are validated by extension, MIME, and size
+- Attachment content is stored as base64 payload in request_attachments
+- View and download endpoints stream attachment binary directly from database
 
-## Test Upload Templates (README-only)
+## Workflow Behavior
 
-Sample test content is documented here so test files do not need to be committed to GitHub/Bitbucket.
+- Workflow list supports search and filtering
+- Create and edit support multi-step approval definitions
+- Step approver modes: role, user, department_head
+- Amount ranges and required/timeout controls are enforced at validation level
 
-### CSV Template
+## Flash Message System
 
-Create a local `.csv` file with this content:
+Shared flash messaging is implemented through libraries/FlashMessage.php.
 
-```csv
-Department,Budget_Fiscal_Year,Budget_Fiscal_Period,Budget_Category,Budget_Allocated_Amount,Budget_Currency,Budget_Notes
-Finance,2026,Qt,Operations,150000,INR,Quarter 1 operating budget
-HR,2026,Q2,Recruitment,80000,INR,Hiring drive allocation
-IT,2026,Q3,Infrastructure,220000,INR,Server and cloud costs
-Sales,2026,Q4,Travel,60000,INR,Client visit travel budget
-```
+- flash_success(message)
+- flash_error(message)
+- flash_consume() in the template layer
 
-### Excel Template
+The shared template views/templates/flash_message.php renders redirect feedback consistently for all modules.
 
-Create an `.xlsx` file with the same headers as the CSV template:
-
-- `Department`
-- `Budget_Fiscal_Year`
-- `Budget_Fiscal_Period`
-- `Budget_Category`
-- `Budget_Allocated_Amount`
-- `Budget_Currency`
-- `Budget_Notes`
-
-Add the same sample rows as above.
-
-### Image OCR Template
-
-Create an image containing key-value lines like this:
-
-```text
-Department: Finance
-Budget Fiscal Year: 2026
-Budget Fiscal Period: Qt
-Budget Category: Operations
-Budget Allocated Amount: 150000
-Budget Currency: INR
-Budget Notes: Quarter 1 operating budget
-```
-
-Notes:
-
-- Keep text high contrast (dark text on white background) for better OCR.
-- Use one field per line.
-
-## Dependency Notes
-
-Current spreadsheet dependencies are pinned for PHP 8.2 compatibility:
-
-- `phpoffice/phpspreadsheet` `^2.2`
-- `maennchen/zipstream-php` `^2.4`
-
-If Composer dependencies are changed, run:
-
-```bash
-composer update
-```
-
-## Development
+## Development Commands
 
 Lint one file:
 
@@ -245,8 +231,20 @@ Lint one file:
 php -l path/to/file.php
 ```
 
-Lint all PHP files:
+Lint all non-vendor PHP files:
 
 ```bash
-find . -name '*.php' -print0 | xargs -0 -n1 php -l
+find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n 1 php -l
 ```
+
+## Data Model Notes
+
+- Role source of truth is roles.role_slug
+- users.user_role stores role slug and is FK-linked to roles
+- Keep role seeds and RBAC method logic aligned whenever adding/changing roles
+
+## Maintenance Notes
+
+- Avoid adding route-specific flash key patterns; use shared flash helper only
+- Keep controller authorization checks delegated to RbacService
+- Re-run lint and key route checks after RBAC changes

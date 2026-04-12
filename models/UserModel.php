@@ -5,7 +5,6 @@ class UserModel
 	private PDO $db;
 	private ?string $userCreatedAtColumn = null;
 	private bool $checkedUserCreatedAtColumn = false;
-	private ?array $cachedUserRoleOptions = null;
 
 	public function __construct()
 	{
@@ -76,6 +75,12 @@ class UserModel
 			$params[':status'] = $status === '1' ? 1 : 0;
 		}
 
+		$departmentIdScope = (int) ($filters['department_id_scope'] ?? 0);
+		if ($departmentIdScope > 0) {
+			$whereSql .= " AND u.department_id = :department_id_scope";
+			$params[':department_id_scope'] = $departmentIdScope;
+		}
+
 		return [$whereSql, $params];
 	}
 
@@ -127,84 +132,25 @@ class UserModel
 
 	public function getRoleOptions(): array
 	{
-		return array_column($this->getUserRoleOptions(), 'value');
-	}
+		$stmt = $this->db->prepare(
+			"SELECT role_slug, role_name FROM roles ORDER BY role_name ASC"
+		);
+		$stmt->execute();
 
-	private function getUserRoleEnumValues(): array
-	{
-		$enumValues = [];
-
-		try {
-			$stmt = $this->db->query("SHOW COLUMNS FROM users LIKE 'user_role'");
-			$column = $stmt->fetch(PDO::FETCH_ASSOC);
-			$type = (string) ($column['Type'] ?? '');
-
-			if (preg_match('/^enum\\((.*)\\)$/i', $type, $matches) === 1) {
-				$rawValues = str_getcsv($matches[1], ',', "'");
-				foreach ($rawValues as $value) {
-					$value = strtolower(trim((string) $value));
-					if ($value !== '') {
-						$enumValues[] = $value;
-					}
-				}
-			}
-		} catch (Throwable $error) {
-			return [];
-		}
-
-		return array_values(array_unique($enumValues));
-	}
-
-	public function getUserRoleOptions(): array
-	{
-		if ($this->cachedUserRoleOptions !== null) {
-			return $this->cachedUserRoleOptions;
-		}
-
-		$enumValues = $this->getUserRoleEnumValues();
-		$enumLookup = array_fill_keys($enumValues, true);
 		$options = [];
-
-		try {
-			$stmt = $this->db->prepare("SELECT role_name, role_slug FROM roles ORDER BY role_name ASC");
-			$stmt->execute();
-			$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-			foreach ($rows as $row) {
-				$slug = strtolower(trim((string) ($row['role_slug'] ?? '')));
-				if ($slug === '') {
-					continue;
-				}
-
-				if (!empty($enumLookup) && !isset($enumLookup[$slug])) {
-					continue;
-				}
-
-				$options[$slug] = [
-					'value' => $slug,
-					'label' => (string) ($row['role_name'] ?? ucfirst($slug)),
-				];
+		foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+			$slug = strtolower(trim((string) ($row['role_slug'] ?? '')));
+			$name = trim((string) ($row['role_name'] ?? ''));
+			if ($slug === '') {
+				continue;
 			}
-		} catch (Throwable $error) {
-			// fall back to enum values if roles table isn't reachable.
+			$options[] = [
+				'value' => $slug,
+				'label' => $name !== '' ? $name : ucfirst($slug),
+			];
 		}
 
-		if (empty($options) && !empty($enumValues)) {
-			foreach ($enumValues as $slug) {
-				$options[$slug] = [
-					'value' => $slug,
-					'label' => ucfirst($slug),
-				];
-			}
-		}
-
-		$this->cachedUserRoleOptions = array_values($options);
-		return $this->cachedUserRoleOptions;
-	}
-
-	public function getAllowedUserRoles(): array
-	{
-		return array_column($this->getUserRoleOptions(), 'value');
+		return $options;
 	}
 
 	public function getDepartmentOptions(): array

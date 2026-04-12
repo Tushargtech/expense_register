@@ -34,7 +34,7 @@ if (!function_exists('getDB')) {
 return [
 	'app' => [
 		'name' => 'Expense Register',
-		'base_path' => '/expense_portal/Project Structure',
+		'base_path' => '/expense_portal',
 	],
 	'db' => [
 		'host' => '127.0.0.1',
