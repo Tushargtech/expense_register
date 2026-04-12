@@ -4,6 +4,7 @@ $filters = isset($filters) && is_array($filters) ? $filters : [];
 $roleOptions = isset($roleOptions) && is_array($roleOptions) ? $roleOptions : [];
 $departmentOptions = isset($departmentOptions) && is_array($departmentOptions) ? $departmentOptions : [];
 $canManageUsers = isset($canManageUsers) ? (bool) $canManageUsers : false;
+$canFilterByDepartment = isset($canFilterByDepartment) ? (bool) $canFilterByDepartment : false;
 
 $searchValue = (string) ($filters['search'] ?? '');
 $selectedRole = (string) ($filters['role'] ?? '');
@@ -15,9 +16,12 @@ $baseQuery = [
 	'route' => 'users',
 	'search' => $searchValue,
 	'role' => $selectedRole,
-	'department' => $selectedDepartment,
 	'status' => $selectedStatus,
 ];
+
+if ($canFilterByDepartment) {
+	$baseQuery['department'] = $selectedDepartment;
+}
 ?>
 
 <main class="main">
@@ -54,16 +58,18 @@ $baseQuery = [
 								</select>
 							</div>
 
-							<div class="filter-field">
-								<select name="department" class="form-select">
-									<option value="">All Departments</option>
-									<?php foreach ($departmentOptions as $department): ?>
-										<option value="<?php echo htmlspecialchars((string) $department, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedDepartment === (string) $department ? 'selected' : ''; ?>>
-											<?php echo htmlspecialchars((string) $department, ENT_QUOTES, 'UTF-8'); ?>
-										</option>
-									<?php endforeach; ?>
-								</select>
-							</div>
+							<?php if ($canFilterByDepartment): ?>
+								<div class="filter-field">
+									<select name="department" class="form-select">
+										<option value="">All Departments</option>
+										<?php foreach ($departmentOptions as $department): ?>
+											<option value="<?php echo htmlspecialchars((string) $department, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedDepartment === (string) $department ? 'selected' : ''; ?>>
+												<?php echo htmlspecialchars((string) $department, ENT_QUOTES, 'UTF-8'); ?>
+											</option>
+										<?php endforeach; ?>
+									</select>
+								</div>
+							<?php endif; ?>
 
 							<div class="filter-field">
 								<select name="status" class="form-select">

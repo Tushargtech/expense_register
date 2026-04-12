@@ -65,6 +65,7 @@ class UserController
 		$this->ensureUserListAccess();
 
 		$userModel = new UserModel();
+		$rbac = $this->rbac();
 
 		$filters = [
 			'search' => trim((string) ($_GET['search'] ?? '')),
@@ -74,8 +75,15 @@ class UserController
 			'department_id_scope' => 0,
 		];
 
-		if ($this->rbac()->isDepartmentScopedUserViewer()) {
-			$filters['department_id_scope'] = $this->rbac()->departmentId();
+		$canViewAllUsers = $rbac->canViewAllUsers();
+		if ($rbac->isDepartmentScopedUserViewer()) {
+			$departmentIdScope = $rbac->departmentId();
+			if ($departmentIdScope <= 0) {
+				header('Location: ?route=forbidden&code=rbac_user_department_scope_missing');
+				exit;
+			}
+
+			$filters['department_id_scope'] = $departmentIdScope;
 			$filters['department'] = '';
 		}
 
@@ -97,7 +105,8 @@ class UserController
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'user-list';
-		$canManageUsers = $this->rbac()->canManageUsers();
+		$canManageUsers = $rbac->canManageUsers();
+		$canFilterByDepartment = $canViewAllUsers;
 
 		require ROOT_PATH . '/views/templates/header.php';
 		require ROOT_PATH . '/views/templates/navbar.php';

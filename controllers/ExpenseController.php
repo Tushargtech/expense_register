@@ -465,26 +465,18 @@ class ExpenseController
         $this->ensureExpenseAccess();
 
         $expenseModel = new ExpenseModel();
+        $rbac = $this->rbac();
+        $currentUserId = $rbac->userId();
 
         $filters = [
             'search' => trim((string) ($_GET['search'] ?? '')),
             'status' => trim((string) ($_GET['status'] ?? '')),
-            'department_id' => (int) ($_GET['department_id'] ?? 0),
+            'department_id' => 0,
             'date_from' => trim((string) ($_GET['date_from'] ?? '')),
             'date_to' => trim((string) ($_GET['date_to'] ?? '')),
             'page' => max(1, (int) ($_GET['page'] ?? 1)),
             'limit' => 10,
         ];
-
-        $auth = $_SESSION['auth'] ?? [];
-        $role = strtolower(trim((string) ($auth['role'] ?? '')));
-        $submittedByScope = 0;
-        if (in_array($role, ['employee', 'hr'], true)) {
-            $submittedByScope = (int) ($auth['user_id'] ?? 0);
-            $filters['department_id'] = 0;
-        } elseif (in_array($role, ['manager', 'dept_head'], true)) {
-            $filters['department_id'] = (int) ($auth['department_id'] ?? 0);
-        }
 
         $departmentModel = new DepartmentModel();
         $departments = $departmentModel->getAllDepartments();
@@ -497,7 +489,7 @@ class ExpenseController
             $filters['date_to'],
             $filters['page'],
             $filters['limit'],
-            $submittedByScope
+            $currentUserId
         );
 
         $requests = $result['records'] ?? [];
@@ -513,6 +505,8 @@ class ExpenseController
         $envConfig = $GLOBALS['envConfig'] ?? [];
         $userName = (string) ($_SESSION['auth']['name'] ?? 'User');
         $activeMenu = 'expense-list';
+        $expenseScopeRole = $rbac->role();
+        $canFilterByDepartment = false;
 
         require ROOT_PATH . '/views/templates/header.php';
         require ROOT_PATH . '/views/templates/navbar.php';

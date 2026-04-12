@@ -4,9 +4,9 @@ $filters = isset($filters) && is_array($filters) ? $filters : [];
 $departments = isset($departments) && is_array($departments) ? $departments : [];
 $searchValue = (string) ($filters['search'] ?? '');
 $statusValue = (string) ($filters['status'] ?? '');
-$departmentValue = (int) ($filters['department_id'] ?? 0);
 $dateFromValue = (string) ($filters['date_from'] ?? '');
 $dateToValue = (string) ($filters['date_to'] ?? '');
+$expenseScopeRole = isset($expenseScopeRole) ? (string) $expenseScopeRole : '';
 $currentPage = isset($currentPage) ? (int) $currentPage : 1;
 $totalPages = isset($totalPages) ? (int) $totalPages : 1;
 $perPage = (int) ($filters['limit'] ?? 10);
@@ -15,7 +15,6 @@ $baseQuery = [
 	'route' => 'expenses',
 	'search' => $searchValue,
 	'status' => $statusValue,
-	'department_id' => $departmentValue,
 	'date_from' => $dateFromValue,
 	'date_to' => $dateToValue,
 ];
@@ -50,16 +49,6 @@ $baseQuery = [
 								</select>
 							</div>
 
-							<div class="filter-field">
-								<select name="department_id" class="form-select">
-									<option value="">All Departments</option>
-									<?php foreach ($departments as $department): ?>
-										<option value="<?php echo (int) ($department['id'] ?? 0); ?>" <?php echo $departmentValue === (int) ($department['id'] ?? 0) ? 'selected' : ''; ?>>
-											<?php echo htmlspecialchars((string) ($department['department_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-										</option>
-									<?php endforeach; ?>
-								</select>
-							</div>
 
 							<div class="filter-field">
 								<input type="date" name="date_from" class="form-control" value="<?php echo htmlspecialchars($dateFromValue, ENT_QUOTES, 'UTF-8'); ?>" placeholder="From">

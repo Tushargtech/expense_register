@@ -77,12 +77,12 @@ class RbacService
 
     public function isDepartmentScopedUserViewer(): bool
     {
-        return in_array($this->role(), ['manager', 'dept_head', 'department_head', 'employee'], true);
+        return $this->canViewUsers() && !$this->canViewAllUsers();
     }
 
     public function canViewAllUsers(): bool
     {
-        return in_array($this->role(), ['admin', 'hr', 'finance'], true);
+        return in_array($this->role(), ['admin', 'hr'], true);
     }
 
     public function canViewBudgetCategories(): bool
@@ -122,7 +122,7 @@ class RbacService
 
     public function canAccessBudgetMonitor(): bool
     {
-        return in_array($this->role(), ['manager', 'dept_head'], true) && $this->departmentName() === 'admin';
+        return in_array($this->role(), ['finance', 'manager', 'dept_head'], true);
     }
 
     public function canViewOrganizationBudgetUtilization(): bool
@@ -141,20 +141,7 @@ class RbacService
 
     public function canAccessRequest(int $ownerUserId, int $requestDepartmentId): bool
     {
-        $role = $this->role();
-        if ($role === 'admin' || $role === 'finance') {
-            return true;
-        }
-
-        if (in_array($role, ['employee', 'hr'], true)) {
-            return $this->userId() > 0 && $this->userId() === $ownerUserId;
-        }
-
-        if (in_array($role, ['manager', 'dept_head'], true)) {
-            return $this->departmentId() > 0 && $this->departmentId() === $requestDepartmentId;
-        }
-
-        return false;
+        return $this->userId() > 0 && $this->userId() === $ownerUserId;
     }
 
     public static function audit(string $action, array $context = []): void
