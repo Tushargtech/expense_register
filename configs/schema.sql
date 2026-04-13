@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Apr 12, 2026 at 06:19 PM
+-- Generation Time: Apr 13, 2026 at 04:19 PM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.2.4
 
@@ -235,12 +235,14 @@ CREATE TABLE `roles` (
 --
 
 INSERT INTO `roles` (`role_id`, `role_name`, `role_slug`, `role_permissions`) VALUES
-(1, 'Finance', 'finance', NULL),
-(2, 'Admin', 'admin', NULL),
-(3, 'HR', 'hr', NULL),
-(4, 'Manager', 'manager', NULL),
-(5, 'Department Head', 'department_head', NULL),
-(12, 'Employee', 'employee', NULL);
+(1, 'Finance', 'finance', '{\"users\": {\"view\": true, \"list\": true, \"view_all\": true, \"manage\": false}, \"departments\": {\"view\": true, \"list\": true, \"manage\": false, \"create\": false, \"edit\": false}, \"budget_categories\": {\"view\": true, \"manage\": true}, \"budget_monitor\": {\"view\": true, \"view_all\": true}, \"workflows\": {\"list\": true, \"view\": true, \"create\": true, \"edit\": false, \"manage\": false}, \"expenses\": {\"view\": true, \"review\": true, \"review_all\": true}}'),
+(2, 'Admin', 'admin', '{\"users\": {\"view\": true, \"list\": true, \"view_all\": true, \"manage\": false}, \"departments\": {\"view\": true, \"list\": true, \"manage\": true, \"create\": true, \"edit\": true}, \"budget_categories\": {\"view\": true, \"manage\": false}, \"budget_monitor\": {\"view\": false, \"view_all\": false}, \"workflows\": {\"list\": true, \"view\": true, \"create\": true, \"edit\": false, \"manage\": false}, \"expenses\": {\"view\": true, \"review\": false, \"review_all\": false}}'),
+(3, 'HR', 'hr', '{\"users\": {\"view\": true, \"list\": true, \"view_all\": true, \"manage\": true}, \"departments\": {\"view\": true, \"list\": true, \"manage\": false, \"create\": false, \"edit\": false}, \"budget_categories\": {\"view\": false, \"manage\": false}, \"budget_monitor\": {\"view\": false, \"view_all\": false}, \"workflows\": {\"list\": true, \"view\": true, \"create\": false, \"edit\": false, \"manage\": false}, \"expenses\": {\"view\": true, \"review\": false, \"review_all\": false}}'),
+(4, 'Manager', 'manager', '{\"users\": {\"view\": true, \"list\": true, \"view_all\": false, \"manage\": false}, \"departments\": {\"view\": true, \"list\": true, \"manage\": false, \"create\": false, \"edit\": false}, \"budget_categories\": {\"view\": true, \"manage\": false}, \"budget_monitor\": {\"view\": true, \"view_all\": false}, \"workflows\": {\"list\": false, \"view\": true, \"create\": false, \"edit\": false, \"manage\": false}, \"expenses\": {\"view\": true, \"review\": true, \"review_all\": false}}'),
+(5, 'Department Head', 'department_head', '{\"users\": {\"view\": true, \"list\": true, \"view_all\": false, \"manage\": false}, \"departments\": {\"view\": true, \"list\": true, \"manage\": false, \"create\": false, \"edit\": false}, \"budget_categories\": {\"view\": true, \"manage\": false}, \"budget_monitor\": {\"view\": true, \"view_all\": false}, \"workflows\": {\"list\": true, \"view\": true, \"create\": false, \"edit\": false, \"manage\": false}, \"expenses\": {\"view\": true, \"review\": true, \"review_all\": false}}'),
+(12, 'Employee', 'employee', '{\"users\": {\"view\": true, \"list\": true, \"view_all\": false, \"manage\": false}, \"departments\": {\"view\": true, \"list\": true, \"manage\": false, \"create\": false, \"edit\": false}, \"budget_categories\": {\"view\": false, \"manage\": false}, \"budget_monitor\": {\"view\": false, \"view_all\": false}, \"workflows\": {\"list\": false, \"view\": true, \"create\": false, \"edit\": false, \"manage\": false}, \"expenses\": {\"view\": true, \"review\": false, \"review_all\": false}}'),
+(27, 'HR Manager', 'hr_manager', '{\"users\": {\"view\": true, \"list\": true, \"view_all\": true, \"manage\": true}, \"departments\": {\"view\": true, \"list\": true, \"manage\": false, \"create\": false, \"edit\": false}, \"budget_categories\": {\"view\": false, \"manage\": false}, \"budget_monitor\": {\"view\": false, \"view_all\": false}, \"workflows\": {\"list\": true, \"view\": true, \"create\": false, \"edit\": false, \"manage\": false}, \"expenses\": {\"view\": true, \"review\": false, \"review_all\": false}}'),
+(28, 'HR Department Head', 'hr_department_head', '{\"users\": {\"view\": true, \"list\": true, \"view_all\": true, \"manage\": true}, \"departments\": {\"view\": true, \"list\": true, \"manage\": false, \"create\": false, \"edit\": false}, \"budget_categories\": {\"view\": false, \"manage\": false}, \"budget_monitor\": {\"view\": false, \"view_all\": false}, \"workflows\": {\"list\": true, \"view\": true, \"create\": false, \"edit\": false, \"manage\": false}, \"expenses\": {\"view\": true, \"review\": false, \"review_all\": false}}');
 
 -- --------------------------------------------------------
 
@@ -279,8 +281,8 @@ INSERT INTO `users` (`user_id`, `user_name`, `user_email`, `user_password_hash`,
 (16, 'Marketing Manager', 'marketing.manager@example.com', '$2y$12$RfR5VzmSm7SV4RdTrni/Fusmg3BzvZigHAjVmoJHs7nx3vy7VAGi.', 'manager', 5, 10, 1, '2026-04-12 06:10:36'),
 (17, 'Marketing Employee', 'marketing.employee@example.com', '$2y$12$RfR5VzmSm7SV4RdTrni/Fusmg3BzvZigHAjVmoJHs7nx3vy7VAGi.', 'employee', 5, 16, 1, '2026-04-12 06:10:36'),
 (18, 'Ops Employee', 'ops.employee@example.com', '$2y$12$RfR5VzmSm7SV4RdTrni/Fusmg3BzvZigHAjVmoJHs7nx3vy7VAGi.', 'employee', 7, 10, 1, '2026-04-12 06:10:36'),
-(19, 'HR Department Head', 'hr.depthead@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'department_head', 4, 10, 1, '2026-04-12 08:36:54'),
-(20, 'HR Manager', 'hr.manager@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'manager', 4, 19, 1, '2026-04-12 08:36:54');
+(19, 'HR Department Head', 'hr.depthead@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'hr_department_head', 4, 10, 1, '2026-04-12 08:36:54'),
+(20, 'HR Manager', 'hr.manager@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'hr_manager', 4, 19, 1, '2026-04-12 08:36:54');
 
 -- --------------------------------------------------------
 
@@ -488,7 +490,7 @@ ALTER TABLE `request_step_assignments`
 -- AUTO_INCREMENT for table `roles`
 --
 ALTER TABLE `roles`
-  MODIFY `role_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `role_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
 
 --
 -- AUTO_INCREMENT for table `users`
