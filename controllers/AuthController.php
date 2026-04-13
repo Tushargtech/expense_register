@@ -92,6 +92,7 @@ class AuthController
             'name' => (string) ($user['name'] ?? 'User'),
             'email' => (string) ($user['email'] ?? $email),
             'role' => $sessionRole,
+            'role_permissions' => $user['role_permissions'] ?? null,
             'department_id' => (int) ($user['department_id'] ?? 0),
             'department_name' => (string) ($user['department_name'] ?? ''),
         ];

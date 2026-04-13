@@ -19,6 +19,7 @@ $baseQuery = [
 
 $workflowTypes = isset($workflowTypes) && is_array($workflowTypes) ? $workflowTypes : [];
 $canCreateWorkflow = isset($canCreateWorkflow) ? (bool) $canCreateWorkflow : false;
+$canEditWorkflow = isset($canEditWorkflow) ? (bool) $canEditWorkflow : false;
 
 function formatWorkflowAmountRange($minAmount, $maxAmount): string
 {
@@ -130,7 +131,7 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 									<td><?php echo htmlspecialchars((string) ($row['approval_flow'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><span class="status-pill <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span></td>
 									<td class="text-end pe-3">
-										<a href="?route=workflows/edit&id=<?php echo (int) ($row['workflow_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn">Edit</a>
+										<a href="?route=workflows/edit&id=<?php echo (int) ($row['workflow_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn"><?php echo $canEditWorkflow ? 'Edit' : 'View'; ?></a>
 									</td>
 								</tr>
 							<?php endforeach; ?>

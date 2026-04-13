@@ -8,6 +8,8 @@ $isEdit = isset($isEdit) ? (bool) $isEdit : false;
 $formTitle = isset($formTitle) ? (string) $formTitle : ($isEdit ? 'Edit Workflow' : 'Create Workflow');
 $formAction = isset($formAction) ? (string) $formAction : '?route=workflows/create';
 $submitLabel = isset($submitLabel) ? (string) $submitLabel : ($isEdit ? 'Update Workflow' : 'Save Workflow');
+$canEditWorkflow = isset($canEditWorkflow) ? (bool) $canEditWorkflow : true;
+$isReadOnlyWorkflow = !$canEditWorkflow;
 
 $workflowName = (string) ($workflow['workflow_name'] ?? '');
 $workflowDescription = (string) ($workflow['workflow_description'] ?? '');
@@ -49,6 +51,9 @@ if (count($workflowSteps) === 0) {
 			<?php endif; ?>
 
 			<form method="POST" action="<?php echo htmlspecialchars($formAction, ENT_QUOTES, 'UTF-8'); ?>" class="user-create-form" id="workflowCreateForm">
+				<?php if ($isReadOnlyWorkflow): ?>
+				<fieldset disabled>
+				<?php endif; ?>
 				<section class="user-create-section">
 					<div class="user-create-head">
 						<div>
@@ -112,7 +117,9 @@ if (count($workflowSteps) === 0) {
 							<h2 class="user-create-section-title">Workflow Steps</h2>
 							<p class="user-create-note">Drag and drop step cards to reorder approval levels.</p>
 						</div>
+						<?php if (!$isReadOnlyWorkflow): ?>
 						<button type="button" class="user-create-btn user-create-btn-secondary" id="addStepBtn">Add Approval Level</button>
+						<?php endif; ?>
 					</div>
 
 					<div id="stepsContainer">
@@ -203,6 +210,9 @@ if (count($workflowSteps) === 0) {
 						<?php endforeach; ?>
 					</div>
 				</section>
+				<?php if ($isReadOnlyWorkflow): ?>
+				</fieldset>
+				<?php endif; ?>
 
 				<div class="user-create-action-bar">
 					<div class="user-create-action-copy">
@@ -211,7 +221,9 @@ if (count($workflowSteps) === 0) {
 					</div>
 					<div class="user-create-actions">
 						<a href="?route=workflows" class="user-create-btn user-create-btn-secondary">Back to Workflow List</a>
+						<?php if (!$isReadOnlyWorkflow): ?>
 						<button type="submit" class="user-create-btn user-create-btn-primary"><?php echo htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8'); ?></button>
+						<?php endif; ?>
 					</div>
 				</div>
 			</form>

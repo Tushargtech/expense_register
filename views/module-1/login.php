@@ -33,13 +33,13 @@ $credentialHints = isset($credentialHints) && is_array($credentialHints) ? $cred
 
 				<form id="loginForm" method="post" action="?route=auth" novalidate>
 					<div class="mb-3">
-						<label for="email" class="form-label">Email</label>
+						<label for="email" class="form-label">Username</label>
 						<input
 							type="email"
 							class="form-control"
 							id="email"
 							name="email"
-							placeholder="name@example.com"
+							placeholder="Enter username"
 							value="<?php echo htmlspecialchars($oldEmail, ENT_QUOTES, 'UTF-8'); ?>"
 							required
 						>

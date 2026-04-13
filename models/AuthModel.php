@@ -12,6 +12,7 @@ class AuthModel
                 user_email AS email,
                 user_password_hash AS password,
                 user_role AS role,
+                r.role_permissions,
                 department_id,
                 d.department_name AS department_name
              FROM users

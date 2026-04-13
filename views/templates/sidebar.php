@@ -7,7 +7,7 @@ $canAccessExpenses = $rbac->canAccessFinancialRequests();
 $canViewBudgetCategories = $rbac->canViewBudgetCategories();
 $canManageFinancialSetup = $rbac->canManageFinancialSetup();
 $canAccessBudgetMonitor = $rbac->canAccessBudgetMonitor();
-$canViewWorkflows = $rbac->canViewWorkflow();
+$canViewWorkflows = $rbac->canViewWorkflowList();
 
 $sidebarGroups = [
 	[

@@ -1,0 +1,825 @@
+Functional Specification Document (FSD)
+
+Document Control
+Project Name: Expense Register
+Module Name: End-to-End Expense and Budget Workflow Management
+Prepared By: Development Team
+Reviewed By: To Be Assigned
+Date: 13-Apr-2026
+
+Revision History
+Version | Date | Author | Changes
+1.0 | 13-Apr-2026 | Development Team | Initial template-based FSD
+
+
+Overview
+Purpose
+Describe the purpose of this document.
+This document defines the functional behavior, user interface requirements, access controls, API expectations, and operational rules for the Expense Register application. It serves as a reference for development, QA, and business stakeholders.
+
+Scope
+Define what is included and excluded.
+Included:
+- Authentication and session-based login/logout
+- Role-based access control across all modules
+- User and department management
+- Budget category management
+- Budget upload (CSV/XLS/XLSX/Image OCR)
+- Budget monitoring with scope restrictions
+- Expense request lifecycle (create, review, approve/reject/reassign)
+- Workflow setup for multi-step approvals
+- Attachment upload/view/download
+
+Excluded:
+- External ERP/accounting integration
+- Single Sign-On (SSO)
+- Native mobile app
+- Advanced analytics dashboards beyond current module views
+
+Definitions
+Term | Description
+Expanse Request | Reimbursement request by an employee for an expense incurred
+Expense Request | Request raised by a user for expense or purchase approval in the application
+Workflow | Multi-step approval process for requests
+RBAC | Role-Based Access Control enforced by role and department rules
+
+
+References
+BRD
+- Business requirements for Expense Register process automation and control
+
+Technical Docs
+- README.md (setup, routes, module summary)
+- configs/schema.sql (database structures)
+- configs/env.php (environment defaults)
+- controllers/, models/, libraries/ implementation references
+
+Business Requirements
+Problem Statement
+Expense handling, budget visibility, and approval processes are hard to track when managed manually or in fragmented tools. This causes delays, weak auditability, and policy inconsistency.
+
+Business Objectives
+- Standardize request submission and approvals
+- Enforce role and department-based control
+- Improve budget governance and transparency
+- Provide auditable action trails for approvals
+
+Stakeholders
+Role | Name | Responsibility
+Product Owner | To Be Confirmed | Defines business priorities and acceptance criteria
+Business Owner | To Be Confirmed | Approves process and policy fit
+Technical Lead | To Be Confirmed | Owns architecture and implementation quality
+QA Lead | To Be Confirmed | Owns validation, test coverage, and sign-off quality
+Finance Team | Finance Users | Manage categories, budgets, and financial controls
+HR Team | HR Users | Manage users/departments and organizational setup
+Department Heads | Dept Head Users | Department-level approvals and monitoring
+Employees | End Users | Raise requests and track status
+
+
+User Interface / Screen Details
+For each screen:
+
+Screen Name: Login
+Description: Authenticates user and starts session.
+Navigation Path: ?route=auth
+User Roles Allowed: Public (all users before login)
+Device/Platform: Web
+Responsive Behaviour: Single-column form on mobile; centered card on desktop
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+username | Username | text | input | Yes | No | blank | Enter username | Required | 100 | string | User login id | Must exist in users
+password | Password | password | input | Yes | No | blank | Enter password | Required | 100 | masked | Account password | Compared securely
+
+Layout & Sections
+Header: App logo/title
+Footer: Copyright/footer links
+Sections/Panels: Login card
+Tabs/Accordions: NA
+Grid/List Details: NA
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Login | Authenticate and redirect | Click Login | Valid credentials | Session created, redirect dashboard | AuthController + AuthModel | Login successful | Invalid credentials shown
+
+Client-side Logic
+Field dependencies:
+- Username and password both required
+Dynamic enable/disable rules:
+- Login button active only when both fields have values
+Conditional visibility:
+- Error banner shown only on failure
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: User List
+Description: Displays users with role and department context.
+Navigation Path: ?route=users
+User Roles Allowed: admin, hr, manager, dept_head (as per RBAC scope)
+Device/Platform: Web
+Responsive Behaviour: Table wraps/scrolls horizontally on smaller screens
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+search | Search Users | text | input | No | No | blank | Name/role/department | Optional filter | 100 | string | Quick filter | Server-side filter
+role_filter | Role | enum | dropdown | No | No | all | Select role | Optional | 50 | enum | Role filter | RBAC-safe options
+department_filter | Department | int | dropdown | No | No | all | Select department | Optional | 11 | integer | Dept filter | Scoped by user role
+user_grid | User List | data | table | NA | Yes | loaded | NA | Read-only grid | NA | tabular | User records | Includes action column
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Filter panel, user grid, pagination
+Tabs/Accordions: NA
+Grid/List Details: Name, username, email, role, department, status, actions
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Search | Filter list | Click Search/Enter | User has list access | Filtered users displayed | UserController + UserModel | NA | Empty state shown
+Create User | Open create screen | Click Create | Permission available | Navigate to user create | Router | NA | Forbidden redirect
+Edit User | Open edit form | Click Edit icon | Permission and valid id | User edit screen opened | Router + UserController | NA | Record not found message
+
+Client-side Logic
+Field dependencies:
+- Department options depend on role scope
+Dynamic enable/disable rules:
+- Create/Edit action hidden if user lacks permission
+Conditional visibility:
+- Status badges shown when active/inactive state available
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: User Creation
+Description: Creates a new application user.
+Navigation Path: ?route=users/create
+User Roles Allowed: hr (and admin if enabled by policy)
+Device/Platform: Web
+Responsive Behaviour: Two-column form on desktop, single-column on mobile
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+full_name | Full Name | text | input | Yes | No | blank | Enter full name | Required | 120 | string | Employee name | Display name
+username | Username | text | input | Yes | No | blank | Enter username | Required, unique | 100 | string | Login username | Unique key
+email | Email | text | input | Yes | No | blank | Enter email | Email format | 150 | email | Official email | Optional uniqueness rule
+password | Password | password | input | Yes | No | blank | Enter password | Min length policy | 100 | masked | Initial password | Secure storage
+user_role | Role | enum | dropdown | Yes | No | employee | Select role | Must be valid role slug | 50 | enum | Role assignment | Drives access
+department_id | Department | int | dropdown | Yes | No | blank | Select department | Must exist | 11 | integer | User department | Scope anchor
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: User profile, role assignment
+Tabs/Accordions: NA
+Grid/List Details: NA
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Save User | Create user | Click Save | Mandatory fields valid | User inserted and redirected | UserController + UserModel | User created successfully | Validation/duplicate errors
+Cancel | Abort create | Click Cancel | NA | Back to user list | Router | NA | Safe fallback
+
+Client-side Logic
+Field dependencies:
+- Role and department both required
+Dynamic enable/disable rules:
+- Save disabled until mandatory fields pass validation
+Conditional visibility:
+- Password helper text shown during entry
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Department List
+Description: Lists departments with codes and assigned head.
+Navigation Path: ?route=departments
+User Roles Allowed: admin, hr
+Device/Platform: Web
+Responsive Behaviour: Responsive table with horizontal scroll on mobile
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+search | Search Department | text | input | No | No | blank | Name/code | Optional | 100 | string | Find department | Partial match
+department_grid | Department List | data | table | NA | Yes | loaded | NA | Read-only data | NA | tabular | Departments | Includes edit action
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Filters, list grid
+Tabs/Accordions: NA
+Grid/List Details: Department Name, Code, Head, Created At, Actions
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Search | Filter departments | Click Search | Access granted | Filtered results shown | DepartmentController + DepartmentModel | NA | No records message
+Create Department | Open create screen | Click Create | Create permission | Navigate to create form | Router | NA | Forbidden redirect
+Edit Department | Open edit screen | Click Edit | Valid record id | Edit form shown | Router + DepartmentController | NA | Record not found message
+
+Client-side Logic
+Field dependencies:
+- Search text optional
+Dynamic enable/disable rules:
+- Create/Edit hidden by permission
+Conditional visibility:
+- Empty list banner if no records
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Department Creation
+Description: Creates or updates department master details.
+Navigation Path: ?route=departments/create and ?route=departments/edit&id={id}
+User Roles Allowed: admin, hr
+Device/Platform: Web
+Responsive Behaviour: Stacked fields on mobile
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+department_name | Department Name | text | input | Yes | No | blank | Enter department name | Required | 100 | string | Name of department | Unique preferred
+department_code | Department Code | text | input | Yes | No | blank | DEPT-XX | Required | 50 | string | Department code | Business identifier
+department_head_user_id | Department Head | int | dropdown | No | No | blank | Select department head | Must be valid user | 11 | integer | Current owner | Optional field
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Department basics, head assignment
+Tabs/Accordions: NA
+Grid/List Details: NA
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Save Department | Create/update department | Click Save | Required fields valid | Department persisted | DepartmentController + DepartmentModel | Department saved successfully | Validation/duplicate error
+Cancel | Exit form | Click Cancel | NA | Return to department list | Router | NA | Safe fallback
+
+Client-side Logic
+Field dependencies:
+- Department head list sourced from user master
+Dynamic enable/disable rules:
+- Save button disabled until required fields valid
+Conditional visibility:
+- Existing values prefilled in edit mode
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Workflow List
+Description: Shows workflows with search/filter and status context.
+Navigation Path: ?route=workflows
+User Roles Allowed: admin, finance
+Device/Platform: Web
+Responsive Behaviour: Grid/table responsive with pagination
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+search | Search Workflow | text | input | No | No | blank | Name/type | Optional | 120 | string | Filter workflows | Supports partial text
+workflow_grid | Workflow List | data | table | NA | Yes | loaded | NA | Read-only grid | NA | tabular | Workflow records | Contains view/edit actions
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Search/filter panel, workflow grid
+Tabs/Accordions: NA
+Grid/List Details: Workflow Name, Type, Amount Range, Steps, Status, Actions
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Search | Filter workflows | Click Search | Access granted | Filtered list shown | WorkflowController + WorkflowModel | NA | No records message
+Create Workflow | Open create form | Click Create | Create permission | Navigate to create | Router | NA | Forbidden redirect
+Edit Workflow | Open edit form | Click Edit | Valid id and permission | Edit screen opened | Router + WorkflowController | NA | Not found/forbidden
+View Workflow | Open read-only details | Click View | Valid workflow id | View displayed | WorkflowController + WorkflowModel | NA | Not found message
+
+Client-side Logic
+Field dependencies:
+- Filter fields optional and combinable
+Dynamic enable/disable rules:
+- Edit hidden when permission absent
+Conditional visibility:
+- Status badge color changes by active/inactive
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Workflow Creation/Editing
+Description: Create or update workflow definition with multi-step approval rules.
+Navigation Path: ?route=workflows/create and ?route=workflows/edit&id={id}
+User Roles Allowed: admin, finance
+Device/Platform: Web
+Responsive Behaviour: Multi-section form collapses to single column on mobile
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+workflow_name | Workflow Name | text | input | Yes | No | blank | Enter workflow name | Required | 150 | string | Workflow title | Unique preferred
+workflow_type | Request Type | enum | dropdown | Yes | No | expense | Select type | Valid enum | 20 | enum | Applies to request type | expense/purchase/other
+min_amount | Min Amount | decimal | input | No | No | 0.00 | Enter min amount | Numeric | 15,2 | decimal | Lower bound | Optional
+max_amount | Max Amount | decimal | input | No | No | blank | Enter max amount | Numeric and >= min | 15,2 | decimal | Upper bound | Optional
+step_definitions | Approval Steps | object | repeatable rows | Yes | No | blank | Add approver step | At least one step required | NA | structured | Step setup | role/user/dept_head mode
+is_active | Active | bool | toggle | No | No | true | NA | Boolean | 1 | boolean | Enable workflow | Defaults active
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Workflow details, approval step builder, status settings
+Tabs/Accordions: Optional accordion for each step
+Grid/List Details: Step No, Approver Mode, Target, Conditions, Timeout, Required
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Add Step | Add new approval step | Click Add Step | Workflow form open | New step row added | Client-side + WorkflowController validation | Step added | Invalid step warning
+Save Workflow | Create/update workflow | Click Save | Required fields and valid steps | Workflow persisted | WorkflowController + WorkflowModel | Workflow saved successfully | Validation error list
+Cancel | Exit without save | Click Cancel | NA | Return to workflow list | Router | NA | Safe fallback
+
+Client-side Logic
+Field dependencies:
+- Max amount must be greater than or equal to min amount
+- Step target required based on approver mode
+Dynamic enable/disable rules:
+- Save disabled if no valid step definitions
+Conditional visibility:
+- User picker shown only when approver mode is user
+- Role picker shown only when approver mode is role
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Workflow View
+Description: Read-only view of a workflow and all approval steps.
+Navigation Path: ?route=workflows/edit&id={id} (view mode) or dedicated ?route=workflows/view&id={id}
+User Roles Allowed: admin, finance, manager (read-only where allowed)
+Device/Platform: Web
+Responsive Behaviour: Step table scrollable on mobile
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+workflow_summary | Workflow Summary | text | read-only labels | NA | Yes | loaded | NA | NA | NA | string | Basic metadata | Name/type/range/status
+step_grid | Approval Steps | data | table | NA | Yes | loaded | NA | NA | NA | tabular | Step details | Ordered sequence
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Workflow summary, step details, history/meta
+Tabs/Accordions: Optional tabs for summary and steps
+Grid/List Details: Step number, approver mode, target, limits, timeout, required
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Back to List | Return to workflow list | Click Back | NA | List page opened | Router | NA | Safe fallback
+Edit Workflow | Open editable mode | Click Edit | Edit permission | Edit screen opened | Router + WorkflowController | NA | Forbidden message
+
+Client-side Logic
+Field dependencies:
+- NA (read-only)
+Dynamic enable/disable rules:
+- Edit button visible only for editable roles
+Conditional visibility:
+- Optional metadata shown if available
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Budget Category List
+Description: Shows budget categories with type and status.
+Navigation Path: ?route=budget-categories
+User Roles Allowed: finance, admin (view per policy)
+Device/Platform: Web
+Responsive Behaviour: List/table responsive with filter panel collapse
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+search | Search Category | text | input | No | No | blank | Name/code/type | Optional | 100 | string | Find categories | Partial match
+type_filter | Category Type | enum | dropdown | No | No | all | Select type | Optional | 50 | enum | Type filter | expense/purchase
+category_grid | Category List | data | table | NA | Yes | loaded | NA | NA | NA | tabular | Category records | Action column present
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Filters, list grid
+Tabs/Accordions: NA
+Grid/List Details: Category Name, Code, Type, Active, Created By, Actions
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Search | Filter category list | Click Search | Access granted | Filtered list shown | BudgetCategoryController + BudgetCategoryModel | NA | No record state
+Create Category | Open creation form | Click Create | Create permission | Open form | Router | NA | Forbidden redirect
+Edit Category | Open edit form | Click Edit | Valid id and permission | Edit form displayed | Router + BudgetCategoryController | NA | Not found/forbidden
+
+Client-side Logic
+Field dependencies:
+- Type filter influences results
+Dynamic enable/disable rules:
+- Create/Edit shown only for privileged roles
+Conditional visibility:
+- Active/inactive status badge displayed
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Budget Category Creation
+Description: Creates or updates budget category master record.
+Navigation Path: ?route=budget-categories/create and ?route=budget-categories/edit&id={id}
+User Roles Allowed: finance
+Device/Platform: Web
+Responsive Behaviour: Responsive form layout
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+budget_category_name | Category Name | text | input | Yes | No | blank | Enter category name | Required | 100 | string | Business category name | Unique preferred
+budget_category_code | Category Code | text | input | Yes | No | blank | CAT-XX | Required | 50 | string | Category identifier | Used in reports
+budget_category_type | Category Type | enum | dropdown | Yes | No | expense | Select type | expense/purchase | 50 | enum | Expense or purchase | Mandatory
+budget_category_description | Description | text | textarea | No | No | blank | Enter description | Optional | 1000 | string | Category notes | Optional
+budget_category_is_active | Active | bool | toggle | No | No | true | NA | Boolean | 1 | boolean | Enable/disable category | Default active
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Basic details and status
+Tabs/Accordions: NA
+Grid/List Details: NA
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Save Category | Create/update category | Click Save | Required fields valid | Category persisted | BudgetCategoryController + BudgetCategoryModel | Category saved successfully | Validation error
+Cancel | Exit form | Click Cancel | NA | Return to category list | Router | NA | Safe fallback
+
+Client-side Logic
+Field dependencies:
+- Category type required before save
+Dynamic enable/disable rules:
+- Save disabled until required fields are complete
+Conditional visibility:
+- Existing values loaded in edit mode
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Budget Uploader
+Description: Uploads budget data files and processes rows.
+Navigation Path: ?route=budget-uploader
+User Roles Allowed: finance
+Device/Platform: Web
+Responsive Behaviour: Dropzone/input and preview table adapt to mobile width
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+budget_file | Upload File | file | file input | Yes | No | blank | Choose CSV/XLSX/XLS/Image | File type and size check | NA | binary | Budget file | Supports OCR images
+preview_grid | Upload Preview | data | table | NA | Yes | empty/loaded | NA | Parsed rows only | NA | tabular | Row validation output | Shown after parse
+commit_flag | Confirm Import | bool | checkbox/button | Yes | No | false | NA | Must confirm import | 1 | boolean | Finalize import | Prevent accidental commit
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Upload panel, validation summary, preview grid
+Tabs/Accordions: NA
+Grid/List Details: Department, Fiscal Year, Period, Category, Amount, Currency, Notes, Row Errors
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Parse File | Parse and validate uploaded file | Click Upload/Parse | Valid file selected | Preview and validation results shown | BudgetController + BudgetFileParser | File parsed successfully | Invalid file/row errors
+Commit Import | Save validated rows | Click Import | All rows valid and confirmed | Rows inserted in one transaction | BudgetController + BudgetModel | Budget import successful | Rollback and errors displayed
+
+Client-side Logic
+Field dependencies:
+- Commit enabled only after successful parse
+Dynamic enable/disable rules:
+- Import button disabled when validation errors exist
+Conditional visibility:
+- Preview section visible only after parsing
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Budget Monitor/View
+Description: Displays budget allocations and monitoring metrics by scope.
+Navigation Path: ?route=budget-monitor
+User Roles Allowed: manager, dept_head, finance, admin (as policy allows)
+Device/Platform: Web
+Responsive Behaviour: KPI cards and grids wrap based on screen size
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+department_filter | Department | int | dropdown | No | No | scoped default | Select department | Restricted by role scope | 11 | integer | Filter department | Scoped data access
+period_filter | Fiscal Period | text | dropdown | No | No | current | Select period | Optional | 20 | string | Quarter/year filter | Optional
+monitor_grid | Budget Monitor | data | table | NA | Yes | loaded | NA | Read-only values | NA | tabular | Budget overview | Allocation vs utilization
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Filters, KPI summary, monitor grid
+Tabs/Accordions: Optional summary/detail tabs
+Grid/List Details: Department, Category, Fiscal Year, Period, Allocated Amount, Consumed Amount, Balance
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Apply Filters | Refresh monitor data | Click Apply | Access granted | Filtered monitor view | BudgetMonitorController + BudgetMonitorModel | NA | No data state
+Reset Filters | Restore defaults | Click Reset | NA | Default view restored | Client-side + controller | NA | Safe fallback
+
+Client-side Logic
+Field dependencies:
+- Department options restricted by user role/department
+Dynamic enable/disable rules:
+- Restricted filter values disabled/hidden
+Conditional visibility:
+- Unauthorized users redirected to forbidden
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Expanse List
+Description: Displays expense/purchase requests with status and workflow stage.
+Navigation Path: ?route=expenses
+User Roles Allowed: employee, manager, dept_head, hr, finance, admin (scoped by RBAC)
+Device/Platform: Web
+Responsive Behaviour: Table supports stacking or horizontal scroll on mobile
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+search | Search Requests | text | input | No | No | blank | Ref/title/user | Optional | 120 | string | Request search | Supports partial text
+status_filter | Status | enum | dropdown | No | No | all | Select status | Optional | 20 | enum | pending/approved/rejected | Quick status filter
+type_filter | Type | enum | dropdown | No | No | all | Select type | Optional | 20 | enum | expense/purchase/other | Request type filter
+request_grid | Request List | data | table | NA | Yes | loaded | NA | Read-only grid | NA | tabular | Request records | Scoped by role
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Filter panel, request grid, pagination
+Tabs/Accordions: Optional tabs by status
+Grid/List Details: Reference No, Type, Title, Amount, Department, Submitted By, Current Step, Status, Actions
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Search | Filter request list | Click Search | Access granted | Filtered records shown | ExpenseController + ExpenseModel | NA | Empty result message
+Create Request | Open request form | Click Create | Create permission | Navigates to request screen | Router | NA | Forbidden redirect
+Review Request | Open review details | Click Review | Valid id and access | Review screen opened | ExpenseController + ExpenseModel | NA | Not found/forbidden
+
+Client-side Logic
+Field dependencies:
+- Combined filters narrow results
+Dynamic enable/disable rules:
+- Review action shown only for actionable records
+Conditional visibility:
+- Create button hidden for roles without create permission
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+------------------------------------------------------------
+
+Screen Name: Expanse Request
+Description: Creates and reviews an individual expense request with workflow actions.
+Navigation Path: ?route=expenses/create and ?route=expenses/review&id={id}
+User Roles Allowed: employee (create), manager/dept_head/finance/admin/hr (review as per RBAC)
+Device/Platform: Web
+Responsive Behaviour: Form and review panels stack on smaller screens
+
+UI Elements
+Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format | Tooltip | Remarks
+request_reference_no | Reference No | text | read-only label | NA | Yes | auto-generated | NA | System generated | 30 | string | Unique reference | Visible after create
+request_type | Request Type | enum | dropdown/label | Yes | Conditional | expense | Select type | Valid enum | 20 | enum | Type | Read-only in review mode
+request_amount | Amount | decimal | input/label | Yes | Conditional | blank | 0.00 | Positive value | 15,2 | decimal | Requested amount | Workflow rule input
+attachments | Attachments | file/data | upload + list | No | Conditional | blank | Upload document | Type/size checks | NA | binary/list | Supporting files | View/download supported
+review_action | Approver Action | enum | buttons/dropdown | Yes (review) | No | pending | Select action | approve/reject/reassign | 20 | enum | Workflow action | Available in review mode
+action_comment | Comment | text | textarea | Conditional | No | blank | Enter decision remarks | Required for reject/reassign (policy) | 1000 | string | Approval note | Saved in action history
+
+Layout & Sections
+Header: Standard app header
+Footer: Standard app footer
+Sections/Panels: Request details, budget/workflow context, attachment panel, action panel
+Tabs/Accordions: Optional tabs for details/history/attachments
+Grid/List Details: Action history grid for previous steps
+
+Actions
+Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling
+Submit Request | Save new request | Click Submit | Required fields valid | Request created with pending status | ExpenseController + ExpenseModel | Request submitted successfully | Validation error message
+Approve/Reject/Reassign | Process workflow decision | Click action button | User is current approver and authorized | Request step/status updated and action logged | ExpenseController + WorkflowModel | Action recorded successfully | Unauthorized/invalid state error
+View Attachment | Open attachment stream | Click attachment name | Authorized access | Attachment displayed/downloaded | ExpenseController attachment endpoints | NA | Attachment not found/forbidden
+
+Client-side Logic
+Field dependencies:
+- Review action controls comment requirement and reassignee fields
+Dynamic enable/disable rules:
+- Action buttons disabled when request is already final
+Conditional visibility:
+- Action panel visible only for authorized approvers in review mode
+
+Wireframes / Mockups
+(Attach links/images)
+- To be attached by UI/BA team
+
+
+Access Control & Security
+Roles & Permissions
+Role | Access Level | Screens | Actions
+admin | High (policy-bound) | Dashboard, Departments, Workflows, Expenses, selected modules | View/create/edit where permitted
+finance | Financial control | Budget Categories, Budget Upload, Workflows, Expenses | Manage categories, upload budgets, process workflows
+hr | Organization admin | Users, Departments, Expenses | Manage users/departments, role-based visibility
+manager | Department scope | Expenses, Budget Monitor (policy-based) | Review and monitor scoped data
+dept_head | Department scope | Expenses, Budget Monitor (policy-based) | Department-level approvals and monitoring
+employee | Limited/self scope | Expenses, Dashboard | Create and track requests
+
+Data Security: Any conditions specifying data access logic and control
+- Session-based authentication required for protected routes.
+- RBAC checks enforced before controller action execution.
+- Department-scoped data filtering applies for non-global roles.
+- Attachment access controlled by request and authorization context.
+- Sensitive database credentials are environment-configured.
+
+
+API Specifications
+For each API:
+
+API Name: Login API
+Endpoint: ?route=auth (controller action)
+Method: POST
+Description: Validate credentials and create authenticated session.
+
+Request
+Field | Type | Required | Description
+username | string | Yes | Login username
+password | string | Yes | Login password
+
+Response
+Field | Type | Description
+success | boolean | Authentication result
+message | string | Status/error message
+redirect | string | Next route on success
+
+Error Codes
+Code | Message
+AUTH_401 | Invalid username or password
+AUTH_500 | Unexpected authentication error
+
+------------------------------------------------------------
+
+API Name: Create Expense Request
+Endpoint: ?route=expenses/create
+Method: POST
+Description: Creates a new expense/purchase request and optional attachments.
+
+Request
+Field | Type | Required | Description
+request_type | enum | Yes | expense/purchase/other
+request_title | string | Yes | Request title
+request_amount | decimal | Yes | Request amount
+request_currency | string | Yes | Currency code
+department_id | int | Yes | Department id
+budget_category_id | int | Yes | Budget category id
+workflow_id | int | Yes | Workflow id
+request_priority | enum | Yes | low/medium/high
+request_description | string | No | Description/details
+request_notes | string | No | Additional note
+attachments[] | file | No | Supporting documents
+
+Response
+Field | Type | Description
+success | boolean | Creation result
+message | string | Status text
+request_id | int | Newly created request id
+reference_no | string | Generated reference number
+
+Error Codes
+Code | Message
+REQ_400 | Validation failed
+REQ_403 | Unauthorized action
+REQ_500 | Failed to save request
+
+
+Database Design (High-Level)
+- users: user identity, role slug, department mapping
+- roles: role definitions and role slugs
+- departments: master department details and department head
+- budget_categories: category metadata for expense/purchase types
+- department_budgets: budget allocation by department/period/category
+- requests: request master with workflow and status
+- request_actions: step-level approval/reassign trail
+- request_attachments: attachment metadata and file payload
+- workflows/workflow_steps: approval definitions and sequencing
+
+Configurations
+Config Key | Description | Default Value | Environment
+DB_HOST | Database host | 127.0.0.1 | Local/Dev
+DB_PORT | Database port | 3307 | Local/Dev
+DB_NAME | Database name | expense_register | Local/Dev
+DB_USER | Database user | root | Local/Dev
+DB_PASS | Database password | empty | Local/Dev
+APP_NAME | Application name | Expense Register | All
+BASE_PATH | Base route path | /expense_portal | Web server setup dependent
+CHARSET | DB charset | utf8mb4 | All
+
+
+Background Jobs / Schedulers
+Job Name | Frequency | Trigger | Description
+Budget Import Parse | On-demand | User upload action | Parses uploaded budget files and validates rows
+OCR Parse | On-demand | Image upload action | Extracts budget rows from image using OCR
+Request Status Update | Event-driven | Approval/reject/reassign action | Updates current step and request status
+
+
+Email / Notification Templates
+Template Name: Request Submitted
+Trigger Event: New request creation
+Recipients: Requester (and optional reviewers)
+Subject: Expense Request Submitted - {reference_no}
+Body: Your request {reference_no} has been submitted and is pending review.
+
+Variables/Placeholders
+Variable | Description
+{reference_no} | Request unique reference number
+{request_title} | Request title
+{request_amount} | Request amount
+{request_status} | Current status
+
+------------------------------------------------------------
+
+Template Name: Request Actioned
+Trigger Event: Approve/Reject/Reassign action
+Recipients: Requester and relevant approvers
+Subject: Expense Request {reference_no} - {action}
+Body: Request {reference_no} has been {action}. Please review current status.
+
+Variables/Placeholders
+Variable | Description
+{reference_no} | Request unique reference number
+{action} | approve/reject/reassign
+{actor_name} | Action performer
+{comment} | Action comment if provided
+
+
+Error Handling & Logging
+Error Scenarios
+Scenario | Handling | User Message
+Invalid login | Reject auth and stay on login | Invalid username or password
+Unauthorized route access | Redirect to forbidden page | You are not authorized for this action
+Invalid request form data | Reject save and return with validation messages | Please correct highlighted fields
+Invalid attachment type/size | Reject file and preserve form state | File type or size is not allowed
+Database connection issue | Abort operation and show safe error feedback | Service temporarily unavailable
+Budget upload row validation failure | Roll back transaction and show row errors | Upload failed due to invalid row data
+Workflow configuration mismatch | Block transition and show context error | Workflow step configuration is invalid
+
+Logging Strategy: Anything logged for developers' reference and help
+- Application should log server-side exceptions with timestamps and context identifiers.
+- Security-sensitive data (passwords, tokens, raw credential values) must never be logged.
+- Validation and operational failures should include module/action references for troubleshooting.
+
+
+Assumptions & Constraints
+- Application runs in XAMPP-compatible PHP + MySQL environment.
+- MySQL service must be reachable on configured host/port.
+- Role and master data must be available for full module behavior.
+- OCR quality depends on image quality and Tesseract installation.
+
+Dependencies
+- PHP 8.2+
+- Apache web server
+- MySQL/MariaDB
+- Composer dependencies (PhpSpreadsheet stack)
+- Tesseract OCR for image parsing
+
+
+Appendix
+Sample Data
+- Request Type: expense
+- Currency: INR
+- Priority: medium
+- Department: FINANCE
+- Budget Category: PARKING
+- Workflow: Standard Expense Approval
+
+Additional Notes
+- Route names and permissions should stay aligned with RBAC service updates.
+- Any new role introduction must include policy mapping and test scenarios.
+- This FSD is a functional baseline and should be versioned when business policies change.

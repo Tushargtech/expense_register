@@ -10,8 +10,17 @@ class WorkflowController
 	private function ensureWorkflowAccess(): void
 	{
 		$this->ensureAuthenticated();
-		if (!$this->rbac()->canViewWorkflow()) {
+		if (!$this->rbac()->canViewWorkflowList()) {
 			header('Location: ?route=forbidden&code=rbac_workflow');
+			exit;
+		}
+	}
+
+	private function ensureWorkflowViewAccess(): void
+	{
+		$this->ensureAuthenticated();
+		if (!$this->rbac()->canViewWorkflow()) {
+			header('Location: ?route=forbidden&code=rbac_workflow_view');
 			exit;
 		}
 	}
@@ -224,6 +233,7 @@ class WorkflowController
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'workflow-list';
 		$canCreateWorkflow = $this->rbac()->canCreateWorkflow();
+		$canEditWorkflow = $this->rbac()->canEditWorkflow();
 
 		require ROOT_PATH . '/views/templates/header.php';
 		require ROOT_PATH . '/views/templates/navbar.php';
@@ -292,7 +302,7 @@ class WorkflowController
 
 	public function edit(): void
 	{
-		$this->ensureWorkflowEditAccess();
+		$this->ensureWorkflowViewAccess();
 
 		$workflowId = (int) ($_GET['id'] ?? 0);
 		if ($workflowId <= 0) {
@@ -338,9 +348,10 @@ class WorkflowController
 		$activeMenu = 'workflow-list';
 		$formError = trim((string) ($_GET['error'] ?? ''));
 		$isEdit = true;
-		$formTitle = 'Edit Workflow';
+		$canEditWorkflow = $this->rbac()->canEditWorkflow();
+		$formTitle = $canEditWorkflow ? 'Edit Workflow' : 'View Workflow';
 		$formAction = '?route=workflows/edit&id=' . $workflowId;
-		$submitLabel = 'Update Workflow';
+		$submitLabel = $canEditWorkflow ? 'Update Workflow' : 'Back to Workflow List';
 
 		$this->renderForm(compact(
 			'roles',
@@ -355,6 +366,7 @@ class WorkflowController
 			'formTitle',
 			'formAction',
 			'submitLabel',
+			'canEditWorkflow',
 			'workflow',
 			'workflowSteps'
 		));
