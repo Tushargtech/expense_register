@@ -233,6 +233,14 @@ SET role_permissions = JSON_OBJECT(
 )
 WHERE role_slug = 'employee';
 
+-- Enforce workflow view for all roles (existing + future role rows)
+UPDATE roles
+SET role_permissions = JSON_SET(
+  COALESCE(role_permissions, JSON_OBJECT()),
+  '$.workflows.view',
+  true
+);
+
 -- Verify
 SELECT role_id, role_name, role_slug, role_permissions
 FROM roles

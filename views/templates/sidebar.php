@@ -8,6 +8,7 @@ $canViewBudgetCategories = $rbac->canViewBudgetCategories();
 $canManageFinancialSetup = $rbac->canManageFinancialSetup();
 $canAccessBudgetMonitor = $rbac->canAccessBudgetMonitor();
 $canViewWorkflows = $rbac->canViewWorkflowList();
+$canViewWorkflowSection = $rbac->isAuthenticated();
 
 $sidebarGroups = [
 	[
@@ -70,6 +71,12 @@ $sidebarGroups = [
 	[
 		'label' => 'Workflow Management',
 		'items' => [
+			$canViewWorkflowSection ? [
+				'label' => 'Workflow View',
+				'href' => '?route=workflows/view',
+				'key' => 'workflow-view',
+				'icon' => 'bi-eye',
+			] : null,
 			$canViewWorkflows ? [
 				'label' => 'Workflows',
 				'href' => '?route=workflows',
