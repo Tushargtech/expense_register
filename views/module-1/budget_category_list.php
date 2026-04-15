@@ -100,7 +100,9 @@ $baseQuery = [
 									<td class="text-end">
 										<div class="d-inline-flex gap-2 flex-wrap justify-content-end">
 											<?php if ($canManageBudgetCategories): ?>
-												<a href="?route=budget-categories/edit&id=<?php echo (int) ($category['budget_category_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn">Edit</a>
+												<a href="?route=budget-categories/edit&id=<?php echo (int) ($category['budget_category_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn" title="Edit Budget Category" aria-label="Edit Budget Category">
+													<i class="bi bi-pencil-square"></i>
+												</a>
 											<?php else: ?>
 												<span class="text-muted small">View Only</span>
 											<?php endif; ?>

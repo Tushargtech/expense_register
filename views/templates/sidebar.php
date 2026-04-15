@@ -71,12 +71,6 @@ $sidebarGroups = [
 	[
 		'label' => 'Workflow Management',
 		'items' => [
-			$canViewWorkflowSection ? [
-				'label' => 'Workflow View',
-				'href' => '?route=workflows/view',
-				'key' => 'workflow-view',
-				'icon' => 'bi-eye',
-			] : null,
 			$canViewWorkflows ? [
 				'label' => 'Workflows',
 				'href' => '?route=workflows',

@@ -16,15 +16,6 @@ class WorkflowController
 		}
 	}
 
-	private function ensureWorkflowViewAccess(): void
-	{
-		$this->ensureAuthenticated();
-		if (!$this->rbac()->canViewWorkflow()) {
-			header('Location: ?route=forbidden&code=rbac_workflow_view');
-			exit;
-		}
-	}
-
 	private function ensureWorkflowCreateAccess(): void
 	{
 		$this->ensureAuthenticated();
@@ -79,7 +70,7 @@ class WorkflowController
 	{
 		$steps = [];
 		$stepNames = isset($source['step_name']) && is_array($source['step_name']) ? $source['step_name'] : [];
-		$allowedApproverTypes = ['role', 'user', 'department_head'];
+		$allowedApproverTypes = ['role', 'manager', 'department', 'department_head'];
 
 		foreach ($stepNames as $index => $stepNameValue) {
 			$stepName = trim((string) $stepNameValue);
@@ -87,39 +78,37 @@ class WorkflowController
 				continue;
 			}
 
+			$stepId = (int) ($source['step_id'][$index] ?? 0);
+
 			$stepOrder = (int) ($source['step_order'][$index] ?? ($index + 1));
-			$rawStepMin = trim((string) ($source['step_amount_min'][$index] ?? ''));
-			$rawStepMax = trim((string) ($source['step_amount_max'][$index] ?? ''));
 			$rawTimeoutHours = trim((string) ($source['step_timeout_hours'][$index] ?? ''));
-			$rawApproverUserId = trim((string) ($source['step_approver_user_id'][$index] ?? ''));
 
 			$approverType = trim((string) ($source['step_approver_type'][$index] ?? 'role'));
 			if (!in_array($approverType, $allowedApproverTypes, true)) {
 				$approverType = 'role';
 			}
+			if ($approverType === 'department_head') {
+				$approverType = 'department';
+			}
 
 			$approverRole = trim((string) ($source['step_approver_role'][$index] ?? ''));
-			$approverUserId = $rawApproverUserId === '' ? null : (int) $rawApproverUserId;
+			$approverUserId = null;
 
 			if ($approverType === 'role') {
 				$approverUserId = null;
 			}
-			if ($approverType === 'user') {
-				$approverRole = '';
-			}
-			if ($approverType === 'department_head') {
+			if (in_array($approverType, ['manager', 'department'], true)) {
 				$approverRole = '';
 				$approverUserId = null;
 			}
 
 			$steps[] = [
+				'step_id' => $stepId > 0 ? $stepId : null,
 				'step_order' => $stepOrder > 0 ? $stepOrder : ($index + 1),
 				'step_name' => $stepName,
 				'step_approver_type' => $approverType,
 				'step_approver_role' => $approverRole,
 				'step_approver_user_id' => $approverUserId,
-				'step_amount_min' => $rawStepMin === '' ? null : (float) $rawStepMin,
-				'step_amount_max' => $rawStepMax === '' ? null : (float) $rawStepMax,
 				'step_is_required' => (int) (($source['step_is_required'][$index] ?? '1') === '1' ? 1 : 0),
 				'step_timeout_hours' => $rawTimeoutHours === '' ? null : max(1, (int) $rawTimeoutHours),
 			];
@@ -137,8 +126,6 @@ class WorkflowController
 			'step_approver_type' => (string) ($step['step_approver_type'] ?? 'role'),
 			'step_approver_role' => (string) ($step['step_approver_role'] ?? ''),
 			'step_approver_user_id' => $step['step_approver_user_id'] !== null && $step['step_approver_user_id'] !== '' ? (int) $step['step_approver_user_id'] : 0,
-			'step_amount_min' => $step['step_amount_min'] !== null && $step['step_amount_min'] !== '' ? (string) $step['step_amount_min'] : '',
-			'step_amount_max' => $step['step_amount_max'] !== null && $step['step_amount_max'] !== '' ? (string) $step['step_amount_max'] : '',
 			'step_timeout_hours' => $step['step_timeout_hours'] !== null && $step['step_timeout_hours'] !== '' ? (string) $step['step_timeout_hours'] : '',
 			'step_is_required' => (int) ($step['step_is_required'] ?? 1) === 1,
 		];
@@ -167,23 +154,11 @@ class WorkflowController
 				return false;
 			}
 
-			if ($step['step_approver_type'] === 'user' && (int) ($step['step_approver_user_id'] ?? 0) <= 0) {
-				return false;
-			}
-
 			if ($step['step_approver_type'] === 'role' && trim((string) ($step['step_approver_role'] ?? '')) === '') {
 				return false;
 			}
 
-			if (!in_array((string) ($step['step_approver_type'] ?? ''), ['role', 'user', 'department_head'], true)) {
-				return false;
-			}
-
-			if (
-				$step['step_amount_min'] !== null &&
-				$step['step_amount_max'] !== null &&
-				$step['step_amount_min'] > $step['step_amount_max']
-			) {
+			if (!in_array((string) ($step['step_approver_type'] ?? ''), ['role', 'manager', 'department'], true)) {
 				return false;
 			}
 		}
@@ -275,8 +250,6 @@ class WorkflowController
 				'step_approver_type' => 'role',
 				'step_approver_role' => '',
 				'step_approver_user_id' => 0,
-				'step_amount_min' => '',
-				'step_amount_max' => '',
 				'step_timeout_hours' => '',
 				'step_is_required' => true,
 			],
@@ -302,7 +275,7 @@ class WorkflowController
 
 	public function edit(): void
 	{
-		$this->ensureWorkflowViewAccess();
+		$this->ensureWorkflowEditAccess();
 
 		$workflowId = (int) ($_GET['id'] ?? 0);
 		if ($workflowId <= 0) {
@@ -334,8 +307,6 @@ class WorkflowController
 				'step_approver_type' => 'role',
 				'step_approver_role' => '',
 				'step_approver_user_id' => 0,
-				'step_amount_min' => '',
-				'step_amount_max' => '',
 				'step_timeout_hours' => '',
 				'step_is_required' => true,
 			];
@@ -398,7 +369,8 @@ class WorkflowController
 			flash_success('Workflow created successfully.');
 			header('Location: ?route=workflows');
 		} else {
-			flash_error('Failed to create workflow.');
+			$error = trim((string) $model->getLastErrorMessage());
+			flash_error($error !== '' ? $error : 'Failed to create workflow.');
 			header('Location: ?route=workflows/create');
 		}
 
@@ -425,7 +397,34 @@ class WorkflowController
 		$steps = $this->normalizeStepsPayload($_POST);
 
 		if (!$this->isValidWorkflowPayload($workflowData, $steps)) {
-			flash_error('Please fill required fields and ensure amount ranges are valid.');
+			$validationError = 'Please fill required fields and ensure amount ranges are valid.';
+			if ($workflowData['workflow_name'] === '') {
+				$validationError = 'Workflow name is required.';
+			} elseif ($workflowData['workflow_type'] === '') {
+				$validationError = 'Please select a workflow type.';
+			} elseif (
+				$workflowData['workflow_amount_min'] !== null &&
+				$workflowData['workflow_amount_max'] !== null &&
+				$workflowData['workflow_amount_min'] > $workflowData['workflow_amount_max']
+			) {
+				$validationError = 'Workflow amount min cannot be greater than amount max.';
+			} elseif (count($steps) === 0) {
+				$validationError = 'At least one workflow step is required.';
+			} else {
+				foreach ($steps as $index => $step) {
+					$stepNo = $index + 1;
+					if ($step['step_name'] === '') {
+						$validationError = 'Step ' . $stepNo . ': Step name is required.';
+						break;
+					}
+					if ($step['step_approver_type'] === 'role' && trim((string) ($step['step_approver_role'] ?? '')) === '') {
+						$validationError = 'Step ' . $stepNo . ': Please select an approver role.';
+						break;
+					}
+				}
+			}
+
+			flash_error($validationError);
 			header('Location: ?route=workflows/edit&id=' . $workflowId);
 			exit;
 		}
@@ -438,7 +437,8 @@ class WorkflowController
 			flash_success('Workflow updated successfully.');
 			header('Location: ?route=workflows');
 		} else {
-			flash_error('Failed to update workflow.');
+			$error = trim((string) $model->getLastErrorMessage());
+			flash_error($error !== '' ? $error : 'Failed to update workflow.');
 			header('Location: ?route=workflows/edit&id=' . $workflowId);
 		}
 

@@ -18,7 +18,6 @@ require_once ROOT_PATH . '/models/BudgetModel.php';
 require_once ROOT_PATH . '/models/BudgetMonitorModel.php';
 require_once ROOT_PATH . '/models/ExpenseModel.php';
 require_once ROOT_PATH . '/models/WorkflowModel.php';
-require_once ROOT_PATH . '/models/WorkflowViewModel.php';
 require_once ROOT_PATH . '/libraries/FlashMessage.php';
 require_once ROOT_PATH . '/libraries/RbacService.php';
 require_once ROOT_PATH . '/controllers/AuthController.php';
@@ -29,6 +28,5 @@ require_once ROOT_PATH . '/controllers/BudgetController.php';
 require_once ROOT_PATH . '/controllers/BudgetMonitorController.php';
 require_once ROOT_PATH . '/controllers/ExpenseController.php';
 require_once ROOT_PATH . '/controllers/WorkflowController.php';
-require_once ROOT_PATH . '/controllers/WorkflowViewController.php';
 
 

@@ -179,12 +179,6 @@ switch ($route) {
         }
         break;
 
-    case 'workflows/view':
-    case '/workflows/view':
-        $workflowViewController = new WorkflowViewController();
-        $workflowViewController->index();
-        break;
-
     case 'logout':
         $auth->logout();
         break;

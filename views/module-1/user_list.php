@@ -134,7 +134,9 @@ if ($canFilterByDepartment) {
 									<td><span class="status-pill <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span></td>
 									<td class="text-end pe-3">
 										<?php if ($canManageUsers): ?>
-											<a href="?route=users/edit&id=<?php echo (int) ($row['user_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn">Edit</a>
+											<a href="?route=users/edit&id=<?php echo (int) ($row['user_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn" title="Edit User" aria-label="Edit User">
+												<i class="bi bi-pencil-square"></i>
+											</a>
 										<?php else: ?>
 											<span class="text-muted small">View Only</span>
 										<?php endif; ?>

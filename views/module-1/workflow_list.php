@@ -3,7 +3,6 @@ $workflows = isset($workflows) && is_array($workflows) ? $workflows : [];
 $filters = isset($filters) && is_array($filters) ? $filters : [];
 
 $searchValue = (string) ($filters['search'] ?? '');
-$selectedStatus = (string) ($filters['status'] ?? '');
 $currentPage = isset($currentPage) ? (int) $currentPage : 1;
 $totalPages = isset($totalPages) ? (int) $totalPages : 1;
 $perPage = isset($perPage) ? max(1, (int) $perPage) : 10;
@@ -13,7 +12,6 @@ $selectedWorkflowType = (string) ($filters['workflow_type'] ?? '');
 $baseQuery = [
 	'route' => 'workflows',
 	'search' => $searchValue,
-	'status' => $selectedStatus,
 	'workflow_type' => $selectedWorkflowType,
 ];
 
@@ -61,14 +59,6 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 									value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
 								>
 							</div>
-
-							<div class="filter-field">
-								<select name="status" class="form-select">
-									<option value="">All Status</option>
-									<option value="1" <?php echo $selectedStatus === '1' ? 'selected' : ''; ?>>Active</option>
-									<option value="0" <?php echo $selectedStatus === '0' ? 'selected' : ''; ?>>Inactive</option>
-								</select>
-							</div>
 							<div class="filter-field">
 								<select name="workflow_type" class="form-select">
 									<option value="">Workflow Types</option>
@@ -100,38 +90,36 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 				<table class="table user-list-table align-middle mb-0">
 					<thead>
 						<tr>
-							<th>Serial No.</th>
 							<th>Workflow Name</th>
 							<th>Workflow Type</th>
 							<th>Amount Range</th>
 							<th>Approval Flow</th>
-							<th>Status</th>
 							<th class="text-end pe-3">Action</th>
 						</tr>
 					</thead>
 					<tbody>
 						<?php if (empty($workflows)): ?>
 							<tr>
-								<td colspan="7" class="text-center py-4 text-muted">No workflows found for the selected filters.</td>
+								<td colspan="5" class="text-center py-4 text-muted">No workflows found for the selected filters.</td>
 							</tr>
 						<?php else: ?>
 							<?php foreach ($workflows as $index => $row): ?>
 								<?php
-								$isActive = (int) ($row['workflow_is_active'] ?? 0) === 1;
-								$statusClass = $isActive ? 'status-active' : 'status-inactive';
-								$statusLabel = $isActive ? 'Active' : 'Inactive';
-								$serialNumber = (($currentPage - 1) * $perPage) + $index + 1;
 								$amountRange = formatWorkflowAmountRange($row['workflow_amount_min'] ?? null, $row['workflow_amount_max'] ?? null);
 								?>
 								<tr>
-									<td><?php echo $serialNumber; ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['workflow_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['workflow_type'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars($amountRange, ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['approval_flow'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
-									<td><span class="status-pill <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span></td>
 									<td class="text-end pe-3">
-										<a href="?route=workflows/edit&id=<?php echo (int) ($row['workflow_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn"><?php echo $canEditWorkflow ? 'Edit' : 'View'; ?></a>
+										<?php if ($canEditWorkflow): ?>
+											<a href="?route=workflows/edit&id=<?php echo (int) ($row['workflow_id'] ?? 0); ?>" class="btn btn-sm btn-warning edit-btn" title="Edit Workflow" aria-label="Edit Workflow">
+												<i class="bi bi-pencil-square"></i>
+											</a>
+										<?php else: ?>
+											<span class="text-muted">-</span>
+										<?php endif; ?>
 									</td>
 								</tr>
 							<?php endforeach; ?>
