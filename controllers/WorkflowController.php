@@ -16,6 +16,15 @@ class WorkflowController
 		}
 	}
 
+	private function ensureWorkflowViewAccess(): void
+	{
+		$this->ensureAuthenticated();
+		if (!$this->rbac()->canViewWorkflow() && !$this->rbac()->canEditWorkflow()) {
+			header('Location: ?route=forbidden&code=rbac_workflow_view');
+			exit;
+		}
+	}
+
 	private function ensureWorkflowCreateAccess(): void
 	{
 		$this->ensureAuthenticated();
@@ -49,7 +58,11 @@ class WorkflowController
 		$rawMax = trim((string) ($source['workflow_amount_max'] ?? ''));
 		$workflowDescription = trim((string) ($source['workflow_description'] ?? ''));
 		$workflowType = strtolower(trim((string) ($source['workflow_type'] ?? '')));
-		$allowedTypes = ['expense', 'purchase'];
+		$lookupModel = new LookupModel();
+		$allowedTypes = array_map(static fn(string $type): string => strtolower($type), $lookupModel->getWorkflowTypes());
+		if ($allowedTypes === [] && $workflowType !== '') {
+			$allowedTypes = [$workflowType];
+		}
 		$normalizedType = in_array($workflowType, $allowedTypes, true)
 			? ucfirst($workflowType)
 			: '';
@@ -57,6 +70,7 @@ class WorkflowController
 		return [
 			'workflow_name' => trim((string) ($source['workflow_name'] ?? '')),
 			'workflow_description' => $workflowDescription !== '' ? $workflowDescription : null,
+			'budget_category_id' => (int) ($source['budget_category_id'] ?? 0),
 			'workflow_type' => $normalizedType,
 			'workflow_is_active' => (int) ($source['workflow_is_active'] ?? 1) === 1 ? 1 : 0,
 			'workflow_is_default' => (int) ($source['workflow_is_default'] ?? 0) === 1 ? 1 : 0,
@@ -70,7 +84,9 @@ class WorkflowController
 	{
 		$steps = [];
 		$stepNames = isset($source['step_name']) && is_array($source['step_name']) ? $source['step_name'] : [];
-		$allowedApproverTypes = ['role', 'manager', 'department', 'department_head'];
+		$roleValues = isset($source['step_approver_role']) && is_array($source['step_approver_role']) ? array_values($source['step_approver_role']) : [];
+		$roleValueCursor = 0;
+		$allowedApproverTypes = ['role', 'manager', 'department_head'];
 
 		foreach ($stepNames as $index => $stepNameValue) {
 			$stepName = trim((string) $stepNameValue);
@@ -78,37 +94,38 @@ class WorkflowController
 				continue;
 			}
 
-			$stepId = (int) ($source['step_id'][$index] ?? 0);
-
 			$stepOrder = (int) ($source['step_order'][$index] ?? ($index + 1));
 			$rawTimeoutHours = trim((string) ($source['step_timeout_hours'][$index] ?? ''));
+
+			if (
+				$stepName === '' &&
+				$rawTimeoutHours === '' &&
+				trim((string) ($source['step_approver_role'][$index] ?? '')) === '' &&
+				trim((string) ($source['step_approver_type'][$index] ?? '')) === ''
+			) {
+				continue;
+			}
 
 			$approverType = trim((string) ($source['step_approver_type'][$index] ?? 'role'));
 			if (!in_array($approverType, $allowedApproverTypes, true)) {
 				$approverType = 'role';
 			}
-			if ($approverType === 'department_head') {
-				$approverType = 'department';
-			}
 
-			$approverRole = trim((string) ($source['step_approver_role'][$index] ?? ''));
-			$approverUserId = null;
-
+			$approverRole = '';
 			if ($approverType === 'role') {
-				$approverUserId = null;
-			}
-			if (in_array($approverType, ['manager', 'department'], true)) {
-				$approverRole = '';
-				$approverUserId = null;
+				$approverRole = trim((string) ($roleValues[$roleValueCursor] ?? ''));
+				$roleValueCursor++;
+			} elseif ($approverType === 'manager') {
+				$approverRole = 'manager';
+			} elseif ($approverType === 'department_head') {
+				$approverRole = 'department_head';
 			}
 
 			$steps[] = [
-				'step_id' => $stepId > 0 ? $stepId : null,
 				'step_order' => $stepOrder > 0 ? $stepOrder : ($index + 1),
 				'step_name' => $stepName,
 				'step_approver_type' => $approverType,
 				'step_approver_role' => $approverRole,
-				'step_approver_user_id' => $approverUserId,
 				'step_is_required' => (int) (($source['step_is_required'][$index] ?? '1') === '1' ? 1 : 0),
 				'step_timeout_hours' => $rawTimeoutHours === '' ? null : max(1, (int) $rawTimeoutHours),
 			];
@@ -125,7 +142,6 @@ class WorkflowController
 			'step_name' => (string) ($step['step_name'] ?? ''),
 			'step_approver_type' => (string) ($step['step_approver_type'] ?? 'role'),
 			'step_approver_role' => (string) ($step['step_approver_role'] ?? ''),
-			'step_approver_user_id' => $step['step_approver_user_id'] !== null && $step['step_approver_user_id'] !== '' ? (int) $step['step_approver_user_id'] : 0,
 			'step_timeout_hours' => $step['step_timeout_hours'] !== null && $step['step_timeout_hours'] !== '' ? (string) $step['step_timeout_hours'] : '',
 			'step_is_required' => (int) ($step['step_is_required'] ?? 1) === 1,
 		];
@@ -133,7 +149,13 @@ class WorkflowController
 
 	private function isValidWorkflowPayload(array $workflowData, array $steps): bool
 	{
-		if ($workflowData['workflow_name'] === '' || $workflowData['workflow_type'] === '') {
+		if ($workflowData['workflow_name'] === '' || $workflowData['workflow_type'] === '' || (int) ($workflowData['budget_category_id'] ?? 0) <= 0) {
+			return false;
+		}
+
+		$categoryModel = new BudgetCategoryModel();
+		$category = $categoryModel->getCategoryById((int) $workflowData['budget_category_id']);
+		if ($category === null || (int) ($category['budget_category_is_active'] ?? 0) !== 1) {
 			return false;
 		}
 
@@ -158,9 +180,10 @@ class WorkflowController
 				return false;
 			}
 
-			if (!in_array((string) ($step['step_approver_type'] ?? ''), ['role', 'manager', 'department'], true)) {
+			if (!in_array((string) ($step['step_approver_type'] ?? ''), ['role', 'manager', 'department_head'], true)) {
 				return false;
 			}
+
 		}
 
 		return true;
@@ -170,11 +193,14 @@ class WorkflowController
 	{
 		extract($viewData, EXTR_SKIP);
 
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/workflow_creation.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle ?? 'Expense Register',
+			'pageStyles' => $pageStyles ?? [],
+			'activeMenu' => $activeMenu ?? 'dashboard',
+		]);
+		require ROOT_PATH . '/views/WorkflowManagement/workflow_creation.php';
+		renderAppLayoutEnd();
 	}
 
 	public function list(): void
@@ -187,6 +213,7 @@ class WorkflowController
 			'search' => trim((string) ($_GET['search'] ?? '')),
 			'status' => trim((string) ($_GET['status'] ?? '')),
 			'workflow_type' => trim((string) ($_GET['workflow_type'] ?? '')),
+			'budget_category_id' => (int) ($_GET['budget_category_id'] ?? 0),
 		];
 
 		$perPage = 10;
@@ -201,20 +228,24 @@ class WorkflowController
 		$offset = ($currentPage - 1) * $perPage;
 		$workflows = $workflowModel->getAllWorkflows($filters, $perPage, $offset);
 		$workflowTypes = $workflowModel->getAllWorkflowTypes();
+		$budgetCategories = (new BudgetCategoryModel())->getSelectableCategories();
 
 		$pageTitle = 'Workflow List - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/list.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'workflow-list';
 		$canCreateWorkflow = $this->rbac()->canCreateWorkflow();
 		$canEditWorkflow = $this->rbac()->canEditWorkflow();
 
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/workflow_list.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/WorkflowManagement/workflow_list.php';
+		renderAppLayoutEnd();
 	}
 
 	public function create(): void
@@ -222,21 +253,25 @@ class WorkflowController
 		$this->ensureWorkflowCreateAccess();
 
 		$model = new WorkflowModel();
+		$categoryModel = new BudgetCategoryModel();
 		$roles = $model->getRoles();
-		$users = $model->getActiveUsers();
+		$budgetCategories = $categoryModel->getSelectableCategories();
+		$lookupModel = new LookupModel();
+		$workflowTypeOptions = $lookupModel->getWorkflowTypes();
 
 		$pageTitle = 'Create Workflow - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'workflow-list';
 		$formError = trim((string) ($_GET['error'] ?? ''));
 		$isEdit = false;
 		$formTitle = 'Create Workflow';
-		$formAction = '?route=workflows/create';
+		$formAction = buildCleanRouteUrl('workflows/create');
 		$submitLabel = 'Save Workflow';
 		$workflow = [
 			'workflow_name' => '',
+			'budget_category_id' => 0,
 			'workflow_type' => '',
 			'workflow_amount_min' => '',
 			'workflow_amount_max' => '',
@@ -249,7 +284,6 @@ class WorkflowController
 				'step_name' => '',
 				'step_approver_type' => 'role',
 				'step_approver_role' => '',
-				'step_approver_user_id' => 0,
 				'step_timeout_hours' => '',
 				'step_is_required' => true,
 			],
@@ -257,7 +291,7 @@ class WorkflowController
 
 		$this->renderForm(compact(
 			'roles',
-			'users',
+			'budgetCategories',
 			'pageTitle',
 			'pageStyles',
 			'envConfig',
@@ -269,31 +303,35 @@ class WorkflowController
 			'formAction',
 			'submitLabel',
 			'workflow',
+			'workflowTypeOptions',
 			'workflowSteps'
 		));
 	}
 
 	public function edit(): void
 	{
-		$this->ensureWorkflowEditAccess();
+		$this->ensureWorkflowViewAccess();
 
 		$workflowId = (int) ($_GET['id'] ?? 0);
 		if ($workflowId <= 0) {
 			flash_error('Invalid workflow id');
-			header('Location: ?route=workflows');
+			header('Location: ' . buildCleanRouteUrl('workflows'));
 			exit;
 		}
 
 		$model = new WorkflowModel();
+		$categoryModel = new BudgetCategoryModel();
 		$workflow = $model->getWorkflowById($workflowId);
 		if ($workflow === null) {
 			flash_error('Workflow not found');
-			header('Location: ?route=workflows');
+			header('Location: ' . buildCleanRouteUrl('workflows'));
 			exit;
 		}
 
 		$roles = $model->getRoles();
-		$users = $model->getActiveUsers();
+		$budgetCategories = $categoryModel->getSelectableCategories();
+		$lookupModel = new LookupModel();
+		$workflowTypeOptions = $lookupModel->getWorkflowTypes();
 		$steps = $model->getWorkflowStepsByWorkflowId($workflowId);
 		$workflowSteps = [];
 		foreach ($steps as $step) {
@@ -306,14 +344,13 @@ class WorkflowController
 				'step_name' => '',
 				'step_approver_type' => 'role',
 				'step_approver_role' => '',
-				'step_approver_user_id' => 0,
 				'step_timeout_hours' => '',
 				'step_is_required' => true,
 			];
 		}
 
 		$pageTitle = 'Edit Workflow - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'workflow-list';
@@ -321,12 +358,12 @@ class WorkflowController
 		$isEdit = true;
 		$canEditWorkflow = $this->rbac()->canEditWorkflow();
 		$formTitle = $canEditWorkflow ? 'Edit Workflow' : 'View Workflow';
-		$formAction = '?route=workflows/edit&id=' . $workflowId;
+		$formAction = buildCleanRouteUrl('workflows/edit', ['id' => $workflowId]);
 		$submitLabel = $canEditWorkflow ? 'Update Workflow' : 'Back to Workflow List';
 
 		$this->renderForm(compact(
 			'roles',
-			'users',
+			'budgetCategories',
 			'pageTitle',
 			'pageStyles',
 			'envConfig',
@@ -338,6 +375,7 @@ class WorkflowController
 			'formAction',
 			'submitLabel',
 			'canEditWorkflow',
+			'workflowTypeOptions',
 			'workflow',
 			'workflowSteps'
 		));
@@ -348,7 +386,7 @@ class WorkflowController
 		$this->ensureWorkflowCreateAccess();
 
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-			header('Location: ?route=workflows/create');
+			header('Location: ' . buildCleanRouteUrl('workflows/create'));
 			exit;
 		}
 
@@ -356,8 +394,8 @@ class WorkflowController
 		$steps = $this->normalizeStepsPayload($_POST);
 
 		if (!$this->isValidWorkflowPayload($workflowData, $steps)) {
-			flash_error('Please fill required fields and ensure amount ranges are valid.');
-			header('Location: ?route=workflows/create');
+			flash_error('Please fill required fields and ensure workflow amount range is valid.');
+			header('Location: ' . buildCleanRouteUrl('workflows/create'));
 			exit;
 		}
 
@@ -367,11 +405,10 @@ class WorkflowController
 		if ($success) {
 			RbacService::audit('workflow_create', ['workflow_name' => $workflowData['workflow_name']]);
 			flash_success('Workflow created successfully.');
-			header('Location: ?route=workflows');
+			header('Location: ' . buildCleanRouteUrl('workflows'));
 		} else {
-			$error = trim((string) $model->getLastErrorMessage());
-			flash_error($error !== '' ? $error : 'Failed to create workflow.');
-			header('Location: ?route=workflows/create');
+			flash_error('Failed to create workflow.');
+			header('Location: ' . buildCleanRouteUrl('workflows/create'));
 		}
 
 		exit;
@@ -382,14 +419,14 @@ class WorkflowController
 		$this->ensureWorkflowEditAccess();
 
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-			header('Location: ?route=workflows');
+			header('Location: ' . buildCleanRouteUrl('workflows'));
 			exit;
 		}
 
 		$workflowId = (int) ($_GET['id'] ?? 0);
 		if ($workflowId <= 0) {
 			flash_error('Invalid workflow id');
-			header('Location: ?route=workflows');
+			header('Location: ' . buildCleanRouteUrl('workflows'));
 			exit;
 		}
 
@@ -397,35 +434,8 @@ class WorkflowController
 		$steps = $this->normalizeStepsPayload($_POST);
 
 		if (!$this->isValidWorkflowPayload($workflowData, $steps)) {
-			$validationError = 'Please fill required fields and ensure amount ranges are valid.';
-			if ($workflowData['workflow_name'] === '') {
-				$validationError = 'Workflow name is required.';
-			} elseif ($workflowData['workflow_type'] === '') {
-				$validationError = 'Please select a workflow type.';
-			} elseif (
-				$workflowData['workflow_amount_min'] !== null &&
-				$workflowData['workflow_amount_max'] !== null &&
-				$workflowData['workflow_amount_min'] > $workflowData['workflow_amount_max']
-			) {
-				$validationError = 'Workflow amount min cannot be greater than amount max.';
-			} elseif (count($steps) === 0) {
-				$validationError = 'At least one workflow step is required.';
-			} else {
-				foreach ($steps as $index => $step) {
-					$stepNo = $index + 1;
-					if ($step['step_name'] === '') {
-						$validationError = 'Step ' . $stepNo . ': Step name is required.';
-						break;
-					}
-					if ($step['step_approver_type'] === 'role' && trim((string) ($step['step_approver_role'] ?? '')) === '') {
-						$validationError = 'Step ' . $stepNo . ': Please select an approver role.';
-						break;
-					}
-				}
-			}
-
-			flash_error($validationError);
-			header('Location: ?route=workflows/edit&id=' . $workflowId);
+			flash_error('Please fill required fields and ensure workflow amount range is valid.');
+			header('Location: ' . buildCleanRouteUrl('workflows/edit', ['id' => $workflowId]));
 			exit;
 		}
 
@@ -435,11 +445,10 @@ class WorkflowController
 		if ($success) {
 			RbacService::audit('workflow_update', ['workflow_id' => $workflowId]);
 			flash_success('Workflow updated successfully.');
-			header('Location: ?route=workflows');
+			header('Location: ' . buildCleanRouteUrl('workflows'));
 		} else {
-			$error = trim((string) $model->getLastErrorMessage());
-			flash_error($error !== '' ? $error : 'Failed to update workflow.');
-			header('Location: ?route=workflows/edit&id=' . $workflowId);
+			flash_error('Failed to update workflow.');
+			header('Location: ' . buildCleanRouteUrl('workflows/edit', ['id' => $workflowId]));
 		}
 
 		exit;

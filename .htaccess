@@ -1,0 +1,15 @@
+RewriteEngine On
+
+# Keep direct file and directory requests untouched.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Preserve Authorization header for APIs and future token auth.
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Default landing route.
+RewriteRule ^$ index.php?route=login [QSA,L]
+
+# Pretty routes map to the existing query-string router.
+RewriteRule ^(.+)$ index.php?route=$1 [QSA,L]

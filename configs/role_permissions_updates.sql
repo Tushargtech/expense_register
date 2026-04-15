@@ -71,7 +71,7 @@ SET role_permissions = JSON_OBJECT(
     'view', true,
     'create', true,
     'edit', true,
-    'manage', true
+    'manage', false
   ),
   'expenses', JSON_OBJECT(
     'view', true,
@@ -105,8 +105,8 @@ SET role_permissions = JSON_OBJECT(
     'view_all', false
   ),
   'workflows', JSON_OBJECT(
-    'list', true,
-    'view', true,
+    'list', false,
+    'view', false,
     'create', false,
     'edit', false,
     'manage', false
@@ -118,6 +118,44 @@ SET role_permissions = JSON_OBJECT(
   )
 )
 WHERE role_slug = 'hr';
+
+UPDATE roles
+SET role_permissions = JSON_OBJECT(
+  'users', JSON_OBJECT(
+    'view', true,
+    'list', true,
+    'view_all', true,
+    'manage', true
+  ),
+  'departments', JSON_OBJECT(
+    'view', true,
+    'list', true,
+    'manage', false,
+    'create', false,
+    'edit', false
+  ),
+  'budget_categories', JSON_OBJECT(
+    'view', true,
+    'manage', false
+  ),
+  'budget_monitor', JSON_OBJECT(
+    'view', true,
+    'view_all', false
+  ),
+  'workflows', JSON_OBJECT(
+    'list', false,
+    'view', false,
+    'create', false,
+    'edit', false,
+    'manage', false
+  ),
+  'expenses', JSON_OBJECT(
+    'view', true,
+    'review', false,
+    'review_all', false
+  )
+)
+WHERE role_slug IN ('hr_manager', 'hr_department_head', 'hr_dept_head');
 
 UPDATE roles
 SET role_permissions = JSON_OBJECT(
@@ -143,7 +181,7 @@ SET role_permissions = JSON_OBJECT(
     'view_all', false
   ),
   'workflows', JSON_OBJECT(
-    'list', true,
+    'list', false,
     'view', true,
     'create', false,
     'edit', false,
@@ -184,7 +222,7 @@ SET role_permissions = JSON_OBJECT(
     'list', true,
     'view', true,
     'create', false,
-    'edit', true,
+    'edit', false,
     'manage', false
   ),
   'expenses', JSON_OBJECT(
@@ -220,7 +258,7 @@ SET role_permissions = JSON_OBJECT(
   ),
   'workflows', JSON_OBJECT(
     'list', false,
-    'view', false,
+    'view', true,
     'create', false,
     'edit', false,
     'manage', false

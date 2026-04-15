@@ -237,6 +237,62 @@ Lint all non-vendor PHP files:
 find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n 1 php -l
 ```
 
+## JSON API
+
+The application now exposes a parallel JSON API under `?route=api/v1/...` while keeping the existing browser routes intact.
+
+### Status and auth
+
+- `GET ?route=api/v1/health`
+- `POST ?route=api/v1/auth/login`
+- `POST ?route=api/v1/auth/logout`
+- `GET ?route=api/v1/auth/me`
+
+### Core resources
+
+- `GET ?route=api/v1/users`
+- `GET ?route=api/v1/users&id=ID`
+- `POST ?route=api/v1/users`
+- `PUT ?route=api/v1/users&id=ID`
+
+- `GET ?route=api/v1/departments`
+- `GET ?route=api/v1/departments&id=ID`
+- `POST ?route=api/v1/departments`
+- `PUT ?route=api/v1/departments&id=ID`
+
+- `GET ?route=api/v1/budget-categories`
+- `GET ?route=api/v1/budget-categories&id=ID`
+- `POST ?route=api/v1/budget-categories`
+- `PUT ?route=api/v1/budget-categories&id=ID`
+
+- `GET ?route=api/v1/budget-monitor`
+- `GET ?route=api/v1/budgets/upload`
+- `POST ?route=api/v1/budgets/upload`
+
+- `GET ?route=api/v1/expenses`
+- `GET ?route=api/v1/expenses&id=ID`
+- `GET ?route=api/v1/expenses/review&id=ID`
+- `POST ?route=api/v1/expenses`
+- `GET ?route=api/v1/expenses/attachment/view&request_id=ID&attachment_id=ID`
+- `GET ?route=api/v1/expenses/attachment/download&request_id=ID&attachment_id=ID`
+
+- `GET ?route=api/v1/workflows`
+- `GET ?route=api/v1/workflows&id=ID`
+- `POST ?route=api/v1/workflows`
+- `PUT ?route=api/v1/workflows&id=ID`
+
+### Response shape
+
+- Success: `{ "success": true, "data": ..., "meta": ... }`
+- Error: `{ "success": false, "message": "...", "errors": {...} }`
+
+### Notes
+
+- The API uses the same session and RBAC rules as the existing UI.
+- Binary attachment download/view routes remain binary responses because they deliver file payloads, not JSON.
+- File upload routes accept multipart form-data.
+- Workflow create/update payloads must include `budget_category_id` so each workflow is mapped to a specific budget category.
+
 ## Data Model Notes
 
 - Role source of truth is roles.role_slug

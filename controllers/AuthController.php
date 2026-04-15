@@ -4,7 +4,7 @@ class AuthController
     public function showLogin(): void
     {
         if (!empty($_SESSION['auth']['is_logged_in'])) {
-            header('Location: ?route=home');
+            header('Location: ?route=dashboard');
             exit;
         }
 
@@ -16,14 +16,24 @@ class AuthController
         $authModel = new AuthModel();
         $credentialHints = $authModel->getCredentialHints();
 
-        require ROOT_PATH . '/views/module-1/login.php';
+        require ROOT_PATH . '/views/templates/app_layout.php';
+        renderAppLayoutStart([
+            'pageTitle' => 'Login - Expense Register',
+            'pageStyles' => ['assets/css/app.css'],
+            'bodyClass' => 'bg-light',
+            'includeChrome' => false,
+        ]);
+
+        require ROOT_PATH . '/views/main/login.php';
+
+        renderAppLayoutEnd();
     }
 
     public function forbidden(): void
     {
         $isLoggedIn = !empty($_SESSION['auth']['is_logged_in']);
         $pageTitle = 'Access Denied - Expense Register';
-        $pageStyles = ['assets/css/dashboard.css', 'assets/css/list.css'];
+        $pageStyles = ['assets/css/app.css'];
         $userName = (string) ($_SESSION['auth']['name'] ?? 'User');
         $activeMenu = 'dashboard';
         $errorCode = trim((string) ($_GET['code'] ?? 'unauthorized'));
@@ -31,23 +41,32 @@ class AuthController
         RbacService::audit('access_denied', ['code' => $errorCode]);
 
         if ($isLoggedIn) {
-            require ROOT_PATH . '/views/templates/header.php';
-            require ROOT_PATH . '/views/templates/navbar.php';
-            require ROOT_PATH . '/views/templates/sidebar.php';
-            require ROOT_PATH . '/views/module-1/forbidden.php';
-            require ROOT_PATH . '/views/templates/footer.php';
+            require ROOT_PATH . '/views/templates/app_layout.php';
+            renderAppLayoutStart([
+                'pageTitle' => $pageTitle,
+                'pageStyles' => $pageStyles,
+                'activeMenu' => $activeMenu,
+                'includeChrome' => true,
+            ]);
+            require ROOT_PATH . '/views/main/forbidden.php';
+            renderAppLayoutEnd();
             return;
         }
 
-        require ROOT_PATH . '/views/templates/header.php';
-        require ROOT_PATH . '/views/module-1/forbidden.php';
-        require ROOT_PATH . '/views/templates/footer.php';
+        require ROOT_PATH . '/views/templates/app_layout.php';
+        renderAppLayoutStart([
+            'pageTitle' => $pageTitle,
+            'pageStyles' => $pageStyles,
+            'includeChrome' => false,
+        ]);
+        require ROOT_PATH . '/views/main/forbidden.php';
+        renderAppLayoutEnd();
     }
 
     public function login(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            header('Location: ?route=dashboard');
+            header('Location: ?route=login');
             exit;
         }
 
@@ -58,7 +77,7 @@ class AuthController
 
         if ($email === '' || $password === '') {
             flash_error('Email and password are required.');
-            header('Location: ?route=dashboard');
+            header('Location: ?route=login');
             exit;
         }
 
@@ -68,7 +87,7 @@ class AuthController
             $user = $authModel->getUserByEmail($email);
         } catch (Throwable $error) {
             flash_error('Unable to validate credentials from database. Please check DB configuration.');
-            header('Location: ?route=dashboard');
+            header('Location: ?route=login');
             exit;
         }
 
@@ -80,7 +99,7 @@ class AuthController
 
         if (!$isValid) {
             flash_error('Invalid Credentials');
-            header('Location: ?route=dashboard');
+            header('Location: ?route=login');
             exit;
         }
 
@@ -100,7 +119,7 @@ class AuthController
         unset($_SESSION['old_email']);
         flash_success('Login successful.');
 
-        header('Location: ?route=home');
+        header('Location: ?route=dashboard');
         exit;
     }
 
@@ -108,7 +127,7 @@ class AuthController
     {
         if (empty($_SESSION['auth']['is_logged_in'])) {
             flash_error('Please login to continue.');
-            header('Location: ?route=dashboard');
+            header('Location: ?route=login');
             exit;
         }
 
@@ -117,7 +136,7 @@ class AuthController
         $rbac = new RbacService();
         $canViewBudgetUtilization = $rbac->canViewOrganizationBudgetUtilization();
 
-        require ROOT_PATH . '/views/module-1/dashboard.php';
+        require ROOT_PATH . '/views/main/dashboard.php';
     }
 
     public function logout(): void
@@ -125,7 +144,7 @@ class AuthController
         unset($_SESSION['auth']);
         session_regenerate_id(true);
         flash_success('Logged out successfully.');
-        header('Location: ?route=dashboard');
+        header('Location: ?route=login');
         exit;
     }
 }

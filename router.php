@@ -1,12 +1,70 @@
 <?php
 
-$route = trim((string) ($_GET['route'] ?? 'dashboard'), '/');
-$route = $route === '' ? 'dashboard' : $route;
+if (PHP_SAPI === 'cli-server') {
+    $requestPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+    $staticFile = __DIR__ . $requestPath;
+
+    if ($requestPath !== '/' && is_file($staticFile)) {
+        $extension = strtolower((string) pathinfo($staticFile, PATHINFO_EXTENSION));
+        $mimeMap = [
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+            'json' => 'application/json',
+            'woff' => 'font/woff',
+            'woff2' => 'font/woff2',
+        ];
+        header('Content-Type: ' . ($mimeMap[$extension] ?? (function_exists('mime_content_type') ? (string) mime_content_type($staticFile) : 'application/octet-stream')));
+        header('Content-Length: ' . (string) filesize($staticFile));
+        readfile($staticFile);
+        exit;
+    }
+}
+
+$routeParam = trim((string) ($_GET['route'] ?? ''), '/');
+
+if ($routeParam === '') {
+    $requestPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+    $scriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php');
+    $scriptDir = rtrim(str_replace('\\', '/', dirname($scriptName)), '/');
+    $normalizedPath = str_replace('\\', '/', $requestPath);
+
+    if ($scriptDir !== '' && $scriptDir !== '.' && str_starts_with($normalizedPath, $scriptDir . '/')) {
+        $normalizedPath = substr($normalizedPath, strlen($scriptDir) + 1);
+    } elseif (str_starts_with($normalizedPath, '/')) {
+        $normalizedPath = ltrim($normalizedPath, '/');
+    }
+
+    $route = trim($normalizedPath, '/');
+} else {
+    $route = $routeParam;
+}
+
+$route = trim((string) $route, '/');
+$route = $route === '' ? 'login' : $route;
+
+if (str_starts_with($route, 'api/v1/')) {
+    $apiRouter = new ApiRouter();
+    $apiRouter->dispatch(substr($route, strlen('api/v1/')));
+    exit;
+}
+
+if (str_starts_with($route, 'api/')) {
+    $apiRouter = new ApiRouter();
+    $apiRouter->dispatch(substr($route, strlen('api/')));
+    exit;
+}
 
 $auth = new AuthController();
 
 switch ($route) {
-    case 'dashboard':
+    case 'login':
+    case '/login':
     case 'view2':
         $auth->showLogin();
         break;
@@ -16,7 +74,13 @@ switch ($route) {
         break;
 
     case 'home':
+    case '/home':
+    case '/module-1':
     case 'module-1':
+    case 'dashboard-view':
+    case '/dashboard-view':
+    case 'dashboard':
+    case '/dashboard':
         $auth->dashboard();
         break;
 
@@ -113,6 +177,27 @@ switch ($route) {
         }
         break;
 
+    case 'budgets/edit':
+    case '/budgets/edit':
+        $budgetController = new BudgetController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $budgetController->update();
+        } else {
+            $budgetController->edit();
+        }
+        break;
+
+    case 'budgets/delete':
+    case '/budgets/delete':
+        $budgetController = new BudgetController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $budgetController->delete();
+        } else {
+            header('Location: ?route=budget-monitor');
+            exit;
+        }
+        break;
+
     case 'budget-monitor':
     case '/budget-monitor':
         $budgetMonitorController = new BudgetMonitorController();
@@ -184,6 +269,6 @@ switch ($route) {
         break;
 
     default:
-        header('Location: ?route=dashboard');
+        header('Location: ?route=login');
         exit;
 }

@@ -5,6 +5,7 @@ class BudgetModel
 	private PDO $db;
 	private ?array $budgetTableColumns = null;
 	private ?array $budgetCategoryTableColumns = null;
+	private ?string $lastInsertError = null;
 
 	public function __construct()
 	{
@@ -184,6 +185,7 @@ class BudgetModel
 
 	public function insertExtractedData(array $data): bool
 	{
+		$this->lastInsertError = null;
 		$columns = $this->getBudgetTableColumns();
 
 		$insertData = [
@@ -205,6 +207,7 @@ class BudgetModel
 		$requiredFields = ['department_id', 'budget_fiscal_year', 'budget_fiscal_period', 'budget_allocated_amount'];
 		foreach ($requiredFields as $field) {
 			if (!array_key_exists($field, $insertData) || $insertData[$field] === null || $insertData[$field] === '') {
+				$this->lastInsertError = 'Missing required field: ' . $field;
 				return false;
 			}
 		}
@@ -225,6 +228,7 @@ class BudgetModel
 		}
 
 		if (empty($sqlColumns)) {
+			$this->lastInsertError = 'No valid insert columns resolved for department_budgets table.';
 			return false;
 		}
 
@@ -246,6 +250,167 @@ class BudgetModel
 
 		try {
 			return $stmt->execute();
+		} catch (Throwable $error) {
+			if ($error instanceof PDOException) {
+				$pdoMessage = '';
+				if (isset($error->errorInfo[2]) && is_string($error->errorInfo[2])) {
+					$pdoMessage = trim($error->errorInfo[2]);
+				}
+				$this->lastInsertError = $pdoMessage !== '' ? $pdoMessage : $error->getMessage();
+			} else {
+				$this->lastInsertError = $error->getMessage();
+			}
+			return false;
+		}
+	}
+
+	public function getLastInsertError(): ?string
+	{
+		return $this->lastInsertError;
+	}
+
+	public function findExistingBudgetByScope(int $departmentId, int $budgetCategoryId, string $fiscalYear, string $fiscalPeriod): ?array
+	{
+		if ($departmentId <= 0 || $budgetCategoryId <= 0 || trim($fiscalYear) === '' || trim($fiscalPeriod) === '') {
+			return null;
+		}
+
+		$sql = 'SELECT
+				budget_id,
+				department_id,
+				budget_category_id,
+				budget_fiscal_year,
+				budget_fiscal_period,
+				budget_allocated_amount,
+				budget_currency,
+				budget_notes,
+				budget_created_at,
+				budget_updated_at
+			FROM department_budgets
+			WHERE department_id = :department_id
+			  AND budget_category_id = :budget_category_id
+			  AND LOWER(TRIM(budget_fiscal_year)) = LOWER(TRIM(:budget_fiscal_year))
+			  AND LOWER(TRIM(budget_fiscal_period)) = LOWER(TRIM(:budget_fiscal_period))
+			ORDER BY budget_id DESC
+			LIMIT 1';
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->bindValue(':department_id', $departmentId, PDO::PARAM_INT);
+		$stmt->bindValue(':budget_category_id', $budgetCategoryId, PDO::PARAM_INT);
+		$stmt->bindValue(':budget_fiscal_year', trim($fiscalYear), PDO::PARAM_STR);
+		$stmt->bindValue(':budget_fiscal_period', trim($fiscalPeriod), PDO::PARAM_STR);
+		$stmt->execute();
+
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return $row !== false ? $row : null;
+	}
+
+	public function getBudgetById(int $budgetId): ?array
+	{
+		$sql = 'SELECT
+				db.budget_id,
+				db.department_id,
+				d.department_name,
+				db.budget_fiscal_year,
+				db.budget_fiscal_period,
+				db.budget_category,
+				db.budget_category_id,
+				db.budget_allocated_amount,
+				db.budget_currency,
+				db.budget_notes,
+				db.budget_uploaded_by,
+				db.budget_created_at,
+				bc.budget_category_name,
+				bc.budget_category_type,
+				u.user_name AS uploaded_by_name
+			FROM department_budgets db
+			LEFT JOIN departments d ON d.id = db.department_id
+			LEFT JOIN budget_categories bc ON bc.budget_category_id = db.budget_category_id
+			LEFT JOIN users u ON u.user_id = db.budget_uploaded_by
+			WHERE db.budget_id = :budget_id
+			LIMIT 1';
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute([':budget_id' => $budgetId]);
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return $row !== false ? $row : null;
+	}
+
+	public function updateBudget(int $budgetId, array $budgetData): bool
+	{
+		$columns = $this->getBudgetTableColumns();
+		$setClauses = [];
+		$params = [':budget_id' => $budgetId];
+
+		$updatableColumns = [
+			'department_id' => (int) ($budgetData['department_id'] ?? 0),
+			'budget_fiscal_year' => (string) ($budgetData['budget_fiscal_year'] ?? ''),
+			'budget_fiscal_period' => (string) ($budgetData['budget_fiscal_period'] ?? ''),
+			'budget_category' => (string) ($budgetData['budget_category'] ?? ''),
+			'budget_category_id' => (int) ($budgetData['budget_category_id'] ?? 0),
+			'budget_allocated_amount' => (float) ($budgetData['budget_allocated_amount'] ?? 0),
+			'budget_currency' => (string) ($budgetData['budget_currency'] ?? ''),
+			'budget_notes' => (string) ($budgetData['budget_notes'] ?? ''),
+		];
+
+		foreach ($updatableColumns as $columnName => $columnValue) {
+			if (!in_array($columnName, $columns, true)) {
+				continue;
+			}
+
+			$placeholder = ':' . $columnName;
+			$setClauses[] = $columnName . ' = ' . $placeholder;
+			$params[$placeholder] = $columnValue;
+		}
+
+		if (in_array('budget_updated_at', $columns, true)) {
+			$setClauses[] = 'budget_updated_at = :budget_updated_at';
+			$params[':budget_updated_at'] = $this->getCurrentIstDateTime();
+		}
+
+		if ($setClauses === []) {
+			return false;
+		}
+
+		$sql = 'UPDATE department_budgets SET ' . implode(', ', $setClauses) . ' WHERE budget_id = :budget_id';
+		$stmt = $this->db->prepare($sql);
+
+		foreach ($params as $placeholder => $value) {
+			if ($placeholder === ':budget_id' || $placeholder === ':department_id' || $placeholder === ':budget_category_id') {
+				$stmt->bindValue($placeholder, (int) $value, PDO::PARAM_INT);
+				continue;
+			}
+
+			if ($placeholder === ':budget_allocated_amount') {
+				$stmt->bindValue($placeholder, (string) $value, PDO::PARAM_STR);
+				continue;
+			}
+
+			$stmt->bindValue($placeholder, (string) $value, PDO::PARAM_STR);
+		}
+
+		try {
+			return $stmt->execute();
+		} catch (Throwable $error) {
+			return false;
+		}
+	}
+
+	public function deleteBudget(int $budgetId): bool
+	{
+		if ($budgetId <= 0) {
+			return false;
+		}
+
+		$stmt = $this->db->prepare('DELETE FROM department_budgets WHERE budget_id = :budget_id');
+
+		try {
+			$stmt->bindValue(':budget_id', $budgetId, PDO::PARAM_INT);
+			$stmt->execute();
+
+			return $stmt->rowCount() > 0;
 		} catch (Throwable $error) {
 			return false;
 		}

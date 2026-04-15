@@ -79,6 +79,7 @@ class BudgetMonitorModel
 			: 'CONCAT("Department #", db.department_id)';
 
 		$sql = "SELECT
+				db.budget_id,
 				db.department_id,
 				{$departmentNameExpression} AS department_name,
 				db.budget_fiscal_year,

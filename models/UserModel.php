@@ -174,7 +174,8 @@ class UserModel
 	public function createUser(array $userData): bool
 	{
 		$this->resolveUserCreatedAtColumn();
-		$defaultPassword = password_hash('Welcome@123', PASSWORD_BCRYPT);
+		$initialPasswordPlain = bin2hex(random_bytes(8));
+		$defaultPassword = password_hash($initialPasswordPlain, PASSWORD_BCRYPT);
 		$departmentId = isset($userData['department_id']) && (int) $userData['department_id'] > 0
 			? (int) $userData['department_id']
 			: null;

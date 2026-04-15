@@ -66,15 +66,19 @@ class DepartmentModel
 			VALUES (:name, :code, :head_user_id, :created_at)";
 
 		$stmt = $this->db->prepare($sql);
-		
-		$result = $stmt->execute([
-			':name' => $departmentData['department_name'] ?? '',
-			':code' => $departmentData['department_code'] ?? '',
-			':head_user_id' => (int) ($departmentData['department_head_user_id'] ?? 0),
-			':created_at' => $this->getCurrentIstDateTime(),
-		]);
 
-		return $result === true;
+		try {
+			$result = $stmt->execute([
+				':name' => $departmentData['department_name'] ?? '',
+				':code' => $departmentData['department_code'] ?? '',
+				':head_user_id' => (int) ($departmentData['department_head_user_id'] ?? 0),
+				':created_at' => $this->getCurrentIstDateTime(),
+			]);
+
+			return $result === true;
+		} catch (Throwable $error) {
+			return false;
+		}
 	}
 
 	
@@ -98,9 +102,13 @@ class DepartmentModel
 			WHERE id = :id";
 
 		$stmt = $this->db->prepare($sql);
-		
-		$result = $stmt->execute($params);
 
-		return $result === true;
+		try {
+			$result = $stmt->execute($params);
+
+			return $result === true;
+		} catch (Throwable $error) {
+			return false;
+		}
 	}
 }

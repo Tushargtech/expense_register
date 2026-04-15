@@ -24,11 +24,34 @@ class RbacService
             return 'employee';
         }
 
-        if ($role === 'depthead' || $role === 'department_head') {
-            return 'dept_head';
+        if ($role === 'depthead' || $role === 'dept_head') {
+            return 'department_head';
+        }
+
+        if ($role === 'hr' || str_starts_with($role, 'hr_')) {
+            return 'hr';
         }
 
         return $role;
+    }
+
+    private function rawRole(): string
+    {
+        return strtolower(trim((string) ($this->auth['role'] ?? '')));
+    }
+
+    private function isHrManagerOrDepartmentHead(): bool
+    {
+        $rawRole = $this->rawRole();
+
+        return in_array($rawRole, ['hr_manager', 'hr_department_head', 'hr_dept_head'], true);
+    }
+
+    private function isHrDepartmentHeadRole(): bool
+    {
+        $rawRole = $this->rawRole();
+
+        return in_array($rawRole, ['hr_department_head', 'hr_dept_head'], true);
     }
 
     private function flattenPermissionsArray(array $source, string $prefix = ''): array
@@ -109,16 +132,12 @@ class RbacService
             return $this->resolvedPermissions;
         }
 
+        $rawRole = strtolower(trim((string) ($this->auth['role'] ?? '')));
+        $roleSlug = $this->role();
         $sessionPermissions = $this->auth['role_permissions'] ?? null;
         $decodedSessionPermissions = $this->decodePermissions($sessionPermissions);
-        if ($decodedSessionPermissions !== []) {
-            $this->resolvedPermissions = $decodedSessionPermissions;
-            return $this->resolvedPermissions;
-        }
-
-        $roleSlug = $this->role();
         if ($roleSlug === '') {
-            $this->resolvedPermissions = [];
+            $this->resolvedPermissions = $decodedSessionPermissions;
             return $this->resolvedPermissions;
         }
 
@@ -127,21 +146,45 @@ class RbacService
             return $this->resolvedPermissions;
         }
 
-        $permissions = [];
+        $roleCandidates = array_values(array_unique(array_filter([$roleSlug, $rawRole], static fn($value) => $value !== '')));
+
         try {
-            if (function_exists('getDB')) {
+            if (function_exists('getDB') && $roleCandidates !== []) {
                 $db = getDB();
-                $stmt = $db->prepare('SELECT role_permissions FROM roles WHERE role_slug = :role_slug LIMIT 1');
-                $stmt->execute([':role_slug' => $roleSlug]);
-                $raw = $stmt->fetchColumn();
-                $permissions = $this->decodePermissions($raw);
+                foreach ($roleCandidates as $candidateRoleSlug) {
+                    if (array_key_exists($candidateRoleSlug, self::$rolePermissionCache)) {
+                        $permissions = self::$rolePermissionCache[$candidateRoleSlug];
+                        self::$rolePermissionCache[$roleSlug] = $permissions;
+                        $this->resolvedPermissions = $permissions;
+                        return $this->resolvedPermissions;
+                    }
+
+                    $stmt = $db->prepare('SELECT role_permissions FROM roles WHERE role_slug = :role_slug LIMIT 1');
+                    $stmt->execute([':role_slug' => $candidateRoleSlug]);
+                    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if (!is_array($row)) {
+                        continue;
+                    }
+
+                    $permissions = $this->decodePermissions($row['role_permissions'] ?? null);
+                    self::$rolePermissionCache[$candidateRoleSlug] = $permissions;
+                    self::$rolePermissionCache[$roleSlug] = $permissions;
+                    $this->resolvedPermissions = $permissions;
+                    return $this->resolvedPermissions;
+                }
             }
         } catch (Throwable $error) {
-            $permissions = [];
+            // Fall back to session-cached permissions if DB lookup fails.
         }
 
-        self::$rolePermissionCache[$roleSlug] = $permissions;
-        $this->resolvedPermissions = $permissions;
+        if ($decodedSessionPermissions !== []) {
+            self::$rolePermissionCache[$roleSlug] = $decodedSessionPermissions;
+            $this->resolvedPermissions = $decodedSessionPermissions;
+            return $this->resolvedPermissions;
+        }
+
+        self::$rolePermissionCache[$roleSlug] = [];
+        $this->resolvedPermissions = [];
 
         return $this->resolvedPermissions;
     }
@@ -181,32 +224,32 @@ class RbacService
 
     public function isHrScopedRole(): bool
     {
-        return $this->hasPermission(['users.hr_scope', 'users.scope.hr']);
+        return $this->role() === 'hr';
     }
 
     public function canManageUsersAndDepartments(): bool
     {
-        return $this->hasPermission(['users.manage', 'departments.manage', 'can_manage_users_departments', 'canmanageusersanddepartments']);
+        return $this->canManageUsers() && $this->canManageDepartments();
     }
 
     public function canViewUsers(): bool
     {
-        return $this->hasPermission(['users.view', 'users.list', 'can_view_users', 'canviewusers']);
+        return $this->hasPermission(['users.view']);
     }
 
     public function canManageUsers(): bool
     {
-        return $this->hasPermission(['users.manage', 'users.create', 'users.edit', 'can_manage_users', 'canmanageusers']);
+        return $this->hasPermission(['users.manage']);
     }
 
     public function canViewDepartments(): bool
     {
-        return $this->hasPermission(['departments.view', 'departments.list', 'can_view_departments', 'canviewdepartments']);
+        return $this->hasPermission(['departments.view']);
     }
 
     public function canManageDepartments(): bool
     {
-        return $this->hasPermission(['departments.manage', 'departments.create', 'departments.edit', 'can_manage_departments', 'canmanagedepartments']);
+        return $this->hasPermission(['departments.manage']);
     }
 
     public function isDepartmentScopedUserViewer(): bool
@@ -216,72 +259,114 @@ class RbacService
 
     public function canViewAllUsers(): bool
     {
-        return $this->hasPermission(['users.view_all', 'users.scope.all', 'can_view_all_users', 'canviewallusers']);
+        return $this->hasPermission(['users.view_all']);
     }
 
     public function canViewBudgetCategories(): bool
     {
-        return $this->hasPermission(['budget_categories.view', 'budget.categories.view', 'can_view_budget_categories', 'canviewbudgetcategories']);
+        if ($this->hasPermission(['budget_categories.view'])) {
+            return true;
+        }
+
+        return $this->isHrManagerOrDepartmentHead();
     }
 
     public function canManageBudgetCategories(): bool
     {
-        return $this->hasPermission(['budget_categories.manage', 'budget.categories.manage', 'can_manage_budget_categories', 'canmanagebudgetcategories']);
+        // Budget category create/update is finance-only.
+        if ($this->role() !== 'finance') {
+            return false;
+        }
+
+        // Allow finance even if session-cached permissions are stale.
+        return $this->hasPermission(['budget_categories.manage']) || $this->role() === 'finance';
     }
 
     public function canManageFinancialSetup(): bool
     {
-        return $this->canManageBudgetCategories();
+        return $this->canManageBudgetRecords();
+    }
+
+    public function canManageBudgetRecords(): bool
+    {
+        $role = $this->role();
+        $departmentName = $this->departmentName();
+
+        if ($role === 'finance') {
+            return true;
+        }
+
+        if ($departmentName !== 'finance') {
+            return false;
+        }
+
+        return in_array($role, ['employee', 'manager', 'dept_head', 'department_head'], true);
     }
 
     public function canManageWorkflows(): bool
     {
-        return $this->hasPermission(['workflows.manage', 'can_manage_workflows', 'canmanageworkflows']);
+        return $this->hasPermission(['workflows.manage']);
     }
 
     public function canCreateWorkflow(): bool
     {
-        return $this->hasPermission(['workflows.create', 'can_create_workflow', 'cancreateworkflow']);
+        return $this->hasPermission(['workflows.create']);
     }
 
     public function canEditWorkflow(): bool
     {
-        return $this->hasPermission(['workflows.edit', 'can_edit_workflow', 'caneditworkflow']);
+        if ($this->hasPermission(['workflows.edit', 'workflows.manage'])) {
+            return true;
+        }
+
+        return in_array($this->role(), ['admin', 'finance', 'dept_head', 'department_head'], true);
     }
 
     public function canViewWorkflow(): bool
     {
-        return $this->hasPermission(['workflows.view', 'workflow.view', 'can_view_workflow', 'canviewworkflow']);
+        if ($this->hasPermission(['workflows.view'])) {
+            return true;
+        }
+
+        return $this->isHrDepartmentHeadRole();
     }
 
     public function canViewWorkflowList(): bool
     {
-        return $this->hasPermission(['workflows.list', 'workflow.list', 'can_view_workflow_list', 'canviewworkflowlist']);
+        if ($this->hasPermission(['workflows.list'])) {
+            return true;
+        }
+
+        return $this->isHrDepartmentHeadRole();
     }
 
     public function canAccessBudgetMonitor(): bool
     {
-        return $this->hasPermission(['budget_monitor.view', 'budget.monitor.view', 'can_access_budget_monitor', 'canaccessbudgetmonitor']);
+        if ($this->hasPermission(['budget_monitor.view'])) {
+            return true;
+        }
+
+        return $this->isHrManagerOrDepartmentHead();
     }
 
     public function canViewOrganizationBudgetUtilization(): bool
     {
-        return $this->hasPermission(['budget_monitor.view_all', 'budget.monitor.scope.all', 'can_view_organization_budget_utilization', 'canvieworganizationbudgetutilization']);
+        return $this->hasPermission(['budget_monitor.view_all']);
     }
 
     public function canReviewExpenseRequests(): bool
     {
-        return $this->hasPermission(['expenses.review', 'expense.review', 'can_review_expense_requests', 'canreviewexpenserequests']);
+        return $this->hasPermission(['expenses.review']);
     }
 
     public function canReviewAllExpenseRequests(): bool
     {
-        return $this->hasPermission(['expenses.review_all', 'expense.review_all', 'expenses.scope.all']);
+        return $this->hasPermission(['expenses.review_all']);
     }
 
     public function canAccessFinancialRequests(): bool
     {
-        return $this->hasPermission(['expenses.view', 'expense.view', 'can_access_financial_requests', 'canaccessfinancialrequests']);
+        return $this->hasPermission(['expenses.view']);
     }
 
     public function canAccessRequest(int $ownerUserId, int $requestDepartmentId): bool

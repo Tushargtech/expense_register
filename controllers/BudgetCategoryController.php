@@ -56,17 +56,22 @@ class BudgetCategoryController
 		$categories = $categoryModel->getFilteredCategories($filters, $perPage, $offset);
 
 		$pageTitle = 'Budget Category Management - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/list.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'budget-category-list';
 		$canManageBudgetCategories = $this->rbac()->canManageBudgetCategories();
+		$lookupModel = new LookupModel();
+		$categoryTypeOptions = $lookupModel->getBudgetCategoryTypes();
 
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/budget_category_list.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/BudgetManagement/budget_category_list.php';
+		renderAppLayoutEnd();
 	}
 
 	private function normalizeCategoryPayload(array $source): array
@@ -85,7 +90,11 @@ class BudgetCategoryController
 
 	private function isValidCategoryPayload(array $categoryData): bool
 	{
-		$allowedTypes = ['expense', 'purchase'];
+		$lookupModel = new LookupModel();
+		$allowedTypes = $lookupModel->getBudgetCategoryTypes();
+		if ($allowedTypes === [] && $categoryData['budget_category_type'] !== '') {
+			$allowedTypes = [$categoryData['budget_category_type']];
+		}
 
 		return (
 			$categoryData['budget_category_name'] !== '' &&
@@ -105,15 +114,17 @@ class BudgetCategoryController
 		}
 
 		$pageTitle = 'Create Budget Category - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'budget-category-list';
 		$formError = trim((string) ($_GET['error'] ?? ''));
 		$isEdit = false;
-		$formAction = '?route=budget-categories/create';
+		$formAction = buildCleanRouteUrl('budget-categories/create');
 		$formTitle = 'Create Budget Category';
 		$submitLabel = 'Create Category';
+		$lookupModel = new LookupModel();
+		$categoryTypeOptions = $lookupModel->getBudgetCategoryTypes();
 		$category = [
 			'budget_category_id' => 0,
 			'budget_category_name' => '',
@@ -123,11 +134,14 @@ class BudgetCategoryController
 			'budget_category_is_active' => 1,
 		];
 
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/budget_category_creation.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/BudgetManagement/budget_category_creation.php';
+		renderAppLayoutEnd();
 	}
 
 	public function edit(): void
@@ -156,21 +170,26 @@ class BudgetCategoryController
 		}
 
 		$pageTitle = 'Edit Budget Category - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'budget-category-list';
 		$formError = trim((string) ($_GET['error'] ?? ''));
 		$isEdit = true;
-		$formAction = '?route=budget-categories/edit&id=' . $categoryId;
+		$formAction = buildCleanRouteUrl('budget-categories/edit', ['id' => $categoryId]);
 		$formTitle = 'Edit Budget Category';
 		$submitLabel = 'Update Category';
+		$lookupModel = new LookupModel();
+		$categoryTypeOptions = $lookupModel->getBudgetCategoryTypes();
 
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/budget_category_creation.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/BudgetManagement/budget_category_creation.php';
+		renderAppLayoutEnd();
 	}
 
 	public function store(): void
@@ -183,7 +202,7 @@ class BudgetCategoryController
 		}
 
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-			header('Location: ?route=budget-categories/create');
+			header('Location: ' . buildCleanRouteUrl('budget-categories/create'));
 			exit;
 		}
 
@@ -191,7 +210,7 @@ class BudgetCategoryController
 
 		if (!$this->isValidCategoryPayload($categoryData)) {
 			flash_error('Please fill all required fields correctly.');
-			header('Location: ?route=budget-categories/create');
+			header('Location: ' . buildCleanRouteUrl('budget-categories/create'));
 			exit;
 		}
 
@@ -201,10 +220,10 @@ class BudgetCategoryController
 		if ($success) {
 			RbacService::audit('budget_category_create', ['code' => $categoryData['budget_category_code']]);
 			flash_success('Budget category created successfully.');
-			header('Location: ?route=budget-categories');
+			header('Location: ' . buildCleanRouteUrl('budget-categories'));
 		} else {
 			flash_error('Failed to create budget category.');
-			header('Location: ?route=budget-categories/create');
+			header('Location: ' . buildCleanRouteUrl('budget-categories/create'));
 		}
 		exit;
 	}
@@ -219,14 +238,14 @@ class BudgetCategoryController
 		}
 
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-			header('Location: ?route=budget-categories');
+			header('Location: ' . buildCleanRouteUrl('budget-categories'));
 			exit;
 		}
 
 		$categoryId = (int) ($_GET['id'] ?? 0);
 		if ($categoryId <= 0) {
 			flash_error('Invalid budget category id');
-			header('Location: ?route=budget-categories');
+			header('Location: ' . buildCleanRouteUrl('budget-categories'));
 			exit;
 		}
 
@@ -234,7 +253,7 @@ class BudgetCategoryController
 
 		if (!$this->isValidCategoryPayload($categoryData)) {
 			flash_error('Please fill all required fields correctly.');
-			header('Location: ?route=budget-categories/edit&id=' . $categoryId);
+			header('Location: ' . buildCleanRouteUrl('budget-categories/edit', ['id' => $categoryId]));
 			exit;
 		}
 
@@ -244,10 +263,10 @@ class BudgetCategoryController
 		if ($success) {
 			RbacService::audit('budget_category_update', ['budget_category_id' => $categoryId]);
 			flash_success('Budget category updated successfully.');
-			header('Location: ?route=budget-categories');
+			header('Location: ' . buildCleanRouteUrl('budget-categories'));
 		} else {
 			flash_error('Failed to update budget category.');
-			header('Location: ?route=budget-categories/edit&id=' . $categoryId);
+			header('Location: ' . buildCleanRouteUrl('budget-categories/edit', ['id' => $categoryId]));
 		}
 		exit;
 	}

@@ -5,7 +5,6 @@ class WorkflowModel
 	private PDO $db;
 	private string $workflowTable = 'workflows';
 	private bool $checkedWorkflowTable = false;
-	private string $lastErrorMessage = '';
 
 	public function __construct()
 	{
@@ -42,7 +41,7 @@ class WorkflowModel
 
 		$search = trim((string) ($filters['search'] ?? ''));
 		if ($search !== '') {
-			$whereSql .= ' AND (w.workflow_name LIKE :search OR w.workflow_type LIKE :search)';
+			$whereSql .= ' AND (w.workflow_name LIKE :search OR w.workflow_type LIKE :search OR bc.budget_category_name LIKE :search)';
 			$params[':search'] = '%' . $search . '%';
 		}
 
@@ -56,6 +55,12 @@ class WorkflowModel
 		if ($workflowType !== '') {
 			$whereSql .= ' AND w.workflow_type = :workflow_type';
 			$params[':workflow_type'] = $workflowType;
+		}
+
+		$budgetCategoryId = (int) ($filters['budget_category_id'] ?? 0);
+		if ($budgetCategoryId > 0) {
+			$whereSql .= ' AND w.budget_category_id = :budget_category_id';
+			$params[':budget_category_id'] = $budgetCategoryId;
 		}
 
 		return [$whereSql, $params];
@@ -93,12 +98,15 @@ class WorkflowModel
 		$sql = 'SELECT
 					w.workflow_id,
 					w.workflow_name,
+					w.budget_category_id,
+					bc.budget_category_name,
 					step_flow.approval_flow,
 					w.workflow_type,
 					w.workflow_amount_min,
 					w.workflow_amount_max,
 					w.workflow_is_active
 				FROM ' . $this->workflowTable . ' w
+				LEFT JOIN budget_categories bc ON bc.budget_category_id = w.budget_category_id
 				LEFT JOIN (
 					SELECT
 						workflow_id,
@@ -125,28 +133,44 @@ class WorkflowModel
 		$this->resolveWorkflowTable();
 		[$whereSql, $params] = $this->buildFilterSql($filters);
 
-		$sql = 'SELECT COUNT(*) FROM ' . $this->workflowTable . ' w' . $whereSql;
+		$sql = 'SELECT COUNT(*)
+				FROM ' . $this->workflowTable . ' w
+				LEFT JOIN budget_categories bc ON bc.budget_category_id = w.budget_category_id' . $whereSql;
 		$stmt = $this->db->prepare($sql);
 		$stmt->execute($params);
 
 		return (int) $stmt->fetchColumn();
 	}
 
-	public function getSelectableWorkflows(): array
+	public function getSelectableWorkflows(?int $budgetCategoryId = null, ?string $requestType = null): array
 	{
 		$this->resolveWorkflowTable();
 
 		$sql = 'SELECT
 				w.workflow_id,
 				w.workflow_name,
+				w.budget_category_id,
 				w.workflow_type,
 				w.workflow_is_active
 			FROM ' . $this->workflowTable . ' w
-			WHERE w.workflow_is_active = 1
-			ORDER BY w.workflow_name ASC';
+			WHERE w.workflow_is_active = 1';
+
+		$params = [];
+		if ($budgetCategoryId !== null && $budgetCategoryId > 0) {
+			$sql .= ' AND w.budget_category_id = :budget_category_id';
+			$params[':budget_category_id'] = $budgetCategoryId;
+		}
+
+		$normalizedRequestType = strtolower(trim((string) ($requestType ?? '')));
+		if ($normalizedRequestType !== '') {
+			$sql .= ' AND LOWER(TRIM(w.workflow_type)) = :workflow_type';
+			$params[':workflow_type'] = $normalizedRequestType;
+		}
+
+		$sql .= ' ORDER BY w.workflow_is_default DESC, w.workflow_name ASC';
 
 		$stmt = $this->db->prepare($sql);
-		$stmt->execute();
+		$stmt->execute($params);
 
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
@@ -179,6 +203,7 @@ class WorkflowModel
 			"SELECT
 				workflow_id,
 				workflow_name,
+				budget_category_id,
 				workflow_type,
 				workflow_is_active,
 				workflow_is_default,
@@ -194,31 +219,6 @@ class WorkflowModel
 		return $row !== false ? $row : null;
 	}
 
-	public function getLastErrorMessage(): string
-	{
-		return $this->lastErrorMessage;
-	}
-
-	private function isWorkflowStepReferenced(int $stepId): bool
-	{
-		$checks = [
-			['table' => 'requests', 'column' => 'request_current_step_id'],
-			['table' => 'request_actions', 'column' => 'workflow_step_id'],
-			['table' => 'request_step_assignments', 'column' => 'workflow_step_id'],
-		];
-
-		foreach ($checks as $check) {
-			$sql = 'SELECT 1 FROM ' . $check['table'] . ' WHERE ' . $check['column'] . ' = :step_id LIMIT 1';
-			$stmt = $this->db->prepare($sql);
-			$stmt->execute([':step_id' => $stepId]);
-			if ($stmt->fetchColumn() !== false) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
 	public function getWorkflowStepsByWorkflowId(int $workflowId): array
 	{
 		$stmt = $this->db->prepare(
@@ -229,7 +229,6 @@ class WorkflowModel
 				step_name,
 				step_approver_type,
 				step_approver_role,
-				step_approver_user_id,
 				step_is_required,
 				step_timeout_hours
 			 FROM workflow_steps
@@ -244,13 +243,13 @@ class WorkflowModel
 	public function createWorkflow(array $workflowData, array $steps): bool
 	{
 		$this->resolveWorkflowTable();
-		$this->lastErrorMessage = '';
 		$this->db->beginTransaction();
 
 		try {
 			$workflowSql = "INSERT INTO " . $this->workflowTable . " (
 				workflow_name,
 				workflow_description,
+				budget_category_id,
 				workflow_type,
 				workflow_is_active,
 				workflow_is_default,
@@ -260,6 +259,7 @@ class WorkflowModel
 			) VALUES (
 				:workflow_name,
 				:workflow_description,
+				:budget_category_id,
 				:workflow_type,
 				:workflow_is_active,
 				:workflow_is_default,
@@ -272,6 +272,7 @@ class WorkflowModel
 			$workflowStmt->execute([
 				':workflow_name' => $workflowData['workflow_name'],
 				':workflow_description' => $workflowData['workflow_description'],
+				':budget_category_id' => $workflowData['budget_category_id'],
 				':workflow_type' => $workflowData['workflow_type'],
 				':workflow_is_active' => $workflowData['workflow_is_active'],
 				':workflow_is_default' => $workflowData['workflow_is_default'],
@@ -288,7 +289,6 @@ class WorkflowModel
 				step_name,
 				step_approver_type,
 				step_approver_role,
-				step_approver_user_id,
 				step_is_required,
 				step_timeout_hours
 			) VALUES (
@@ -297,7 +297,6 @@ class WorkflowModel
 				:step_name,
 				:step_approver_type,
 				:step_approver_role,
-				:step_approver_user_id,
 				:step_is_required,
 				:step_timeout_hours
 			)";
@@ -310,7 +309,6 @@ class WorkflowModel
 					':step_name' => (string) $step['step_name'],
 					':step_approver_type' => $step['step_approver_type'],
 					':step_approver_role' => $step['step_approver_role'],
-					':step_approver_user_id' => $step['step_approver_user_id'],
 					':step_is_required' => (int) $step['step_is_required'],
 					':step_timeout_hours' => $step['step_timeout_hours'],
 				]);
@@ -322,8 +320,7 @@ class WorkflowModel
 			if ($this->db->inTransaction()) {
 				$this->db->rollBack();
 			}
-
-			$this->lastErrorMessage = 'Failed to create workflow. ' . $error->getMessage();
+			error_log('WorkflowModel::createWorkflow failed: ' . $error->getMessage());
 
 			return false;
 		}
@@ -332,13 +329,13 @@ class WorkflowModel
 	public function updateWorkflow(int $workflowId, array $workflowData, array $steps): bool
 	{
 		$this->resolveWorkflowTable();
-		$this->lastErrorMessage = '';
 		$this->db->beginTransaction();
 
 		try {
 			$workflowSql = "UPDATE " . $this->workflowTable . " SET
 				workflow_name = :workflow_name,
 				workflow_description = :workflow_description,
+				budget_category_id = :budget_category_id,
 				workflow_type = :workflow_type,
 				workflow_is_active = :workflow_is_active,
 				workflow_is_default = :workflow_is_default,
@@ -351,6 +348,7 @@ class WorkflowModel
 			$workflowStmt->execute([
 				':workflow_name' => $workflowData['workflow_name'],
 				':workflow_description' => $workflowData['workflow_description'],
+				':budget_category_id' => $workflowData['budget_category_id'],
 				':workflow_type' => $workflowData['workflow_type'],
 				':workflow_is_active' => $workflowData['workflow_is_active'],
 				':workflow_is_default' => $workflowData['workflow_is_default'],
@@ -359,20 +357,31 @@ class WorkflowModel
 				':workflow_id' => $workflowId,
 			]);
 
-			$existingSteps = $this->getWorkflowStepsByWorkflowId($workflowId);
-			$existingById = [];
-			foreach ($existingSteps as $existingStep) {
-				$existingById[(int) $existingStep['step_id']] = $existingStep;
-			}
-			$retainedStepIds = [];
+			$existingStepsStmt = $this->db->prepare(
+				'SELECT step_id FROM workflow_steps WHERE workflow_id = :workflow_id ORDER BY step_order ASC, step_id ASC'
+			);
+			$existingStepsStmt->execute([':workflow_id' => $workflowId]);
+			$existingStepIds = array_map(
+				static fn(array $row): int => (int) ($row['step_id'] ?? 0),
+				$existingStepsStmt->fetchAll(PDO::FETCH_ASSOC)
+			);
 
-			$stepSql = "INSERT INTO workflow_steps (
+			$updateStepSql = "UPDATE workflow_steps SET
+				step_order = :step_order,
+				step_name = :step_name,
+				step_approver_type = :step_approver_type,
+				step_approver_role = :step_approver_role,
+				step_is_required = :step_is_required,
+				step_timeout_hours = :step_timeout_hours
+				WHERE step_id = :step_id AND workflow_id = :workflow_id";
+			$updateStepStmt = $this->db->prepare($updateStepSql);
+
+			$insertStepSql = "INSERT INTO workflow_steps (
 				workflow_id,
 				step_order,
 				step_name,
 				step_approver_type,
 				step_approver_role,
-				step_approver_user_id,
 				step_is_required,
 				step_timeout_hours
 			) VALUES (
@@ -381,68 +390,58 @@ class WorkflowModel
 				:step_name,
 				:step_approver_type,
 				:step_approver_role,
-				:step_approver_user_id,
 				:step_is_required,
 				:step_timeout_hours
 			)";
+			$insertStepStmt = $this->db->prepare($insertStepSql);
 
-			$updateStepSql = "UPDATE workflow_steps SET
-				step_order = :step_order,
-				step_name = :step_name,
-				step_approver_type = :step_approver_type,
-				step_approver_role = :step_approver_role,
-				step_approver_user_id = :step_approver_user_id,
-				step_is_required = :step_is_required,
-				step_timeout_hours = :step_timeout_hours
-			 WHERE workflow_id = :workflow_id AND step_id = :step_id";
+			$submittedCount = count($steps);
+			$existingCount = count($existingStepIds);
 
-			$stepStmt = $this->db->prepare($stepSql);
-			$updateStepStmt = $this->db->prepare($updateStepSql);
-			foreach ($steps as $step) {
-				$stepId = (int) ($step['step_id'] ?? 0);
-
-				if ($stepId > 0 && isset($existingById[$stepId])) {
-					$updateStepStmt->execute([
-						':workflow_id' => $workflowId,
-						':step_id' => $stepId,
-						':step_order' => (int) $step['step_order'],
-						':step_name' => (string) $step['step_name'],
-						':step_approver_type' => $step['step_approver_type'],
-						':step_approver_role' => $step['step_approver_role'],
-						':step_approver_user_id' => $step['step_approver_user_id'],
-						':step_is_required' => (int) $step['step_is_required'],
-						':step_timeout_hours' => $step['step_timeout_hours'],
-					]);
-					$retainedStepIds[$stepId] = true;
-					continue;
-				}
-
-				$stepStmt->execute([
+			for ($index = 0; $index < $submittedCount; $index++) {
+				$step = $steps[$index];
+				$params = [
 					':workflow_id' => $workflowId,
 					':step_order' => (int) $step['step_order'],
 					':step_name' => (string) $step['step_name'],
 					':step_approver_type' => $step['step_approver_type'],
 					':step_approver_role' => $step['step_approver_role'],
-					':step_approver_user_id' => $step['step_approver_user_id'],
 					':step_is_required' => (int) $step['step_is_required'],
 					':step_timeout_hours' => $step['step_timeout_hours'],
-				]);
+				];
+
+				if ($index < $existingCount) {
+					$updateStepStmt->execute($params + [':step_id' => $existingStepIds[$index]]);
+				} else {
+					$insertStepStmt->execute($params);
+				}
 			}
 
-			$deleteStmt = $this->db->prepare('DELETE FROM workflow_steps WHERE workflow_id = :workflow_id AND step_id = :step_id');
-			foreach ($existingById as $existingStepId => $unused) {
-				if (isset($retainedStepIds[$existingStepId])) {
-					continue;
-				}
+			if ($existingCount > $submittedCount) {
+				$usageCheckStmt = $this->db->prepare(
+					'SELECT (
+						(SELECT COUNT(*) FROM requests WHERE request_current_step_id = :step_id) +
+						(SELECT COUNT(*) FROM request_actions WHERE workflow_step_id = :step_id) +
+						(SELECT COUNT(*) FROM request_step_assignments WHERE workflow_step_id = :step_id)
+					) AS usage_count'
+				);
+				$deleteUnusedStepStmt = $this->db->prepare('DELETE FROM workflow_steps WHERE step_id = :step_id AND workflow_id = :workflow_id');
 
-				if ($this->isWorkflowStepReferenced((int) $existingStepId)) {
-					throw new RuntimeException('This workflow has active request history. You can edit existing steps, but cannot remove referenced steps.');
-				}
+				for ($index = $submittedCount; $index < $existingCount; $index++) {
+					$stepId = (int) $existingStepIds[$index];
+					if ($stepId <= 0) {
+						continue;
+					}
 
-				$deleteStmt->execute([
-					':workflow_id' => $workflowId,
-					':step_id' => (int) $existingStepId,
-				]);
+					$usageCheckStmt->execute([':step_id' => $stepId]);
+					$usageCount = (int) ($usageCheckStmt->fetchColumn() ?: 0);
+					if ($usageCount === 0) {
+						$deleteUnusedStepStmt->execute([
+							':step_id' => $stepId,
+							':workflow_id' => $workflowId,
+						]);
+					}
+				}
 			}
 
 			$this->db->commit();
@@ -451,8 +450,7 @@ class WorkflowModel
 			if ($this->db->inTransaction()) {
 				$this->db->rollBack();
 			}
-
-			$this->lastErrorMessage = 'Failed to update workflow. ' . $error->getMessage();
+			error_log('WorkflowModel::updateWorkflow failed: ' . $error->getMessage());
 
 			return false;
 		}

@@ -30,21 +30,42 @@ class UserController
 		return [
 			'name' => trim((string) ($source['name'] ?? '')),
 			'email' => trim((string) ($source['email'] ?? '')),
-			'role' => trim((string) ($source['role'] ?? 'employee')),
+			'role' => $this->normalizeUserRole((string) ($source['role'] ?? 'employee')),
 			'department_id' => (int) ($source['department_id'] ?? 0),
 			'manager_id' => (int) ($source['manager_id'] ?? 0),
 			'user_is_active' => (int) ($source['user_is_active'] ?? 1),
 		];
 	}
 
+	private function normalizeUserRole(string $role): string
+	{
+		$normalizedRole = strtolower(trim($role));
+
+		if ($normalizedRole === 'emp') {
+			return 'employee';
+		}
+
+		if ($normalizedRole === 'dept_head' || $normalizedRole === 'depthead') {
+			return 'department_head';
+		}
+
+		if ($normalizedRole === 'hr_manager' || $normalizedRole === 'hr_department_head') {
+			return $normalizedRole;
+		}
+
+		return $normalizedRole;
+	}
+
 	private function isValidUserPayload(array $userData): bool
 	{
-		$allowedRoles = ['admin', 'hr', 'finance', 'dept_head', 'department_head', 'manager', 'employee'];
+		$lookupModel = new LookupModel();
+		$allowedRoles = $lookupModel->getRoleSlugs();
+		$normalizedRole = $this->normalizeUserRole((string) ($userData['role'] ?? ''));
 
 		return (
 			$userData['name'] !== '' &&
 			filter_var($userData['email'], FILTER_VALIDATE_EMAIL) !== false &&
-			in_array($userData['role'], $allowedRoles, true) &&
+			in_array($normalizedRole, $allowedRoles, true) &&
 			$userData['department_id'] > 0 &&
 			$userData['manager_id'] > 0 &&
 			in_array($userData['user_is_active'], [0, 1], true)
@@ -101,18 +122,21 @@ class UserController
 		$departmentOptions = $userModel->getDepartmentOptions();
 
 		$pageTitle = 'User Management - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/list.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'user-list';
 		$canManageUsers = $rbac->canManageUsers();
 		$canFilterByDepartment = $canViewAllUsers;
 
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/user_list.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/UserManagement/user_list.php';
+		renderAppLayoutEnd();
 	}
 
 	public function create(): void
@@ -126,13 +150,13 @@ class UserController
 		$roleOptions = $userModel->getRoleOptions();
 
 		$pageTitle = 'Add Employee - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'user-list';
 		$formError = trim((string) ($_GET['error'] ?? ''));
 		$isEdit = false;
-		$formAction = '?route=users/create';
+		$formAction = buildCleanRouteUrl('users/create');
 		$formTitle = 'Add Employee';
 		$submitLabel = 'Save Employee';
 		$user = [
@@ -145,11 +169,14 @@ class UserController
 			'user_is_active' => 1,
 		];
 
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/user_create.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/UserManagement/user_create.php';
+		renderAppLayoutEnd();
 	}
 
 	public function edit(): void
@@ -177,21 +204,24 @@ class UserController
 		}
 
 		$pageTitle = 'Edit Employee - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'user-list';
 		$formError = trim((string) ($_GET['error'] ?? ''));
 		$isEdit = true;
-		$formAction = '?route=users/edit&id=' . (int) $userId;
+		$formAction = buildCleanRouteUrl('users/edit', ['id' => (int) $userId]);
 		$formTitle = 'Edit Employee';
 		$submitLabel = 'Update Employee';
 
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/user_create.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/UserManagement/user_create.php';
+		renderAppLayoutEnd();
 	}
 
 	public function store(): void
@@ -199,7 +229,7 @@ class UserController
 		$this->ensureUserCrudAccess();
 
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-			header('Location: ?route=users/create');
+			header('Location: ' . buildCleanRouteUrl('users/create'));
 			exit;
 		}
 
@@ -207,7 +237,7 @@ class UserController
 
 		if (!$this->isValidUserPayload($userData)) {
 			flash_error('Please fill all required fields correctly.');
-			header('Location: ?route=users/create');
+			header('Location: ' . buildCleanRouteUrl('users/create'));
 			exit;
 		}
 
@@ -217,10 +247,10 @@ class UserController
 		if ($success) {
 			RbacService::audit('user_create', ['email' => $userData['email'], 'role' => $userData['role']]);
 			flash_success('Employee created successfully.');
-			header('Location: ?route=users');
+			header('Location: ' . buildCleanRouteUrl('users'));
 		} else {
 			flash_error('Failed to create employee.');
-			header('Location: ?route=users/create');
+			header('Location: ' . buildCleanRouteUrl('users/create'));
 		}
 		exit;
 	}
@@ -230,24 +260,29 @@ class UserController
 		$this->ensureUserCrudAccess();
 
 		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-			header('Location: ?route=users');
+			header('Location: ' . buildCleanRouteUrl('users'));
 			exit;
 		}
 
 		$userId = (int) ($_GET['id'] ?? 0);
 		if ($userId <= 0) {
 			flash_error('Invalid user id');
-			header('Location: ?route=users');
+			header('Location: ' . buildCleanRouteUrl('users'));
 			exit;
 		}
 
 		$userModel = new UserModel();
 		$existingUser = $userModel->getUserById($userId);
+		if ($existingUser === null) {
+			flash_error('User not found.');
+			header('Location: ' . buildCleanRouteUrl('users'));
+			exit;
+		}
 		$userData = $this->normalizeUserPayload($_POST);
 
 		if (!$this->isValidUserPayload($userData)) {
 			flash_error('Please fill all required fields correctly.');
-			header('Location: ?route=users/edit&id=' . $userId);
+			header('Location: ' . buildCleanRouteUrl('users/edit', ['id' => $userId]));
 			exit;
 		}
 
@@ -261,10 +296,10 @@ class UserController
 				RbacService::audit('user_role_change', ['user_id' => $userId, 'from' => $oldRole, 'to' => $newRole]);
 			}
 			flash_success('Employee updated successfully.');
-			header('Location: ?route=users');
+			header('Location: ' . buildCleanRouteUrl('users'));
 		} else {
 			flash_error('Failed to update employee.');
-			header('Location: ?route=users/edit&id=' . $userId);
+			header('Location: ' . buildCleanRouteUrl('users/edit', ['id' => $userId]));
 		}
 		exit;
 	}

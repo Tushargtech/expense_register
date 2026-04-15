@@ -2,6 +2,11 @@
 
 class ExpenseController
 {
+    private function lookup(): LookupModel
+    {
+        return new LookupModel();
+    }
+
     private function rbac(): RbacService
     {
         return new RbacService();
@@ -114,25 +119,44 @@ class ExpenseController
 
     private function normalizeExpensePayload(array $source): array
     {
+        $lookup = $this->lookup();
+        $requestTypeOptions = $lookup->getRequestTypes();
+        $currencyOptions = $lookup->getRequestCurrencies();
+        $priorityOptions = $lookup->getRequestPriorities();
+
+        $defaultType = strtolower((string) ($requestTypeOptions[0] ?? ''));
+        $defaultCurrency = strtoupper((string) ($currencyOptions[0] ?? ''));
+        $defaultPriority = strtolower((string) ($priorityOptions[0] ?? ''));
+
         return [
-            'request_type' => strtolower(trim((string) ($source['request_type'] ?? 'expense'))),
+            'request_type' => strtolower(trim((string) ($source['request_type'] ?? $defaultType))),
             'request_title' => trim((string) ($source['request_title'] ?? '')),
             'request_description' => trim((string) ($source['request_description'] ?? '')),
             'request_amount' => trim((string) ($source['request_amount'] ?? '')),
-            'request_currency' => strtoupper(trim((string) ($source['request_currency'] ?? 'INR'))),
+            'request_currency' => strtoupper(trim((string) ($source['request_currency'] ?? $defaultCurrency))),
             'department_id' => (int) ($source['department_id'] ?? 0),
             'budget_category_id' => (int) ($source['budget_category_id'] ?? 0),
             'workflow_id' => (int) ($source['workflow_id'] ?? 0),
-            'request_priority' => strtolower(trim((string) ($source['request_priority'] ?? 'medium'))),
+            'request_priority' => strtolower(trim((string) ($source['request_priority'] ?? $defaultPriority))),
             'request_notes' => trim((string) ($source['request_notes'] ?? '')),
         ];
     }
 
     private function isValidExpensePayload(array $expenseData, array $selectedCategory, array $selectedWorkflow, bool $departmentLocked): bool
     {
-        $allowedTypes = ['expense', 'purchase'];
-        $allowedCurrencies = ['INR', 'USD', 'EUR'];
-        $allowedPriorities = ['low', 'medium', 'high'];
+        $lookup = $this->lookup();
+        $allowedTypes = $lookup->getRequestTypes();
+        $allowedCurrencies = $lookup->getRequestCurrencies();
+        $allowedPriorities = $lookup->getRequestPriorities();
+        if ($allowedTypes === [] && $expenseData['request_type'] !== '') {
+            $allowedTypes = [$expenseData['request_type']];
+        }
+        if ($allowedCurrencies === [] && $expenseData['request_currency'] !== '') {
+            $allowedCurrencies = [$expenseData['request_currency']];
+        }
+        if ($allowedPriorities === [] && $expenseData['request_priority'] !== '') {
+            $allowedPriorities = [$expenseData['request_priority']];
+        }
 
         if (!in_array($expenseData['request_type'], $allowedTypes, true)) {
             return false;
@@ -176,8 +200,14 @@ class ExpenseController
 
         $categoryType = strtolower(trim((string) ($selectedCategory['budget_category_type'] ?? '')));
         $workflowType = strtolower(trim((string) ($selectedWorkflow['workflow_type'] ?? '')));
+        $workflowBudgetCategoryId = (int) ($selectedWorkflow['budget_category_id'] ?? 0);
+        $selectedCategoryId = (int) ($selectedCategory['budget_category_id'] ?? 0);
 
-        return $categoryType === $expenseData['request_type'] && $workflowType === $expenseData['request_type'];
+        return $categoryType === $expenseData['request_type']
+            && $workflowType === $expenseData['request_type']
+            && $workflowBudgetCategoryId > 0
+            && $workflowBudgetCategoryId === $selectedCategoryId
+            && $workflowBudgetCategoryId === $expenseData['budget_category_id'];
     }
 
     public function create()
@@ -187,15 +217,18 @@ class ExpenseController
         $departmentModel = new DepartmentModel();
         $categoryModel = new BudgetCategoryModel();
         $workflowModel = new WorkflowModel();
+        $lookupModel = $this->lookup();
 
         $departments = $departmentModel->getAllDepartments();
-        $categories = array_values(array_filter(
-            $categoryModel->getSelectableCategories(),
-            static function (array $category): bool {
-                return strtolower(trim((string) ($category['budget_category_type'] ?? ''))) === 'expense';
-            }
-        ));
+        $categories = $categoryModel->getSelectableCategories();
         $workflows = $workflowModel->getSelectableWorkflows();
+        $requestTypeOptions = $lookupModel->getRequestTypes();
+        $requestCurrencyOptions = $lookupModel->getRequestCurrencies();
+        $requestPriorityOptions = $lookupModel->getRequestPriorities();
+
+        $defaultRequestType = strtolower((string) ($requestTypeOptions[0] ?? ''));
+        $defaultCurrency = strtoupper((string) ($requestCurrencyOptions[0] ?? ''));
+        $defaultPriority = strtolower((string) ($requestPriorityOptions[0] ?? ''));
 
         $auth = $_SESSION['auth'] ?? [];
         $userRole = strtolower(trim((string) ($auth['role'] ?? '')));
@@ -203,7 +236,7 @@ class ExpenseController
         $selectedDepartmentId = $departmentLocked ? (int) ($auth['department_id'] ?? 0) : 0;
 
         $pageTitle = 'Create Expense Request - Expense Register';
-        $pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+        $pageStyles = ['assets/css/app.css'];
         $envConfig = $GLOBALS['envConfig'] ?? [];
         $userName = (string) ($_SESSION['auth']['name'] ?? 'User');
         $activeMenu = 'expense-list';
@@ -212,22 +245,25 @@ class ExpenseController
         $formAction = '?route=expenses/create';
         $submitLabel = 'Submit Request';
         $expense = [
-            'request_type' => 'expense',
+            'request_type' => $defaultRequestType,
             'request_title' => '',
             'request_description' => '',
             'request_amount' => '',
-            'request_currency' => 'INR',
+            'request_currency' => $defaultCurrency,
             'department_id' => $selectedDepartmentId,
             'budget_category_id' => 0,
-            'request_priority' => 'medium',
+            'request_priority' => $defaultPriority,
             'request_notes' => '',
         ];
 
-        require ROOT_PATH . '/views/templates/header.php';
-        require ROOT_PATH . '/views/templates/navbar.php';
-        require ROOT_PATH . '/views/templates/sidebar.php';
-        require ROOT_PATH . '/views/module-1/expense_creation.php';
-        require ROOT_PATH . '/views/templates/footer.php';
+        require ROOT_PATH . '/views/templates/app_layout.php';
+        renderAppLayoutStart([
+            'pageTitle' => $pageTitle,
+            'pageStyles' => $pageStyles,
+            'activeMenu' => $activeMenu,
+        ]);
+        require ROOT_PATH . '/views/ExpenseManagement/expense_creation.php';
+        renderAppLayoutEnd();
     }
 
     public function review()
@@ -272,21 +308,28 @@ class ExpenseController
         }
 
         $pageTitle = 'Review Expense Request - Expense Register';
-        $pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+        $pageStyles = ['assets/css/app.css'];
         $envConfig = $GLOBALS['envConfig'] ?? [];
         $userName = (string) ($_SESSION['auth']['name'] ?? 'User');
         $activeMenu = 'expense-list';
+        $lookupModel = $this->lookup();
+        $requestTypeOptions = $lookupModel->getRequestTypes();
+        $requestCurrencyOptions = $lookupModel->getRequestCurrencies();
+        $requestPriorityOptions = $lookupModel->getRequestPriorities();
         $isReadOnly = true;
         $formTitle = 'Review Expense Request';
         $formAction = '?route=expenses/create';
         $submitLabel = 'Submit Request';
         $expense = $request;
 
-        require ROOT_PATH . '/views/templates/header.php';
-        require ROOT_PATH . '/views/templates/navbar.php';
-        require ROOT_PATH . '/views/templates/sidebar.php';
-        require ROOT_PATH . '/views/module-1/expense_creation.php';
-        require ROOT_PATH . '/views/templates/footer.php';
+        require ROOT_PATH . '/views/templates/app_layout.php';
+        renderAppLayoutStart([
+            'pageTitle' => $pageTitle,
+            'pageStyles' => $pageStyles,
+            'activeMenu' => $activeMenu,
+        ]);
+        require ROOT_PATH . '/views/ExpenseManagement/expense_creation.php';
+        renderAppLayoutEnd();
     }
 
     public function downloadAttachment()
@@ -409,14 +452,11 @@ class ExpenseController
             }
         }
 
-        if ($expenseData['workflow_id'] <= 0) {
-            foreach ($selectableWorkflows as $workflow) {
-                $workflowType = strtolower(trim((string) ($workflow['workflow_type'] ?? '')));
-                if ($workflowType === $expenseData['request_type']) {
-                    $expenseData['workflow_id'] = (int) ($workflow['workflow_id'] ?? 0);
-                    $selectedWorkflow = $workflow;
-                    break;
-                }
+        if ($expenseData['workflow_id'] <= 0 && $expenseData['budget_category_id'] > 0) {
+            $matchingWorkflows = $workflowModel->getSelectableWorkflows($expenseData['budget_category_id'], $expenseData['request_type']);
+            if (!empty($matchingWorkflows)) {
+                $selectedWorkflow = $matchingWorkflows[0];
+                $expenseData['workflow_id'] = (int) ($selectedWorkflow['workflow_id'] ?? 0);
             }
         }
 
@@ -501,17 +541,21 @@ class ExpenseController
         unset($filters['page'], $filters['limit']);
 
         $pageTitle = 'Expense Requests - Expense Register';
-        $pageStyles = ['assets/css/dashboard.css', 'assets/css/list.css'];
+        $pageStyles = ['assets/css/app.css'];
         $envConfig = $GLOBALS['envConfig'] ?? [];
         $userName = (string) ($_SESSION['auth']['name'] ?? 'User');
         $activeMenu = 'expense-list';
         $expenseScopeRole = $rbac->role();
+        $canReviewExpenseRequests = $rbac->canReviewExpenseRequests();
         $canFilterByDepartment = false;
 
-        require ROOT_PATH . '/views/templates/header.php';
-        require ROOT_PATH . '/views/templates/navbar.php';
-        require ROOT_PATH . '/views/templates/sidebar.php';
-        require ROOT_PATH . '/views/module-1/expense_list.php';
-        require ROOT_PATH . '/views/templates/footer.php';
+        require ROOT_PATH . '/views/templates/app_layout.php';
+        renderAppLayoutStart([
+            'pageTitle' => $pageTitle,
+            'pageStyles' => $pageStyles,
+            'activeMenu' => $activeMenu,
+        ]);
+        require ROOT_PATH . '/views/ExpenseManagement/expense_list.php';
+        renderAppLayoutEnd();
     }
 }

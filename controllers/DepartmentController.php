@@ -74,16 +74,19 @@ class DepartmentController
 		$offset = ($currentPage - 1) * $perPage;
 		$departments = array_slice($filteredDepartments, $offset, $perPage);
 		$pageTitle = 'Department Management - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/list.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'department-list';
 		$canManageDepartments = $this->rbac()->canManageDepartments();
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/department_list.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/DepartmentManagement/department_list.php';
+		renderAppLayoutEnd();
 	}
 
 	
@@ -93,7 +96,7 @@ class DepartmentController
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
 		$pageTitle = 'Create Department - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'department-list';
@@ -108,11 +111,14 @@ class DepartmentController
 			'department_code' => '',
 			'department_head_user_id' => 0,
 		];
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/department_creation.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/DepartmentManagement/department_creation.php';
+		renderAppLayoutEnd();
 	}
 
 	
@@ -135,7 +141,7 @@ class DepartmentController
 		$userModel = new UserModel();
 		$managers = $userModel->getManagerOptions();
 		$pageTitle = 'Edit Department - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'department-list';
@@ -144,11 +150,14 @@ class DepartmentController
 		$formAction = '?route=departments/edit&id=' . $deptId; 
 		$formTitle = 'Edit Department';
 		$submitLabel = 'Update Department';
-		require ROOT_PATH . '/views/templates/header.php';
-		require ROOT_PATH . '/views/templates/navbar.php';
-		require ROOT_PATH . '/views/templates/sidebar.php';
-		require ROOT_PATH . '/views/module-1/department_creation.php';
-		require ROOT_PATH . '/views/templates/footer.php';
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/DepartmentManagement/department_creation.php';
+		renderAppLayoutEnd();
 	}
 
 	

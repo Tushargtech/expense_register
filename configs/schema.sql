@@ -294,6 +294,7 @@ CREATE TABLE `workflows` (
   `workflow_id` int(11) NOT NULL,
   `workflow_name` varchar(150) NOT NULL,
   `workflow_description` text DEFAULT NULL,
+  `budget_category_id` int(11) DEFAULT NULL,
   `workflow_type` varchar(50) DEFAULT NULL,
   `workflow_is_active` tinyint(1) DEFAULT 1,
   `workflow_is_default` tinyint(1) DEFAULT 0,
@@ -308,8 +309,8 @@ CREATE TABLE `workflows` (
 -- Dumping data for table `workflows`
 --
 
-INSERT INTO `workflows` (`workflow_id`, `workflow_name`, `workflow_description`, `workflow_type`, `workflow_is_active`, `workflow_is_default`, `workflow_amount_min`, `workflow_amount_max`, `workflow_created_by`, `workflow_created_at`, `workflow_updated_at`) VALUES
-(1, 'Parking Reimbursement', NULL, 'Expense', 1, 0, 0.00, 2000.00, 1, '2026-04-10 16:05:09', '2026-04-10 16:06:26');
+INSERT INTO `workflows` (`workflow_id`, `workflow_name`, `workflow_description`, `budget_category_id`, `workflow_type`, `workflow_is_active`, `workflow_is_default`, `workflow_amount_min`, `workflow_amount_max`, `workflow_created_by`, `workflow_created_at`, `workflow_updated_at`) VALUES
+(1, 'Parking Reimbursement', NULL, 2, 'Expense', 1, 0, 0.00, 2000.00, 1, '2026-04-10 16:05:09', '2026-04-10 16:06:26');
 
 -- --------------------------------------------------------
 
@@ -324,9 +325,6 @@ CREATE TABLE `workflow_steps` (
   `step_name` varchar(150) DEFAULT NULL,
   `step_approver_type` varchar(50) DEFAULT NULL,
   `step_approver_role` varchar(50) DEFAULT NULL,
-  `step_approver_user_id` int(11) DEFAULT NULL,
-  `step_amount_min` decimal(15,2) DEFAULT NULL,
-  `step_amount_max` decimal(15,2) DEFAULT NULL,
   `step_is_required` tinyint(1) DEFAULT 1,
   `step_timeout_hours` int(11) DEFAULT NULL,
   `step_created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -336,9 +334,9 @@ CREATE TABLE `workflow_steps` (
 -- Dumping data for table `workflow_steps`
 --
 
-INSERT INTO `workflow_steps` (`step_id`, `workflow_id`, `step_order`, `step_name`, `step_approver_type`, `step_approver_role`, `step_approver_user_id`, `step_amount_min`, `step_amount_max`, `step_is_required`, `step_timeout_hours`, `step_created_at`) VALUES
-(3, 1, 1, 'Manager Approval', 'role', 'manager', 6, 0.00, 2000.00, 1, 24, '2026-04-10 16:06:26'),
-(4, 1, 2, 'Department Head Approval', 'department_head', 'department_head', 1, 0.00, 2000.00, 1, 48, '2026-04-10 16:06:26');
+INSERT INTO `workflow_steps` (`step_id`, `workflow_id`, `step_order`, `step_name`, `step_approver_type`, `step_approver_role`, `step_is_required`, `step_timeout_hours`, `step_created_at`) VALUES
+(3, 1, 1, 'Manager Approval', 'manager', 'manager', 1, 24, '2026-04-10 16:06:26'),
+(4, 1, 2, 'Department Head Approval', 'department_head', 'department_head', 1, 48, '2026-04-10 16:06:26');
 
 --
 -- Indexes for dumped tables
@@ -430,6 +428,7 @@ ALTER TABLE `users`
 --
 ALTER TABLE `workflows`
   ADD PRIMARY KEY (`workflow_id`),
+  ADD KEY `idx_workflows_budget_category_id` (`budget_category_id`),
   ADD KEY `idx_workflows_created_by` (`workflow_created_by`);
 
 --
@@ -437,8 +436,7 @@ ALTER TABLE `workflows`
 --
 ALTER TABLE `workflow_steps`
   ADD PRIMARY KEY (`step_id`),
-  ADD KEY `idx_workflow_steps_workflow_id` (`workflow_id`),
-  ADD KEY `idx_workflow_steps_approver_user_id` (`step_approver_user_id`);
+  ADD KEY `idx_workflow_steps_workflow_id` (`workflow_id`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -580,14 +578,14 @@ ALTER TABLE `users`
 -- Constraints for table `workflows`
 --
 ALTER TABLE `workflows`
-  ADD CONSTRAINT `workflows_ibfk_1` FOREIGN KEY (`workflow_created_by`) REFERENCES `users` (`user_id`);
+  ADD CONSTRAINT `workflows_ibfk_1` FOREIGN KEY (`workflow_created_by`) REFERENCES `users` (`user_id`),
+  ADD CONSTRAINT `workflows_ibfk_2` FOREIGN KEY (`budget_category_id`) REFERENCES `budget_categories` (`budget_category_id`);
 
 --
 -- Constraints for table `workflow_steps`
 --
 ALTER TABLE `workflow_steps`
-  ADD CONSTRAINT `workflow_steps_ibfk_1` FOREIGN KEY (`workflow_id`) REFERENCES `workflows` (`workflow_id`),
-  ADD CONSTRAINT `workflow_steps_ibfk_2` FOREIGN KEY (`step_approver_user_id`) REFERENCES `users` (`user_id`);
+  ADD CONSTRAINT `workflow_steps_ibfk_1` FOREIGN KEY (`workflow_id`) REFERENCES `workflows` (`workflow_id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
