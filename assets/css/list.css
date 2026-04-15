@@ -1,0 +1,274 @@
+.user-list-page {
+	background: whitesmoke;
+}
+
+.user-list-panel {
+	background: white;
+	border: 1px solid lightgray;
+	border-radius: 12px;
+	box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+	overflow: hidden;
+}
+
+.user-filter-bar {
+	padding: 12px 14px;
+	background: snow;
+	border-bottom: 1px solid gainsboro;
+}
+
+.search-bar {
+	display: flex;
+	gap: 8px;
+}
+
+.filter-layout {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.filter-left {
+	flex: 1;
+	min-width: 0;
+}
+
+.filter-grid {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+.search-field {
+	flex: 2 1 260px;
+	min-width: 220px;
+}
+
+.filter-field {
+	flex: 1 1 150px;
+	min-width: 150px;
+}
+
+.filter-field .form-control,
+.filter-field .form-select,
+.search-bar input,
+.search-bar select,
+.search-bar button {
+	padding: 5px 8px;
+	font-size: 12px;
+	border: 1px solid silver;
+	border-radius: 5px;
+	min-width: 0;
+}
+
+.filter-field .form-control,
+.filter-field .form-select {
+	height: 36px;
+	border-color: lightgray;
+	background-color: white;
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.filter-actions {
+	display: flex;
+	gap: 8px;
+	white-space: nowrap;
+	flex-wrap: wrap;
+}
+
+.btn-filter {
+    font-size: 13px;
+	height: 34px;
+	min-width: 72px;
+	border-radius: 5px;
+	font-weight: 500;
+	background: dodgerblue;
+	color: white;
+	border: none;
+	transition: all 0.3s ease;
+}
+
+.btn-filter:hover {
+	background: steelblue;
+	color: white;
+}
+
+.add-record-wrap {
+	display: flex;
+	justify-content: flex-end;
+	margin-left: auto;
+	flex-shrink: 0;
+	white-space: nowrap;
+	align-self: center;
+}
+
+.add-btn {
+	background: dodgerblue;
+	color: white;
+	padding: 8px 12px;
+	font-size: 12px;
+	border-radius: 5px;
+	cursor: pointer;
+	border: none;
+	white-space: nowrap;
+}
+
+.add-btn:hover {
+	background: steelblue;
+}
+
+.add-record-btn {
+	position: static;
+	height: 34px;
+	padding: 0 12px;
+	border-radius: 5px;
+	font-weight: 600;
+	font-size: 13px;
+	white-space: nowrap;
+	display: inline-flex;
+	align-items: center;
+}
+
+.user-table-wrap {
+	max-height: calc(100vh - 260px);
+	overflow: auto;
+}
+
+.user-list-table {
+	min-width: 1024px;
+	font-size: 14px;
+	margin-bottom: 0;
+}
+
+.user-list-table thead th {
+	background: steelblue;
+	color: white;
+	font-size: 12px;
+	font-weight: 600;
+	padding: 9px 6px;
+	border: 0;
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	white-space: nowrap;
+}
+
+.user-list-table tbody td {
+	padding: 8px 6px;
+	border-color: lightgray;
+	vertical-align: middle;
+	line-height: 1.2;
+}
+
+.user-list-table tbody tr:nth-child(odd) {
+	background: aliceblue;
+}
+
+.status-pill {
+	display: inline-block;
+	padding: 4px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.status-active {
+	background: honeydew;
+	color: darkgreen;
+}
+
+.status-inactive {
+	background: mistyrose;
+	color: firebrick;
+}
+
+.edit-btn {
+	border-radius: 7px;
+	font-size: 12px;
+	font-weight: 600;
+	padding: 4px 12px;
+}
+
+.user-pagination-wrap {
+	display: flex;
+	justify-content: center;
+	padding: 8px 10px;
+	border-top: 1px solid whitesmoke;
+	background: white;
+}
+
+.user-pagination .page-link {
+	color: steelblue;
+	border-color: lightgray;
+	font-size: 11px;
+	font-weight: 500;
+	min-width: 30px;
+	padding: 4px 8px;
+	line-height: 1.2;
+	text-align: center;
+}
+
+.user-pagination .page-item.active .page-link {
+	background: steelblue;
+	border-color: steelblue;
+	color: white;
+}
+
+@media (max-width: 1200px) {
+	.filter-layout {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.search-bar {
+		flex-wrap: wrap;
+	}
+
+	.add-record-wrap {
+		justify-content: flex-start;
+		margin-left: 0;
+	}
+
+	.filter-grid {
+		flex-wrap: wrap;
+	}
+
+	.filter-field,
+	.search-field {
+		flex: 1 1 220px;
+	}
+
+	.add-record-wrap,
+	.filter-actions {
+		justify-content: flex-start;
+	}
+}
+
+@media (max-width: 640px) {
+	.user-filter-bar {
+		padding: 10px;
+	}
+
+	.filter-grid {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.filter-field,
+	.search-field,
+	.filter-actions {
+		width: 100%;
+	}
+
+	.filter-actions .btn-filter {
+		flex: 1 1 auto;
+	}
+
+	.btn-filter,
+	.add-record-btn {
+		width: 100%;
+	}
+}
