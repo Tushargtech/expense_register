@@ -117,8 +117,8 @@ $baseQuery = [
 										
 										<?php if ($canManageDepartments): ?>
 											<a href="?route=departments/edit&id=<?php echo htmlspecialchars((string) ($dept['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" 
-											   class="btn btn-sm btn-warning edit-btn">
-												<i class="bi bi-pencil-square"></i>Edit
+											   class="btn btn-sm btn-warning edit-btn" title="Edit Department" aria-label="Edit Department">
+												<i class="bi bi-pencil-square"></i>
 											</a>
 										<?php else: ?>
 											<span class="text-muted small">View Only</span>

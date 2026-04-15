@@ -14,6 +14,7 @@ $isReadOnlyWorkflow = !$canEditWorkflow;
 $workflowName = (string) ($workflow['workflow_name'] ?? '');
 $workflowDescription = (string) ($workflow['workflow_description'] ?? '');
 $workflowType = (string) ($workflow['workflow_type'] ?? '');
+$normalizedWorkflowType = ucfirst(strtolower(trim($workflowType)));
 $workflowAmountMin = (string) ($workflow['workflow_amount_min'] ?? '');
 $workflowAmountMax = (string) ($workflow['workflow_amount_max'] ?? '');
 $workflowIsActive = (int) ($workflow['workflow_is_active'] ?? 1);
@@ -77,8 +78,8 @@ if (count($workflowSteps) === 0) {
 							<label class="user-create-label" for="workflow_type">Workflow Type</label>
 							<select class="user-create-select" id="workflow_type" name="workflow_type" required>
 								<option value="">Select Workflow Type</option>
-								<option value="Expense" <?php echo $workflowType === 'Expense' ? 'selected' : ''; ?>>Expense</option>
-								<option value="Purchase" <?php echo $workflowType === 'Purchase' ? 'selected' : ''; ?>>Purchase</option>
+								<option value="Expense" <?php echo $normalizedWorkflowType === 'Expense' ? 'selected' : ''; ?>>Expense</option>
+								<option value="Purchase" <?php echo $normalizedWorkflowType === 'Purchase' ? 'selected' : ''; ?>>Purchase</option>
 							</select>
 						</div>
 
@@ -118,13 +119,26 @@ if (count($workflowSteps) === 0) {
 							<p class="user-create-note">Drag and drop step cards to reorder approval levels.</p>
 						</div>
 						<?php if (!$isReadOnlyWorkflow): ?>
-						<button type="button" class="user-create-btn user-create-btn-secondary" id="addStepBtn">Add Approval Level</button>
+						<button type="button" class="user-create-btn user-create-btn-secondary" id="addStepBtn">Add Approval Step
+						</button>
 						<?php endif; ?>
 					</div>
 
 					<div id="stepsContainer">
 						<?php foreach ($workflowSteps as $stepIndex => $step): ?>
 						<div class="workflow-step-card workflow-step-row" draggable="true" data-step-index="<?php echo (int) $stepIndex; ?>">
+							<input type="hidden" name="step_id[]" value="<?php echo (int) ($step['step_id'] ?? 0); ?>">
+							<?php
+							$selectedApproverType = strtolower((string) ($step['step_approver_type'] ?? 'role'));
+							$selectedApproverRole = strtolower((string) ($step['step_approver_role'] ?? ''));
+							if ($selectedApproverType === 'department_head') {
+								$selectedApproverType = 'department';
+							} elseif ($selectedApproverType === 'user') {
+								$selectedApproverType = 'role';
+							} elseif ($selectedApproverType === 'role' && $selectedApproverRole === 'manager') {
+								$selectedApproverType = 'manager';
+							}
+							?>
 							<div class="workflow-step-card-head">
 								<div class="workflow-step-title-wrap">
 									<span class="workflow-step-number"><?php echo (int) ($step['step_order'] ?? ($stepIndex + 1)); ?></span>
@@ -150,9 +164,9 @@ if (count($workflowSteps) === 0) {
 							<div class="user-create-field">
 								<label class="user-create-label">Approver Type</label>
 								<select class="user-create-select approver-type-select" name="step_approver_type[]">
-									<option value="role" <?php echo (string) ($step['step_approver_type'] ?? 'role') === 'role' ? 'selected' : ''; ?>>Role</option>
-									<option value="user" <?php echo (string) ($step['step_approver_type'] ?? '') === 'user' ? 'selected' : ''; ?>>User</option>
-									<option value="department_head" <?php echo (string) ($step['step_approver_type'] ?? '') === 'department_head' ? 'selected' : ''; ?>>Department Head</option>
+									<option value="role" <?php echo $selectedApproverType === 'role' ? 'selected' : ''; ?>>Role</option>
+									<option value="manager" <?php echo $selectedApproverType === 'manager' ? 'selected' : ''; ?>>Manager</option>
+									<option value="department" <?php echo $selectedApproverType === 'department' ? 'selected' : ''; ?>>Department Head</option>
 								</select>
 							</div>
 
@@ -161,34 +175,17 @@ if (count($workflowSteps) === 0) {
 								<select class="user-create-select approver-role-select" name="step_approver_role[]">
 									<option value="">Select Role</option>
 									<?php foreach ($roles as $role): ?>
+										<?php
+										$roleSlug = strtolower((string) ($role['role_slug'] ?? ''));
+										if (in_array($roleSlug, ['manager', 'department', 'department_head', 'dept_head'], true)) {
+											continue;
+										}
+										?>
 										<option value="<?php echo htmlspecialchars((string) ($role['role_slug'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" <?php echo (string) ($step['step_approver_role'] ?? '') === (string) ($role['role_slug'] ?? '') ? 'selected' : ''; ?>>
 											<?php echo htmlspecialchars((string) ($role['role_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
 										</option>
 									<?php endforeach; ?>
 								</select>
-							</div>
-
-							<div class="user-create-field">
-								<label class="user-create-label">Approver User</label>
-								<select class="user-create-select approver-user-select" name="step_approver_user_id[]">
-									<option value="">Select User</option>
-									<?php foreach ($users as $user): ?>
-										<?php $userId = (int) ($user['user_id'] ?? 0); ?>
-										<option value="<?php echo $userId; ?>" <?php echo (int) ($step['step_approver_user_id'] ?? 0) === $userId ? 'selected' : ''; ?>>
-											<?php echo htmlspecialchars((string) ($user['user_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-										</option>
-									<?php endforeach; ?>
-								</select>
-							</div>
-
-							<div class="user-create-field">
-								<label class="user-create-label">Step Amount Min</label>
-								<input type="number" class="user-create-input" name="step_amount_min[]" min="0" step="0.01" placeholder="0.00" value="<?php echo htmlspecialchars((string) ($step['step_amount_min'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-							</div>
-
-							<div class="user-create-field">
-								<label class="user-create-label">Step Amount Max</label>
-								<input type="number" class="user-create-input" name="step_amount_max[]" min="0" step="0.01" placeholder="50000.00" value="<?php echo htmlspecialchars((string) ($step['step_amount_max'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
 							</div>
 
 							<div class="user-create-field">
@@ -261,8 +258,7 @@ if (count($workflowSteps) === 0) {
 	const syncApproverInputs = function (row) {
 		const typeSelect = row.querySelector('.approver-type-select');
 		const roleSelect = row.querySelector('.approver-role-select');
-		const userSelect = row.querySelector('.approver-user-select');
-		if (!typeSelect || !roleSelect || !userSelect) {
+		if (!typeSelect || !roleSelect) {
 			return;
 		}
 
@@ -270,28 +266,25 @@ if (count($workflowSteps) === 0) {
 		if (approverType === 'role') {
 			roleSelect.required = true;
 			roleSelect.disabled = false;
-			userSelect.required = false;
-			userSelect.disabled = true;
-			userSelect.value = '';
-		} else if (approverType === 'user') {
-			roleSelect.required = false;
-			roleSelect.disabled = true;
-			roleSelect.value = '';
-			userSelect.required = true;
-			userSelect.disabled = false;
 		} else {
 			roleSelect.required = false;
 			roleSelect.disabled = true;
 			roleSelect.value = '';
-			userSelect.required = false;
-			userSelect.disabled = true;
-			userSelect.value = '';
 		}
 	};
 
 	const syncAllApproverInputs = function () {
 		container.querySelectorAll('.workflow-step-row').forEach(function (row) {
 			syncApproverInputs(row);
+		});
+	};
+
+	const enableApproverInputsForSubmit = function () {
+		container.querySelectorAll('.workflow-step-row').forEach(function (row) {
+			const roleSelect = row.querySelector('.approver-role-select');
+			if (roleSelect) {
+				roleSelect.disabled = false;
+			}
 		});
 	};
 
@@ -331,6 +324,8 @@ if (count($workflowSteps) === 0) {
 		clone.querySelectorAll('input').forEach(function (input) {
 			if (input.name === 'step_order[]') {
 				input.value = String(rowCount + 1);
+			} else if (input.name === 'step_id[]') {
+				input.value = '';
 			} else {
 				input.value = '';
 			}
@@ -449,6 +444,7 @@ if (count($workflowSteps) === 0) {
 	if (form) {
 		form.addEventListener('submit', function () {
 			syncRequiredHiddenValues();
+			enableApproverInputsForSubmit();
 		});
 	}
 

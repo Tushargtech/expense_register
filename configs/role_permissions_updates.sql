@@ -32,7 +32,7 @@ SET role_permissions = JSON_OBJECT(
     'list', true,
     'view', true,
     'create', true,
-    'edit', false,
+    'edit', true,
     'manage', false
   ),
   'expenses', JSON_OBJECT(
@@ -70,8 +70,8 @@ SET role_permissions = JSON_OBJECT(
     'list', true,
     'view', true,
     'create', true,
-    'edit', false,
-    'manage', false
+    'edit', true,
+    'manage', true
   ),
   'expenses', JSON_OBJECT(
     'view', true,
@@ -143,7 +143,7 @@ SET role_permissions = JSON_OBJECT(
     'view_all', false
   ),
   'workflows', JSON_OBJECT(
-    'list', false,
+    'list', true,
     'view', true,
     'create', false,
     'edit', false,
@@ -184,7 +184,7 @@ SET role_permissions = JSON_OBJECT(
     'list', true,
     'view', true,
     'create', false,
-    'edit', false,
+    'edit', true,
     'manage', false
   ),
   'expenses', JSON_OBJECT(
@@ -220,7 +220,7 @@ SET role_permissions = JSON_OBJECT(
   ),
   'workflows', JSON_OBJECT(
     'list', false,
-    'view', true,
+    'view', false,
     'create', false,
     'edit', false,
     'manage', false
@@ -232,14 +232,6 @@ SET role_permissions = JSON_OBJECT(
   )
 )
 WHERE role_slug = 'employee';
-
--- Enforce workflow view for all roles (existing + future role rows)
-UPDATE roles
-SET role_permissions = JSON_SET(
-  COALESCE(role_permissions, JSON_OBJECT()),
-  '$.workflows.view',
-  true
-);
 
 -- Verify
 SELECT role_id, role_name, role_slug, role_permissions
