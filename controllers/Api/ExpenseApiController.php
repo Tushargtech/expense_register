@@ -254,8 +254,8 @@ class ExpenseApiController extends ApiBaseController
         $input = $this->input();
         $expenseData = $this->normalizeExpensePayload($input);
         $auth = $this->authenticatedUser();
-        $userRole = strtolower(trim((string) ($auth['role'] ?? '')));
-        $departmentLocked = in_array($userRole, ['manager', 'dept_head'], true) && (int) ($auth['department_id'] ?? 0) > 0;
+        $rbac = $this->rbac();
+        $departmentLocked = ($rbac->isManager() || $rbac->isDepartmentHead()) && (int) ($auth['department_id'] ?? 0) > 0;
         $expenseData['department_id'] = $departmentLocked ? (int) ($auth['department_id'] ?? 0) : $expenseData['department_id'];
         $expenseData['request_submitted_by'] = (int) ($auth['user_id'] ?? 0);
         $expenseData['request_notes'] = $expenseData['request_notes'] !== '' ? $expenseData['request_notes'] : null;

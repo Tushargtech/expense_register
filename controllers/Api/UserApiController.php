@@ -34,15 +34,15 @@ class UserApiController extends ApiBaseController
             return 'employee';
         }
 
-        if ($normalizedRole === 'dept_head' || $normalizedRole === 'depthead') {
-            return 'department_head';
+        if (in_array($normalizedRole, ['dept_head', 'depthead', 'department_head', 'manager'], true)) {
+            return 'employee';
         }
 
-        if ($normalizedRole === 'hr_manager' || $normalizedRole === 'hr_department_head') {
+        if (in_array($normalizedRole, ['hr_manager', 'hr_department_head', 'hr_dept_head'], true)) {
             return 'hr';
         }
 
-        return $normalizedRole;
+        return in_array($normalizedRole, ['admin', 'finance', 'hr', 'employee'], true) ? $normalizedRole : 'employee';
     }
 
     private function validatePayload(array $userData): array

@@ -102,7 +102,7 @@ class DepartmentController
 		$activeMenu = 'department-list';
 		$formError = trim((string) ($_GET['error'] ?? ''));
 		$isEdit = false; 
-		$formAction = '?route=departments/create'; 
+		$formAction = buildCleanRouteUrl('departments/create'); 
 		$formTitle = 'Create Department';
 		$submitLabel = 'Create Department';
 		$department = [
@@ -147,7 +147,7 @@ class DepartmentController
 		$activeMenu = 'department-list';
 		$formError = trim((string) ($_GET['error'] ?? ''));
 		$isEdit = true; 
-		$formAction = '?route=departments/edit&id=' . $deptId; 
+		$formAction = buildCleanRouteUrl('departments/edit', ['id' => $deptId]); 
 		$formTitle = 'Edit Department';
 		$submitLabel = 'Update Department';
 		require ROOT_PATH . '/views/templates/app_layout.php';
@@ -202,7 +202,8 @@ class DepartmentController
 			flash_success('Department created successfully.');
 			header('Location: ?route=departments');
 		} else {
-			flash_error('Failed to create department.');
+			$errorMessage = trim((string) ($deptModel->getLastValidationError() ?? ''));
+			flash_error($errorMessage !== '' ? $errorMessage : 'Failed to create department.');
 			header('Location: ?route=departments/create');
 		}
 		exit;
@@ -236,7 +237,8 @@ class DepartmentController
 			flash_success('Department updated successfully.');
 			header('Location: ?route=departments');
 		} else {
-			flash_error('Failed to update department.');
+			$errorMessage = trim((string) ($deptModel->getLastValidationError() ?? ''));
+			flash_error($errorMessage !== '' ? $errorMessage : 'Failed to update department.');
 			header('Location: ?route=departments/edit&id=' . $deptId);
 		}
 		exit;

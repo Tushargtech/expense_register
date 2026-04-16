@@ -231,8 +231,8 @@ class ExpenseController
         $defaultPriority = strtolower((string) ($requestPriorityOptions[0] ?? ''));
 
         $auth = $_SESSION['auth'] ?? [];
-        $userRole = strtolower(trim((string) ($auth['role'] ?? '')));
-        $departmentLocked = in_array($userRole, ['manager', 'dept_head'], true) && (int) ($auth['department_id'] ?? 0) > 0;
+        $rbac = $this->rbac();
+        $departmentLocked = ($rbac->isManager() || $rbac->isDepartmentHead()) && (int) ($auth['department_id'] ?? 0) > 0;
         $selectedDepartmentId = $departmentLocked ? (int) ($auth['department_id'] ?? 0) : 0;
 
         $pageTitle = 'Create Expense Request - Expense Register';
@@ -423,8 +423,8 @@ class ExpenseController
 
         $expenseData = $this->normalizeExpensePayload($_POST);
         $auth = $_SESSION['auth'] ?? [];
-        $userRole = strtolower(trim((string) ($auth['role'] ?? '')));
-        $departmentLocked = in_array($userRole, ['manager', 'dept_head'], true) && (int) ($auth['department_id'] ?? 0) > 0;
+        $rbac = $this->rbac();
+        $departmentLocked = ($rbac->isManager() || $rbac->isDepartmentHead()) && (int) ($auth['department_id'] ?? 0) > 0;
         $expenseData['department_id'] = $departmentLocked ? (int) ($auth['department_id'] ?? 0) : $expenseData['department_id'];
         $expenseData['request_submitted_by'] = (int) ($auth['user_id'] ?? 0);
         $expenseData['request_notes'] = $expenseData['request_notes'] !== '' ? $expenseData['request_notes'] : null;

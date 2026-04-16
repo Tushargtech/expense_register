@@ -104,8 +104,7 @@ if ($canFilterByDepartment) {
 							<th>User Name</th>
 							<th>Email</th>
 							<th>Role</th>
-							<th>Department Name</th>
-							<th>Manager ID</th>
+							<th>Department</th>
 							<th>Manager Name</th>
 							<th class="text-end pe-3">Action</th>
 						</tr>
@@ -113,7 +112,7 @@ if ($canFilterByDepartment) {
 					<tbody>
 						<?php if (empty($users)): ?>
 							<tr>
-								<td colspan="7" class="text-center py-4 text-muted">No users found for the selected filters.</td>
+								<td colspan="6" class="text-center py-4 text-muted">No users found for the selected filters.</td>
 							</tr>
 						<?php else: ?>
 							<?php foreach ($users as $index => $row): ?>
@@ -126,7 +125,6 @@ if ($canFilterByDepartment) {
 									<td><?php echo htmlspecialchars((string) ($row['user_email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['user_role'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['dept_name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
-									<td><?php echo (int) ($row['manager_id'] ?? 0); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['manager_name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td class="text-end pe-3">
 										<?php if ($canManageUsers): ?>
@@ -139,7 +137,9 @@ if ($canFilterByDepartment) {
 												<i class="bi bi-pencil-square" aria-hidden="true"></i>
 											</a>
 										<?php else: ?>
-											<span class="text-muted small">View Only</span>
+											<button class="btn btn-sm btn-secondary action-icon-btn" disabled title="View Only" aria-label="View Only">
+												<i class="bi bi-eye-slash" aria-hidden="true"></i>
+											</button>
 										<?php endif; ?>
 									</td>
 								</tr>

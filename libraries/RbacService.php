@@ -40,18 +40,45 @@ class RbacService
         return strtolower(trim((string) ($this->auth['role'] ?? '')));
     }
 
+    private function baseRole(): string
+    {
+        return strtolower(trim((string) ($this->auth['base_role'] ?? $this->auth['role'] ?? '')));
+    }
+
+    public function isManager(): bool
+    {
+        if (in_array($this->baseRole(), ['admin', 'finance'], true)) {
+            return false;
+        }
+
+        if (!empty($this->auth['is_manager'])) {
+            return true;
+        }
+
+        return in_array($this->rawRole(), ['manager', 'hr_manager'], true);
+    }
+
+    public function isDepartmentHead(): bool
+    {
+        if (in_array($this->baseRole(), ['admin', 'finance'], true)) {
+            return false;
+        }
+
+        if (!empty($this->auth['is_department_head'])) {
+            return true;
+        }
+
+        return in_array($this->rawRole(), ['department_head', 'dept_head', 'depthead', 'hr_department_head', 'hr_dept_head'], true);
+    }
+
     private function isHrManagerOrDepartmentHead(): bool
     {
-        $rawRole = $this->rawRole();
-
-        return in_array($rawRole, ['hr_manager', 'hr_department_head', 'hr_dept_head'], true);
+        return $this->isManager() || $this->isDepartmentHead();
     }
 
     private function isHrDepartmentHeadRole(): bool
     {
-        $rawRole = $this->rawRole();
-
-        return in_array($rawRole, ['hr_department_head', 'hr_dept_head'], true);
+        return $this->isDepartmentHead();
     }
 
     private function flattenPermissionsArray(array $source, string $prefix = ''): array
@@ -249,7 +276,11 @@ class RbacService
 
     public function canManageDepartments(): bool
     {
-        return $this->hasPermission(['departments.manage']);
+        if ($this->hasPermission(['departments.manage'])) {
+            return true;
+        }
+
+        return $this->role() === 'admin';
     }
 
     public function isDepartmentScopedUserViewer(): bool
@@ -292,15 +323,17 @@ class RbacService
         $role = $this->role();
         $departmentName = $this->departmentName();
 
+        // Finance role (finance employee) can always manage budget records
         if ($role === 'finance') {
             return true;
         }
 
-        if ($departmentName !== 'finance') {
-            return false;
+        // Finance department employees, managers, and department heads can upload budgets
+        if ($departmentName === 'finance') {
+            return in_array($role, ['employee'], true) || $this->isManager() || $this->isDepartmentHead();
         }
 
-        return in_array($role, ['employee', 'manager', 'dept_head', 'department_head'], true);
+        return false;
     }
 
     public function canManageWorkflows(): bool
@@ -319,7 +352,7 @@ class RbacService
             return true;
         }
 
-        return in_array($this->role(), ['admin', 'finance', 'dept_head', 'department_head'], true);
+        return in_array($this->role(), ['admin', 'finance'], true) || $this->isDepartmentHead();
     }
 
     public function canViewWorkflow(): bool
@@ -328,7 +361,7 @@ class RbacService
             return true;
         }
 
-        return $this->isHrDepartmentHeadRole();
+        return $this->isDepartmentHead();
     }
 
     public function canViewWorkflowList(): bool
@@ -337,16 +370,49 @@ class RbacService
             return true;
         }
 
-        return $this->isHrDepartmentHeadRole();
+        return $this->isDepartmentHead();
     }
 
     public function canAccessBudgetMonitor(): bool
     {
-        if ($this->hasPermission(['budget_monitor.view'])) {
+        $role = $this->role();
+        $departmentName = $this->departmentName();
+
+        // Finance role can always access budget monitor
+        if ($role === 'finance') {
             return true;
         }
 
-        return $this->isHrManagerOrDepartmentHead();
+        // Finance department employees, managers, and department heads can access budget monitor
+        if ($departmentName === 'finance') {
+            return in_array($role, ['employee'], true) || $this->isManager() || $this->isDepartmentHead();
+        }
+
+        // Department heads from other departments can access budget monitor for their department only
+        if ($this->isDepartmentHead()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // Only Finance department users can view budgets for all departments
+    public function canAccessBudgetMonitorForAllDepartments(): bool
+    {
+        $role = $this->role();
+        $departmentName = $this->departmentName();
+
+        // Finance role can view all departments
+        if ($role === 'finance') {
+            return true;
+        }
+
+        // Finance department employees, managers, and department heads can view all departments
+        if ($departmentName === 'finance') {
+            return in_array($role, ['employee'], true) || $this->isManager() || $this->isDepartmentHead();
+        }
+
+        return false;
     }
 
     public function canViewOrganizationBudgetUtilization(): bool
@@ -356,7 +422,7 @@ class RbacService
 
     public function canReviewExpenseRequests(): bool
     {
-        return $this->hasPermission(['expenses.review']);
+        return $this->hasPermission(['expenses.review']) || $this->isManager() || $this->isDepartmentHead();
     }
 
     public function canReviewAllExpenseRequests(): bool

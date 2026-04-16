@@ -112,14 +112,16 @@ $baseQuery = [
 										
 										
 										<?php if ($canManageDepartments): ?>
-											<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('departments/edit', ['id' => (string) ($dept['id'] ?? '')]), ENT_QUOTES, 'UTF-8'); ?>" 
+											<a href="<?php echo htmlspecialchars('./?route=departments/edit&id=' . (int) ($dept['id'] ?? 0), ENT_QUOTES, 'UTF-8'); ?>" 
 											   class="btn btn-sm btn-warning edit-btn action-icon-btn"
 											   title="Edit"
 											   aria-label="Edit department">
 												<i class="bi bi-pencil-square" aria-hidden="true"></i>
 											</a>
 										<?php else: ?>
-											<span class="text-muted small">View Only</span>
+											<button class="btn btn-sm btn-secondary action-icon-btn" disabled title="View Only" aria-label="View Only">
+												<i class="bi bi-eye-slash" aria-hidden="true"></i>
+											</button>
 										<?php endif; ?>
 
 										

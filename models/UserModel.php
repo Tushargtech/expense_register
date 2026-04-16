@@ -133,7 +133,7 @@ class UserModel
 	public function getRoleOptions(): array
 	{
 		$stmt = $this->db->prepare(
-			"SELECT role_slug, role_name FROM roles ORDER BY role_name ASC"
+			"SELECT role_slug, role_name FROM roles WHERE role_slug IN ('admin', 'finance', 'hr', 'employee') ORDER BY role_name ASC"
 		);
 		$stmt->execute();
 

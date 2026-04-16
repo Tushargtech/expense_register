@@ -11,7 +11,7 @@ class LookupModel
 
     public function getRoleSlugs(): array
     {
-        $stmt = $this->db->query('SELECT role_slug FROM roles WHERE role_slug IS NOT NULL AND role_slug <> "" ORDER BY role_slug ASC');
+        $stmt = $this->db->query("SELECT role_slug FROM roles WHERE role_slug IN ('admin', 'finance', 'hr', 'employee') ORDER BY role_slug ASC");
         $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
 
         return $this->normalizeUniqueStringList($rows, static fn(string $value): string => strtolower($value));

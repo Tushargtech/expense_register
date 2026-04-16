@@ -113,7 +113,9 @@ $baseQuery = [
 													<i class="bi bi-pencil-square" aria-hidden="true"></i>
 												</a>
 											<?php else: ?>
-												<span class="text-muted small">View Only</span>
+												<button class="btn btn-sm btn-secondary action-icon-btn" disabled title="View Only" aria-label="View Only">
+													<i class="bi bi-eye-slash" aria-hidden="true"></i>
+												</button>
 											<?php endif; ?>
 										</div>
 									</td>

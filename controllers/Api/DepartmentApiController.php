@@ -23,7 +23,7 @@ class DepartmentApiController extends ApiBaseController
         ];
     }
 
-    private function validatePayload(array $departmentData): array
+    private function validatePayload(array $departmentData, int $excludeDepartmentId = 0): array
     {
         $errors = [];
         if ($departmentData['department_name'] === '') {
@@ -34,6 +34,15 @@ class DepartmentApiController extends ApiBaseController
         }
         if ($departmentData['department_head_user_id'] <= 0) {
             $errors['department_head_user_id'] = 'Department head is required.';
+        } else {
+            $deptModel = new DepartmentModel();
+            $conflict = $deptModel->getDepartmentHeadConflict((int) $departmentData['department_head_user_id'], $excludeDepartmentId);
+            if ($conflict !== null) {
+                $conflictDepartmentName = trim((string) ($conflict['department_name'] ?? ''));
+                $errors['department_head_user_id'] = $conflictDepartmentName !== ''
+                    ? 'Department head is already assigned to ' . $conflictDepartmentName . '.'
+                    : 'Department head is already assigned to another department.';
+            }
         }
         return $errors;
     }
@@ -148,7 +157,7 @@ class DepartmentApiController extends ApiBaseController
         }
 
         $departmentData = $this->normalizePayload($this->input());
-        $errors = $this->validatePayload($departmentData);
+        $errors = $this->validatePayload($departmentData, $departmentId);
         if (!empty($errors)) {
             $this->jsonError('Validation failed.', 422, $errors);
         }

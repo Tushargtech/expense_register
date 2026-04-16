@@ -3,6 +3,7 @@
 class DepartmentModel
 {
 	private PDO $db;
+    private ?string $lastValidationError = null;
 
 	public function __construct()
 	{
@@ -14,6 +15,37 @@ class DepartmentModel
 		$istNow = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
 
 		return $istNow->format('Y-m-d H:i:s');
+	}
+
+	public function getLastValidationError(): ?string
+	{
+		return $this->lastValidationError;
+	}
+
+	public function getDepartmentHeadConflict(int $departmentHeadUserId, int $excludeDepartmentId = 0): ?array
+	{
+		if ($departmentHeadUserId <= 0) {
+			return null;
+		}
+
+		$sql = "SELECT d.id, d.department_name
+				FROM departments d
+				WHERE d.department_head_user_id = :head_user_id";
+
+		$params = [':head_user_id' => $departmentHeadUserId];
+
+		if ($excludeDepartmentId > 0) {
+			$sql .= " AND d.id <> :exclude_id";
+			$params[':exclude_id'] = $excludeDepartmentId;
+		}
+
+		$sql .= " LIMIT 1";
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute($params);
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return is_array($row) ? $row : null;
 	}
 
 
@@ -62,6 +94,18 @@ class DepartmentModel
 	
 	public function createDepartment(array $departmentData): bool
 	{
+		$this->lastValidationError = null;
+
+		$headUserId = (int) ($departmentData['department_head_user_id'] ?? 0);
+		$conflict = $this->getDepartmentHeadConflict($headUserId);
+		if ($conflict !== null) {
+			$conflictDepartmentName = trim((string) ($conflict['department_name'] ?? ''));
+			$this->lastValidationError = $conflictDepartmentName !== ''
+				? 'Selected department head is already assigned to ' . $conflictDepartmentName . '.'
+				: 'Selected department head is already assigned to another department.';
+			return false;
+		}
+
 		$sql = "INSERT INTO departments (department_name, department_code, department_head_user_id, department_created_at)
 			VALUES (:name, :code, :head_user_id, :created_at)";
 
@@ -84,6 +128,18 @@ class DepartmentModel
 	
 	public function updateDepartment(int $departmentId, array $departmentData): bool
 	{
+		$this->lastValidationError = null;
+
+		$headUserId = (int) ($departmentData['department_head_user_id'] ?? 0);
+		$conflict = $this->getDepartmentHeadConflict($headUserId, $departmentId);
+		if ($conflict !== null) {
+			$conflictDepartmentName = trim((string) ($conflict['department_name'] ?? ''));
+			$this->lastValidationError = $conflictDepartmentName !== ''
+				? 'Selected department head is already assigned to ' . $conflictDepartmentName . '.'
+				: 'Selected department head is already assigned to another department.';
+			return false;
+		}
+
 		$setClauses = [
 			'department_name = :name',
 			'department_code = :code',

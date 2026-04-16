@@ -186,8 +186,11 @@ class BudgetMonitorController
 			'fiscal_year' => trim((string) ($_GET['fiscal_year'] ?? '')),
 		];
 
+		// Finance department users can view all departments
+		// Other users are restricted to their own department
 		$scopeDepartmentId = null;
-		if (!$this->isFinanceRole() && $managerDepartmentId > 0) {
+		$rbac = $this->rbac();
+		if (!$rbac->canAccessBudgetMonitorForAllDepartments() && $managerDepartmentId > 0) {
 			$scopeDepartmentId = $managerDepartmentId;
 			$filters['department_id'] = $managerDepartmentId;
 		}
@@ -261,6 +264,7 @@ class BudgetMonitorController
 		$userName = (string) ($auth['name'] ?? 'User');
 		$activeMenu = 'budget-monitor';
 		$isFinanceRole = $this->isFinanceRole();
+		$canViewAllDepartments = $this->rbac()->canAccessBudgetMonitorForAllDepartments();
 		$canManageBudgetRecords = $this->rbac()->canManageBudgetRecords();
 		$roleLabel = 'Budget Management';
 		$scopeNote = '';
