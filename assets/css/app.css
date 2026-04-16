@@ -1,9 +1,3 @@
-/* ======================================== */
-/* App CSS Bundle (Manually Inlined)       */
-/* Source sections: login, list, creation, */
-/* dashboard, budget-monitor               */
-/* ======================================== */
-
 /* ===== Begin: login.css ===== */
 .login-shell {
     min-height: 100vh;
@@ -34,12 +28,15 @@
 }
 /* ===== End: login.css ===== */
 
-/* ===== Begin: list.css ===== */
+
+/* ===== Begin: list.css (SCOPED) ===== */
+
 .user-list-page {
 	background: whitesmoke;
 }
 
-.user-list-panel {
+/* PANEL */
+.user-list-page .user-list-panel {
 	background: white;
 	border: 1px solid lightgray;
 	border-radius: 12px;
@@ -47,63 +44,69 @@
 	overflow: hidden;
 }
 
-.user-filter-bar {
+/* FILTER BAR */
+.user-list-page .user-filter-bar {
 	padding: 12px 14px;
 	background: snow;
 	border-bottom: 1px solid gainsboro;
+	display: flex;
+	align-items: center;
+	width: 100%;
 }
 
-.list-page-header {
+.user-list-page .list-page-header {
 	padding: 12px 14px 0;
 }
 
-.list-page-title {
+.user-list-page .list-page-title {
 	font-size: 18px;
 	font-weight: 700;
 	color: #1e293b;
 	margin: 0;
 }
 
-.search-bar {
+/* SEARCH BAR */
+.user-list-page .search-bar {
 	display: flex;
 	gap: 8px;
+	width: 100%;
 }
 
-.filter-layout {
+/* LAYOUT */
+.user-list-page .filter-layout {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	width: 100%;
 	gap: 10px;
 }
 
-.filter-left {
-	flex: 1;
-	min-width: 0;
-}
-
-.filter-grid {
+/* 🔥 IMPORTANT FIX (prevents stretching) */
+.user-list-page .filter-left {
 	display: flex;
-	gap: 8px;
 	align-items: center;
+	gap: 10px;
 	flex-wrap: wrap;
-	min-width: 0;
+	flex: 0 1 auto;
 }
 
-.search-field {
-	flex: 2 1 260px;
-	min-width: 220px;
+/* 🔥 SEARCH WIDTH FIX */
+.user-list-page .search-field {
+	flex: 0 0 320px;
+	max-width: 320px;
 }
 
-.filter-field {
-	flex: 1 1 150px;
+/* FILTER FIELDS */
+.user-list-page .filter-field {
+	flex: 0 0 auto;
 	min-width: 150px;
 }
 
-.filter-field .form-control,
-.filter-field .form-select,
-.search-bar input,
-.search-bar select,
-.search-bar button {
+/* INPUTS */
+.user-list-page .filter-field .form-control,
+.user-list-page .filter-field .form-select,
+.user-list-page .search-bar input,
+.user-list-page .search-bar select,
+.user-list-page .search-bar button {
 	padding: 5px 8px;
 	font-size: 12px;
 	border: 1px solid silver;
@@ -111,8 +114,8 @@
 	min-width: 0;
 }
 
-.filter-field .form-control,
-.filter-field .form-select {
+.user-list-page .filter-field .form-control,
+.user-list-page .filter-field .form-select {
 	height: 36px;
 	border-color: lightgray;
 	background-color: white;
@@ -120,15 +123,16 @@
 	font-weight: 500;
 }
 
-.filter-actions {
+/* ACTIONS */
+.user-list-page .filter-actions {
 	display: flex;
 	gap: 8px;
 	white-space: nowrap;
-	flex-wrap: wrap;
 }
 
-.btn-filter {
-    font-size: 13px;
+/* BUTTONS */
+.user-list-page .btn-filter {
+	font-size: 13px;
 	height: 34px;
 	min-width: 72px;
 	border-radius: 5px;
@@ -139,21 +143,20 @@
 	transition: all 0.3s ease;
 }
 
-.btn-filter:hover {
+.user-list-page .btn-filter:hover {
 	background: steelblue;
 	color: white;
 }
 
-.add-record-wrap {
-	display: flex;
-	justify-content: flex-end;
+/* ✅ ADD BUTTON FIX */
+.user-list-page .add-record-wrap {
 	margin-left: auto;
-	flex-shrink: 0;
-	white-space: nowrap;
-	align-self: center;
+	display: flex;
+	align-items: center;
+	padding-left: 10px;
 }
 
-.add-btn {
+.user-list-page .add-btn {
 	background: dodgerblue;
 	color: white;
 	padding: 8px 12px;
@@ -164,20 +167,50 @@
 	white-space: nowrap;
 }
 
-.add-btn:hover {
+.user-list-page .add-btn:hover {
 	background: steelblue;
 }
 
-.add-record-btn {
-	position: static;
+.user-list-page .add-record-btn {
 	height: 34px;
 	padding: 0 12px;
 	border-radius: 5px;
 	font-weight: 600;
 	font-size: 13px;
-	white-space: nowrap;
 	display: inline-flex;
 	align-items: center;
+	white-space: nowrap;
+}
+
+/* TABLE */
+.user-list-page .user-table-wrap {
+	max-height: calc(100vh - 260px);
+	overflow: auto;
+}
+
+.user-list-page .user-list-table {
+	min-width: 1024px;
+	font-size: 14px;
+	margin-bottom: 0;
+}
+
+.user-list-page .user-list-table thead th {
+	background: steelblue;
+	color: white;
+	font-size: 12px;
+	font-weight: 600;
+	padding: 9px 6px;
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	white-space: nowrap;
+}
+
+.user-list-page .user-list-table tbody td {
+	padding: 8px 6px;
+	border-color: lightgray;
+	vertical-align: middle;
+	line-height: 1.2;
 }
 
 .user-table-wrap {
@@ -211,6 +244,8 @@
 	line-height: 1.2;
 }
 
+
+/* STATUS */
 .user-list-table tbody tr:nth-child(odd) {
 	background: aliceblue;
 }
@@ -265,42 +300,7 @@
 	color: #334155;
 }
 
-.status-pending {
-	background: #fff7ed;
-	color: #9a3412;
-}
-
-.status-approved {
-	background: #dcfce7;
-	color: #166534;
-}
-
-.status-rejected {
-	background: #fef2f2;
-	color: #b91c1c;
-}
-
-.edit-btn {
-	border-radius: 7px;
-	font-size: 12px;
-	font-weight: 600;
-	padding: 4px 12px;
-}
-
-.action-icon-btn {
-	width: 32px;
-	height: 32px;
-	padding: 0;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.action-icon-btn i {
-	font-size: 14px;
-	line-height: 1;
-}
-
+/* PAGINATION */
 .user-pagination-wrap {
 	display: flex;
 	justify-content: space-between;
@@ -334,75 +334,59 @@
 	color: white;
 }
 
+/* RESPONSIVE */
 @media (max-width: 1200px) {
-	.filter-layout {
+	.user-list-page .filter-layout {
 		flex-direction: column;
 		align-items: stretch;
 	}
 
-	.search-bar {
-		flex-wrap: wrap;
+	.user-list-page .filter-left {
+		flex: 1;
 	}
 
-	.add-record-wrap {
-		justify-content: flex-end;
-		margin-left: 0;
+	.user-list-page .search-field {
+		flex: 1;
+		max-width: 100%;
+	}
+
+	.user-list-page .add-record-wrap {
 		width: 100%;
-	}
-
-	.filter-grid {
-		flex-wrap: wrap;
-	}
-
-	.filter-field,
-	.search-field {
-		flex: 1 1 220px;
-	}
-
-	.add-record-wrap,
-	.filter-actions {
+		margin-left: 0;
 		justify-content: flex-end;
 	}
 }
 
 @media (max-width: 640px) {
-	.user-filter-bar {
-		padding: 10px;
-	}
-
-	.filter-grid {
+	.user-list-page .filter-left {
 		flex-direction: column;
 		align-items: stretch;
 	}
 
-	.filter-field,
-	.search-field,
-	.filter-actions {
+	.user-list-page .filter-field,
+	.user-list-page .search-field {
 		width: 100%;
 	}
 
-	.filter-actions .btn-filter {
-		flex: 1 1 auto;
+	.user-list-page .filter-actions {
+		width: 100%;
+		justify-content: space-between;
 	}
-
 	.user-pagination-wrap {
 		flex-direction: column;
 		align-items: stretch;
 	}
 
-	.btn-filter,
-	.add-record-btn {
+	.user-list-page .btn-filter,
+	.user-list-page .add-record-btn {
 		width: 100%;
 	}
 
-	.add-record-wrap {
+	.user-list-page .add-record-wrap {
 		justify-content: flex-end;
 	}
-
-	.add-record-btn {
-		width: auto;
-	}
 }
+
 /* ===== End: list.css ===== */
 
 /* ===== Begin: creation.css ===== */
@@ -823,6 +807,228 @@
 		align-items: stretch;
 	}
 }
+
+/* ===== Begin: budget-monitor.css ===== */
+
+.budget-monitor-page {
+	background:
+		radial-gradient(circle at top left, rgba(52, 152, 219, 0.14), transparent 28%),
+		linear-gradient(180deg, aliceblue 0%, aliceblue 100%);
+	min-height: calc(100vh - 90px);
+	border-radius: 20px;
+	padding: 10px;
+}
+
+/* ===== HERO ===== */
+
+.budget-monitor-hero {
+	border: 1px solid rgba(217, 226, 236, 0.9);
+	border-radius: 22px;
+	color: white;
+	background: linear-gradient(135deg, darkslategray 0%, steelblue 100%);
+	box-shadow: 0 18px 36px rgba(26, 37, 47, 0.18);
+}
+
+.budget-monitor-hero .card-body {
+	padding: 28px 30px !important;
+}
+
+/* ===== FILTER CARD ===== */
+
+.budget-filter-card,
+.budget-monitor-page .page-card:not(.budget-monitor-hero) {
+	background: rgba(255, 255, 255, 0.92);
+	border: 1px solid rgba(217, 226, 236, 0.9);
+	border-radius: 22px;
+	box-shadow: 0 18px 30px rgba(36, 52, 71, 0.08);
+	backdrop-filter: blur(8px);
+}
+
+.budget-monitor-page .budget-filter-card .card-body {
+	padding: 0;
+}
+
+/* ===== SEARCH BAR (MATCHED WITH LIST.CSS) ===== */
+
+.budget-monitor-page .user-filter-bar {
+	padding: 12px 14px;
+	background: snow;
+	border-bottom: 1px solid gainsboro;
+	display: flex;
+	align-items: center;
+	width: 100%;
+}
+
+.budget-monitor-page .search-bar {
+	display: flex;
+	gap: 8px;
+	width: 100%;
+}
+
+/* MAIN LAYOUT */
+.budget-monitor-page .filter-layout {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	gap: 10px;
+}
+
+/* LEFT SIDE (filters) */
+.budget-monitor-page .filter-left {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+
+	/* 🔥 IMPORTANT (same fix as list.css) */
+	flex: 0 1 auto;
+}
+
+/* GRID FIX (VERY IMPORTANT) */
+.budget-monitor-page .filter-grid {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+/* FIELDS */
+.budget-monitor-page .filter-field {
+	flex: 0 0 auto;
+	min-width: 150px;
+}
+
+/* INPUTS */
+.budget-monitor-page .filter-field .form-control,
+.budget-monitor-page .filter-field .form-select,
+.budget-monitor-page .search-bar input,
+.budget-monitor-page .search-bar select,
+.budget-monitor-page .search-bar button {
+	padding: 5px 8px;
+	font-size: 12px;
+	border: 1px solid silver;
+	border-radius: 5px;
+	min-width: 0;
+}
+
+.budget-monitor-page .filter-field .form-control,
+.budget-monitor-page .filter-field .form-select {
+	height: 36px;
+	border-color: lightgray;
+	background-color: white;
+	font-size: 12px;
+	font-weight: 500;
+}
+
+/* ACTION BUTTONS */
+.budget-monitor-page .filter-actions {
+	display: flex;
+	gap: 8px;
+	white-space: nowrap;
+}
+
+.budget-monitor-page .btn-filter {
+	font-size: 13px;
+	height: 34px;
+	min-width: 72px;
+	border-radius: 5px;
+	font-weight: 500;
+	background: dodgerblue;
+	color: white;
+	border: none;
+	transition: all 0.3s ease;
+}
+
+.budget-monitor-page .btn-filter:hover {
+	background: steelblue;
+	color: white;
+}
+
+/* ✅ ADD BUTTON SPACING FIX */
+.budget-monitor-page .add-record-wrap {
+	margin-left: auto;
+	display: flex;
+	align-items: center;
+	padding-left: 10px;
+}
+
+/* ===== KPI CARDS ===== */
+
+.budget-kpi-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+	gap: 1rem;
+}
+
+.budget-kpi-grid .kpi-card {
+	border: 1px solid lightgray !important;
+	border-radius: 0.8rem !important;
+	background: white !important;
+	padding: 1rem !important;
+	box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+/* ===== TABLE ===== */
+
+.budget-monitor-page .table thead th {
+	white-space: nowrap;
+	font-size: 0.82rem;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: dimgray;
+}
+
+.budget-monitor-page .table tbody tr:hover {
+	background-color: aliceblue;
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 1200px) {
+	.budget-monitor-page .filter-layout {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.budget-monitor-page .filter-left {
+		flex: 1;
+	}
+
+	.budget-monitor-page .add-record-wrap {
+		width: 100%;
+		margin-left: 0;
+		justify-content: flex-end;
+	}
+}
+
+@media (max-width: 767px) {
+	.budget-monitor-page {
+		border-radius: 14px;
+		padding: 8px;
+	}
+
+	.budget-monitor-page .filter-left {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.budget-monitor-page .filter-field,
+	.budget-monitor-page .filter-actions {
+		width: 100%;
+	}
+
+	.budget-monitor-page .btn-filter {
+		width: 100%;
+	}
+
+	.budget-monitor-page .filter-actions {
+		justify-content: space-between;
+	}
+}
+
+/* ===== End: budget-monitor.css ===== */
+
 /* ===== End: creation.css ===== */
 
 /* ===== Begin: dashboard.css ===== */
@@ -1360,111 +1566,3 @@ body.sidebar-collapsed .sidebar-toggle-btn {
 }
 
 /* ===== End: dashboard.css ===== */
-
-/* ===== Begin: budget-monitor.css ===== */
-:root {
-  --bm-bg-1: aliceblue;
-  --bm-bg-2: honeydew;
-  --bm-card-border: lightgray;
-  --bm-text-dark: darkslategray;
-  --bm-text-muted: slategray;
-  --bm-allocated-start: deepskyblue;
-  --bm-allocated-end: steelblue;
-  --bm-spent-start: indianred;
-  --bm-spent-end: firebrick;
-  --bm-remaining-start: mediumseagreen;
-  --bm-remaining-end: seagreen;
-  --bm-util-start: orange;
-  --bm-util-end: darkorange;
-}
-
-.budget-monitor-page {
-  background: linear-gradient(180deg, var(--bm-bg-1) 0%, var(--bm-bg-2) 100%);
-  min-height: calc(100vh - 90px);
-  border-radius: 22px;
-  padding: 12px;
-}
-
-.budget-monitor-hero {
-  border: 0;
-  overflow: hidden;
-  color: white;
-  background: linear-gradient(135deg, darkslategray 0%, steelblue 100%);
-  box-shadow: 0 16px 30px silver;
-}
-
-.budget-monitor-hero .badge {
-  border: 1px solid whitesmoke;
-}
-
-.budget-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 1rem;
-}
-
-.budget-kpi-grid .kpi-card {
-  border: 1px solid lightgray !important;
-  border-radius: 0.8rem !important;
-  background: white !important;
-  padding: 1rem !important;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
-}
-
-.budget-filter-card,
-.budget-monitor-page .page-card:not(.budget-monitor-hero) {
-  border: 1px solid var(--bm-card-border);
-  background: white;
-  box-shadow: 0 8px 20px whitesmoke;
-}
-.budget-monitor-page .budget-monitor-hero,
-.budget-monitor-page .page-card.budget-monitor-hero {
-  background: linear-gradient(135deg, darkslategray 0%, steelblue 100%) !important;
-  color: white;
-}
-
-.budget-monitor-page .budget-monitor-hero h1,
-.budget-monitor-page .budget-monitor-hero p,
-.budget-monitor-page .budget-monitor-hero .small {
-  color: white !important;
-}
-
-.budget-monitor-page .kpi-grid.budget-kpi-grid .kpi-card {
-  color: darkslategray;
-}
-
-.budget-monitor-page h5 {
-  color: var(--bm-text-dark);
-}
-
-.budget-monitor-page .small-help,
-.budget-monitor-page .text-muted {
-  color: var(--bm-text-muted) !important;
-}
-
-.budget-monitor-page .table thead th {
-  color: darkslategray;
-  letter-spacing: 0.02em;
-}
-
-.budget-monitor-page .table tbody tr:hover {
-  background-color: aliceblue;
-}
-
-@media (max-width: 1199px) {
-  .budget-kpi-grid {
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  }
-}
-
-@media (max-width: 767px) {
-  .budget-monitor-page {
-    border-radius: 14px;
-    padding: 8px;
-  }
-
-  .budget-kpi-grid {
-    grid-template-columns: 1fr;
-  }
-}
-/* ===== End: budget-monitor.css ===== */

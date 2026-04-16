@@ -24,51 +24,59 @@ $baseQuery = [
 	<div class="page-shell user-list-page">
 		<section class="user-list-panel">
 			<div class="list-page-header">
-				<h2 class="list-page-title">Expenses List</h2>
+				<h2 class="list-page-title">Expenses</h2>
 			</div>
 			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
 
 			<form class="user-filter-bar search-bar" method="GET" action="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses'), ENT_QUOTES, 'UTF-8'); ?>">
-				<div class="filter-layout">
-					<div class="filter-left">
-						<div class="filter-grid">
-							<div class="filter-field search-field">
-								<input
-									type="text"
-									name="search"
-									class="form-control"
-									placeholder="Search by id, reference, title or category"
-									value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
-								>
-							</div>
+	<div class="filter-layout">
 
-							<div class="filter-field">
-								<select name="status" class="form-select">
-									<option value="">All Status</option>
-									<option value="pending" <?php echo $statusValue === 'pending' ? 'selected' : ''; ?>>Pending</option>
-									<option value="approved" <?php echo $statusValue === 'approved' ? 'selected' : ''; ?>>Approved</option>
-									<option value="rejected" <?php echo $statusValue === 'rejected' ? 'selected' : ''; ?>>Rejected</option>
-								</select>
-							</div>
+		<div class="filter-left">
 
+			<div class="filter-field search-field">
+				<input
+					type="text"
+					name="search"
+					class="form-control"
+					placeholder="Search by id, reference, title or category"
+					value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
+				>
+			</div>
 
-							<div class="filter-field">
-								<input type="date" name="date_from" class="form-control" value="<?php echo htmlspecialchars($dateFromValue, ENT_QUOTES, 'UTF-8'); ?>" placeholder="From">
-							</div>
+			<div class="filter-field">
+				<select name="status" class="form-select">
+					<option value="">All Status</option>
+					<option value="pending" <?php echo $statusValue === 'pending' ? 'selected' : ''; ?>>Pending</option>
+					<option value="approved" <?php echo $statusValue === 'approved' ? 'selected' : ''; ?>>Approved</option>
+					<option value="rejected" <?php echo $statusValue === 'rejected' ? 'selected' : ''; ?>>Rejected</option>
+				</select>
+			</div>
 
-							<div class="filter-actions">
-								<button type="submit" class="btn btn-primary btn-filter">Search</button>
-								<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">Reset</a>
-							</div>
-						</div>
-					</div>
-					<div class="add-record-wrap">
-						<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary add-record-btn add-btn">
-							<i class="bi bi-plus-lg me-1"></i>Add Expense
-						</a>
-					</div>
-				</div>
-			</form>
+			<div class="filter-field">
+				<input 
+					type="date" 
+					name="date_from" 
+					class="form-control" 
+					value="<?php echo htmlspecialchars($dateFromValue, ENT_QUOTES, 'UTF-8'); ?>" 
+					placeholder="From"
+				>
+			</div>
+
+			<div class="filter-actions">
+				<button type="submit" class="btn btn-primary btn-filter">Search</button>
+				<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">Reset</a>
+			</div>
+
+		</div>
+
+		<div class="add-record-wrap">
+			<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary add-record-btn add-btn">
+				<i class="bi bi-plus-lg me-1"></i>Add Expense
+			</a>
+		</div>
+
+	</div>
+</form>
 
 			<div class="table-responsive user-table-wrap">
 				<table class="table user-list-table align-middle mb-0">

@@ -25,57 +25,60 @@ $baseQuery = [
 	<div class="page-shell user-list-page">
 		<section class="user-list-panel">
 			<div class="list-page-header">
-				<h2 class="list-page-title">Budget Categories List</h2>
+				<h2 class="list-page-title">Budget Categories</h2>
 			</div>
 			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
 			<form class="user-filter-bar search-bar" method="GET" action="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-categories'), ENT_QUOTES, 'UTF-8'); ?>">
-				<input type="hidden" name="status" value="<?php echo htmlspecialchars($statusValue, ENT_QUOTES, 'UTF-8'); ?>">
-				<div class="filter-layout">
-					<div class="filter-left">
-						<div class="filter-grid">
-							<div class="filter-field search-field">
-								<input
-									type="text"
-									name="search"
-									class="form-control"
-									placeholder="Search by code or name..."
-									value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
-								>
-							</div>
+	<input type="hidden" name="status" value="<?php echo htmlspecialchars($statusValue, ENT_QUOTES, 'UTF-8'); ?>">
 
-							<div class="filter-field">
-								<select name="type" class="form-select">
-									<option value="">All Types</option>
-									<?php foreach ($categoryTypeOptions as $categoryType): ?>
-										<?php $normalizedCategoryType = strtolower(trim((string) $categoryType)); ?>
-										<?php if ($normalizedCategoryType === '') { continue; } ?>
-										<option value="<?php echo htmlspecialchars($normalizedCategoryType, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $typeValue === $normalizedCategoryType ? 'selected' : ''; ?>>
-											<?php echo htmlspecialchars(ucfirst($normalizedCategoryType), ENT_QUOTES, 'UTF-8'); ?>
-										</option>
-									<?php endforeach; ?>
-								</select>
-							</div>
+	<div class="filter-layout">
 
-							<div class="filter-actions">
-								<button type="submit" class="btn btn-primary btn-filter">
-									<i class="bi bi-search me-1"></i>Search
-								</button>
-								<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-categories'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">
-									<i class="bi bi-arrow-counterclockwise me-1"></i>Reset
-								</a>
-							</div>
-						</div>
-					</div>
+		<div class="filter-left">
 
-					<?php if ($canManageBudgetCategories): ?>
-						<div class="add-record-wrap">
-							<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-categories/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary add-record-btn add-btn">
-								<i class="bi bi-plus-lg me-1"></i>Add Budget Category
-							</a>
-						</div>
-					<?php endif; ?>
-				</div>
-			</form>
+			<div class="filter-field search-field">
+				<input
+					type="text"
+					name="search"
+					class="form-control"
+					placeholder="Search by code or name..."
+					value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
+				>
+			</div>
+
+			<div class="filter-field">
+				<select name="type" class="form-select">
+					<option value="">All Types</option>
+					<?php foreach ($categoryTypeOptions as $categoryType): ?>
+						<?php $normalizedCategoryType = strtolower(trim((string) $categoryType)); ?>
+						<?php if ($normalizedCategoryType === '') { continue; } ?>
+						<option value="<?php echo htmlspecialchars($normalizedCategoryType, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $typeValue === $normalizedCategoryType ? 'selected' : ''; ?>>
+							<?php echo htmlspecialchars(ucfirst($normalizedCategoryType), ENT_QUOTES, 'UTF-8'); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+			</div>
+
+			<div class="filter-actions">
+				<button type="submit" class="btn btn-primary btn-filter">
+					<i class="bi bi-search me-1"></i>Search
+				</button>
+				<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-categories'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">
+					<i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+				</a>
+			</div>
+
+		</div>
+
+		<?php if ($canManageBudgetCategories): ?>
+			<div class="add-record-wrap">
+				<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-categories/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary add-record-btn add-btn">
+					<i class="bi bi-plus-lg me-1"></i>Add Budget Category
+				</a>
+			</div>
+		<?php endif; ?>
+
+	</div>
+</form>
 
 			<div class="table-responsive user-table-wrap">
 				<table class="table user-list-table align-middle mb-0">

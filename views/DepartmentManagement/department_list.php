@@ -16,51 +16,49 @@ $baseQuery = [
 		
 		<section class="user-list-panel">
 			<div class="list-page-header">
-				<h2 class="list-page-title">Departments List</h2>
+				<h2 class="list-page-title">Departments</h2>
 			</div>
 			
 			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
 
 			
 			<form class="user-filter-bar search-bar" method="GET" action="<?php echo htmlspecialchars(buildCleanRouteUrl('departments'), ENT_QUOTES, 'UTF-8'); ?>">
-				
-				<div class="filter-layout">
-					
-					<div class="filter-left">
-						<div class="filter-grid">
-							
-							<div class="filter-field search-field">
-								<input
-									type="text"
-									name="search"
-									class="form-control"
-									placeholder="Search by code or name..."
-									value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
-								>
-							</div>
+	
+	<div class="filter-layout">
+		
+		<div class="filter-left">
+			
+			<div class="filter-field search-field">
+				<input
+					type="text"
+					name="search"
+					class="form-control"
+					placeholder="Search by code or name..."
+					value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
+				>
+			</div>
 
-							
-							<div class="filter-actions">
-								<button type="submit" class="btn btn-primary btn-filter">
-									<i class="bi bi-search me-1"></i>Search
-								</button>
-								<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('departments'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">
-									<i class="bi bi-arrow-counterclockwise me-1"></i>Reset
-								</a>
-							</div>
-						</div>
-					</div>
+			<div class="filter-actions">
+				<button type="submit" class="btn btn-primary btn-filter">
+					<i class="bi bi-search me-1"></i>Search
+				</button>
+				<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('departments'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">
+					<i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+				</a>
+			</div>
 
-					
-					<?php if ($canManageDepartments): ?>
-						<div class="add-record-wrap">
-							<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('departments/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary add-record-btn add-btn">
-								<i class="bi bi-plus-lg"></i>Add Department
-							</a>
-						</div>
-					<?php endif; ?>
-				</div>
-			</form>
+		</div>
+
+		<?php if ($canManageDepartments): ?>
+			<div class="add-record-wrap">
+				<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('departments/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary add-record-btn add-btn">
+					<i class="bi bi-plus-lg"></i> Add Department
+				</a>
+			</div>
+		<?php endif; ?>
+
+	</div>
+</form>
 
 			
 			<div class="table-responsive user-table-wrap">

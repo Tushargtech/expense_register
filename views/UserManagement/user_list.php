@@ -28,74 +28,77 @@ if ($canFilterByDepartment) {
 	<div class="page-shell user-list-page">
 		<section class="user-list-panel">
 			<div class="list-page-header">
-				<h2 class="list-page-title">Users List</h2>
+				<h2 class="list-page-title">Users</h2>
 			</div>
 			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
 
 			<form class="user-filter-bar search-bar" method="GET" action="<?php echo htmlspecialchars(buildCleanRouteUrl('users'), ENT_QUOTES, 'UTF-8'); ?>">
-				<div class="filter-layout">
-					<div class="filter-left">
-						<div class="filter-grid">
-							<div class="filter-field search-field">
-								<input
-									type="text"
-									name="search"
-									class="form-control"
-									placeholder="Search by id, name or email"
-									value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
-								>
-							</div>
+	<div class="filter-layout">
 
-							<div class="filter-field">
-								<select name="role" class="form-select">
-									<option value="">All Roles</option>
-									<?php foreach ($roleOptions as $roleOption): ?>
-										<?php $roleValue = strtolower(trim((string) ($roleOption['value'] ?? ''))); ?>
-										<?php $roleLabel = (string) ($roleOption['label'] ?? ucfirst($roleValue)); ?>
-										<?php if ($roleValue === '') { continue; } ?>
-										<option value="<?php echo htmlspecialchars($roleValue, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedRole === $roleValue ? 'selected' : ''; ?>>
-											<?php echo htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8'); ?>
-										</option>
-									<?php endforeach; ?>
-								</select>
-							</div>
+		<div class="filter-left">
 
-							<?php if ($canFilterByDepartment): ?>
-								<div class="filter-field">
-									<select name="department" class="form-select">
-										<option value="">All Departments</option>
-										<?php foreach ($departmentOptions as $department): ?>
-											<option value="<?php echo htmlspecialchars((string) $department, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedDepartment === (string) $department ? 'selected' : ''; ?>>
-												<?php echo htmlspecialchars((string) $department, ENT_QUOTES, 'UTF-8'); ?>
-											</option>
-										<?php endforeach; ?>
-									</select>
-								</div>
-							<?php endif; ?>
+			<div class="filter-field search-field">
+				<input
+					type="text"
+					name="search"
+					class="form-control"
+					placeholder="Search by id, name or email"
+					value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
+				>
+			</div>
 
-							<div class="filter-field">
-								<select name="status" class="form-select">
-									<option value="">All Status</option>
-									<option value="1" <?php echo $selectedStatus === '1' ? 'selected' : ''; ?>>Active</option>
-									<option value="0" <?php echo $selectedStatus === '0' ? 'selected' : ''; ?>>Inactive</option>
-								</select>
-							</div>
+			<div class="filter-field">
+				<select name="role" class="form-select">
+					<option value="">All Roles</option>
+					<?php foreach ($roleOptions as $roleOption): ?>
+						<?php $roleValue = strtolower(trim((string) ($roleOption['value'] ?? ''))); ?>
+						<?php $roleLabel = (string) ($roleOption['label'] ?? ucfirst($roleValue)); ?>
+						<?php if ($roleValue === '') { continue; } ?>
+						<option value="<?php echo htmlspecialchars($roleValue, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedRole === $roleValue ? 'selected' : ''; ?>>
+							<?php echo htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8'); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+			</div>
 
-							<div class="filter-actions">
-								<button type="submit" class="btn btn-primary btn-filter">Search</button>
-								<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('users'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">Reset</a>
-							</div>
-						</div>
-					</div>
-					<?php if ($canManageUsers): ?>
-						<div class="add-record-wrap">
-							<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('users/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary add-record-btn add-btn">
-								<i class="bi bi-plus-lg me-1"></i>Add Employee
-							</a>
-						</div>
-					<?php endif; ?>
+			<?php if ($canFilterByDepartment): ?>
+				<div class="filter-field">
+					<select name="department" class="form-select">
+						<option value="">All Departments</option>
+						<?php foreach ($departmentOptions as $department): ?>
+							<option value="<?php echo htmlspecialchars((string) $department, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedDepartment === (string) $department ? 'selected' : ''; ?>>
+								<?php echo htmlspecialchars((string) $department, ENT_QUOTES, 'UTF-8'); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
 				</div>
-			</form>
+			<?php endif; ?>
+
+			<div class="filter-field">
+				<select name="status" class="form-select">
+					<option value="">All Status</option>
+					<option value="1" <?php echo $selectedStatus === '1' ? 'selected' : ''; ?>>Active</option>
+					<option value="0" <?php echo $selectedStatus === '0' ? 'selected' : ''; ?>>Inactive</option>
+				</select>
+			</div>
+
+			<div class="filter-actions">
+				<button type="submit" class="btn btn-primary btn-filter">Search</button>
+				<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('users'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">Reset</a>
+			</div>
+
+		</div>
+
+		<?php if ($canManageUsers): ?>
+			<div class="add-record-wrap">
+				<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('users/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary add-record-btn add-btn">
+					<i class="bi bi-plus-lg me-1"></i>Add Employee
+				</a>
+			</div>
+		<?php endif; ?>
+
+	</div>
+</form>
 
 			<div class="table-responsive user-table-wrap">
 				<table class="table user-list-table align-middle mb-0">
