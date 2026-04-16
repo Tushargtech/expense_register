@@ -1,0 +1,153 @@
+<?php
+class AuthController
+{
+    public function showLogin(): void
+    {
+        if (!empty($_SESSION['auth']['is_logged_in'])) {
+            header('Location: ?route=dashboard');
+            exit;
+        }
+
+        $flash = flash_consume();
+        $authError = $flash['type'] === 'error' ? (string) $flash['message'] : '';
+        $authSuccess = $flash['type'] === 'success' ? (string) $flash['message'] : '';
+        $oldEmail = (string) ($_SESSION['old_email'] ?? '');
+        $envConfig = $GLOBALS['envConfig'] ?? [];
+        $authModel = new AuthModel();
+        $credentialHints = $authModel->getCredentialHints();
+
+        require ROOT_PATH . '/views/templates/app_layout.php';
+        renderAppLayoutStart([
+            'pageTitle' => 'Login - Expense Register',
+            'pageStyles' => ['assets/css/app.css'],
+            'bodyClass' => 'bg-light',
+            'includeChrome' => false,
+        ]);
+
+        require ROOT_PATH . '/views/main/login.php';
+
+        renderAppLayoutEnd();
+    }
+
+    public function forbidden(): void
+    {
+        $isLoggedIn = !empty($_SESSION['auth']['is_logged_in']);
+        $pageTitle = 'Access Denied - Expense Register';
+        $pageStyles = ['assets/css/app.css'];
+        $userName = (string) ($_SESSION['auth']['name'] ?? 'User');
+        $activeMenu = 'dashboard';
+        $errorCode = trim((string) ($_GET['code'] ?? 'unauthorized'));
+        $errorMessage = trim((string) ($_GET['message'] ?? 'You do not have permission to access this area.'));
+        RbacService::audit('access_denied', ['code' => $errorCode]);
+
+        if ($isLoggedIn) {
+            require ROOT_PATH . '/views/templates/app_layout.php';
+            renderAppLayoutStart([
+                'pageTitle' => $pageTitle,
+                'pageStyles' => $pageStyles,
+                'activeMenu' => $activeMenu,
+                'includeChrome' => true,
+            ]);
+            require ROOT_PATH . '/views/main/forbidden.php';
+            renderAppLayoutEnd();
+            return;
+        }
+
+        require ROOT_PATH . '/views/templates/app_layout.php';
+        renderAppLayoutStart([
+            'pageTitle' => $pageTitle,
+            'pageStyles' => $pageStyles,
+            'includeChrome' => false,
+        ]);
+        require ROOT_PATH . '/views/main/forbidden.php';
+        renderAppLayoutEnd();
+    }
+
+    public function login(): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            header('Location: ?route=login');
+            exit;
+        }
+
+        $email = trim((string) ($_POST['email'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+
+        $_SESSION['old_email'] = $email;
+
+        if ($email === '' || $password === '') {
+            flash_error('Email and password are required.');
+            header('Location: ?route=login');
+            exit;
+        }
+
+        $authModel = new AuthModel();
+        $user = null;
+        try {
+            $user = $authModel->getUserByEmail($email);
+        } catch (Throwable $error) {
+            flash_error('Unable to validate credentials from database. Please check DB configuration.');
+            header('Location: ?route=login');
+            exit;
+        }
+
+        $isValid = false;
+        if ($user) {
+            $hash = (string) ($user['password'] ?? '');
+            $isValid = password_verify($password, $hash) || hash_equals($hash, $password);
+        }
+
+        if (!$isValid) {
+            flash_error('Invalid Credentials');
+            header('Location: ?route=login');
+            exit;
+        }
+
+        $sessionRole = strtolower(trim((string) ($user['role'] ?? '')));
+
+        $_SESSION['auth'] = [
+            'is_logged_in' => true,
+            'user_id' => (int) ($user['id'] ?? 0),
+            'name' => (string) ($user['name'] ?? 'User'),
+            'email' => (string) ($user['email'] ?? $email),
+            'role' => $sessionRole,
+            'base_role' => $sessionRole,
+            'is_manager' => (bool) ($user['is_manager'] ?? false),
+            'is_department_head' => (bool) ($user['is_department_head'] ?? false),
+            'role_permissions' => $user['role_permissions'] ?? null,
+            'department_id' => (int) ($user['department_id'] ?? 0),
+            'department_name' => (string) ($user['department_name'] ?? ''),
+        ];
+
+        unset($_SESSION['old_email']);
+        flash_success('Login successful.');
+
+        header('Location: ?route=dashboard');
+        exit;
+    }
+
+    public function dashboard(): void
+    {
+        if (empty($_SESSION['auth']['is_logged_in'])) {
+            flash_error('Please login to continue.');
+            header('Location: ?route=login');
+            exit;
+        }
+
+        $userName = (string) ($_SESSION['auth']['name'] ?? 'User');
+        $envConfig = $GLOBALS['envConfig'] ?? [];
+        $rbac = new RbacService();
+        $canViewBudgetUtilization = $rbac->canViewOrganizationBudgetUtilization();
+
+        require ROOT_PATH . '/views/main/dashboard.php';
+    }
+
+    public function logout(): void
+    {
+        unset($_SESSION['auth']);
+        session_regenerate_id(true);
+        flash_success('Logged out successfully.');
+        header('Location: ?route=login');
+        exit;
+    }
+}

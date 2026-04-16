@@ -1,0 +1,3 @@
+department_id,budget_fiscal_year,budget_fiscal_period,budget_category_id,budget_allocated_amount,budget_currency,budget_notes
+1,FY2026,Q1,2,50000.00,INR,Operations budget sample
+3,FY2026,Q2,5,25000.00,USD,Travel budget sample
