@@ -4,6 +4,7 @@ $filters = isset($filters) && is_array($filters) ? $filters : [];
 
 $searchValue = (string) ($filters['search'] ?? '');
 $selectedStatus = (string) ($filters['status'] ?? 'pending');
+$selectedRequestScope = (string) ($filters['request_scope'] ?? '');
 $selectedType = (string) ($filters['type'] ?? '');
 $selectedDepartment = (string) ($filters['department'] ?? '');
 
@@ -18,8 +19,28 @@ $rangeEnd = $total > 0 ? min($total, $rangeStart + count($expenses) - 1) : 0;
 // Mock data for filters - in real app, these would come from controller
 $departments = isset($departments) && is_array($departments) ? $departments : [];
 $requestTypes = ['expense' => 'Reimbursable', 'purchase' => 'Company Paid'];
+$requestScopes = [
+    'pending_approvals' => 'Pending Approvals',
+    'my_requests' => 'My Requests',
+];
 $statuses = ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'];
 $canCreateExpense = isset($canCreateExpense) ? (bool) $canCreateExpense : false;
+
+$expenseListUrl = buildCleanRouteUrl('expenses');
+
+$buildExpenseUrl = static function (array $params = []) use ($expenseListUrl) : string {
+    $query = [];
+
+    foreach ($params as $key => $value) {
+        if ($value === null || $value === '') {
+            continue;
+        }
+
+        $query[$key] = $value;
+    }
+
+    return buildCleanRouteUrl('expenses', $query);
+};
 ?>
 
 <main class="main">
@@ -34,7 +55,7 @@ $canCreateExpense = isset($canCreateExpense) ? (bool) $canCreateExpense : false;
         
 
             <!-- ── Filters ── -->
-            <form class="user-filter-bar search-bar" method="GET" action="?route=expenses">
+            <form class="user-filter-bar search-bar" method="GET" action="<?php echo htmlspecialchars($expenseListUrl, ENT_QUOTES, 'UTF-8'); ?>">
                 <div class="filter-layout">
                     <div class="filter-left">
                         <div class="filter-field search-field">
@@ -45,6 +66,17 @@ $canCreateExpense = isset($canCreateExpense) ? (bool) $canCreateExpense : false;
                                 placeholder="Search by title or description"
                                 value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>"
                             >
+                        </div>
+
+                        <div class="filter-field">
+                            <select name="request_scope" class="form-select">
+                                <option value="">All Requests</option>
+                                <?php foreach ($requestScopes as $key => $label): ?>
+                                    <option value="<?php echo htmlspecialchars($key, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedRequestScope === $key ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div class="filter-field">
@@ -82,13 +114,13 @@ $canCreateExpense = isset($canCreateExpense) ? (bool) $canCreateExpense : false;
 
                         <div class="filter-actions">
                             <button type="submit" class="btn btn-primary btn-filter">Search</button>
-                            <a href="?route=expenses" class="btn btn-outline-secondary btn-filter">Reset</a>
+                            <a href="<?php echo htmlspecialchars($expenseListUrl, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">Reset</a>
                         </div>
                     </div>
 
                     <?php if ($canCreateExpense): ?>
                         <div class="add-record-wrap">
-                            <a href="?route=expenses/create" class="btn btn-primary add-record-btn add-btn">
+                            <a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary add-record-btn add-btn">
                                 <i class="bi bi-plus-lg me-1"></i>Add Expense
                             </a>
                         </div>
@@ -116,7 +148,7 @@ $canCreateExpense = isset($canCreateExpense) ? (bool) $canCreateExpense : false;
                             <tr>
                                 <td colspan="8" class="text-center py-5 text-muted">
                                     No expenses found.
-                                    <a href="?route=expenses/create">Create your first request</a>.
+                                    <a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/create'), ENT_QUOTES, 'UTF-8'); ?>">Create your first request</a>.
                                 </td>
                             </tr>
                         <?php else: ?>
@@ -160,7 +192,7 @@ $canCreateExpense = isset($canCreateExpense) ? (bool) $canCreateExpense : false;
                                         ?>
                                     </td>
                                     <td class="text-center">
-                                        <a href="?route=expenses/review&id=<?php echo (int) ($expense['request_id'] ?? 0); ?>"
+                                        <a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/review', ['id' => (int) ($expense['request_id'] ?? 0)]), ENT_QUOTES, 'UTF-8'); ?>"
                                            title="View"
                                            class="btn btn-sm btn-outline-secondary border-0 p-1">
                                             <i class="bi bi-eye"></i>
@@ -179,16 +211,16 @@ $canCreateExpense = isset($canCreateExpense) ? (bool) $canCreateExpense : false;
                 <ul class="pagination user-pagination mb-0">
                     <?php $prev = max(1, $currentPage - 1); ?>
                     <li class="page-item <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>">
-                        <a class="page-link" href="?route=expenses&page=<?php echo $prev; ?>">Prev</a>
+                        <a class="page-link" href="<?php echo htmlspecialchars($buildExpenseUrl(array_merge($filters, ['page' => $prev])), ENT_QUOTES, 'UTF-8'); ?>">Prev</a>
                     </li>
                     <?php for ($p = max(1, $currentPage - 2); $p <= min($totalPages, $currentPage + 2); $p++): ?>
                         <li class="page-item <?php echo $p === $currentPage ? 'active' : ''; ?>">
-                            <a class="page-link" href="?route=expenses&page=<?php echo $p; ?>"><?php echo $p; ?></a>
+                            <a class="page-link" href="<?php echo htmlspecialchars($buildExpenseUrl(array_merge($filters, ['page' => $p])), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $p; ?></a>
                         </li>
                     <?php endfor; ?>
                     <?php $next = min($totalPages, $currentPage + 1); ?>
                     <li class="page-item <?php echo $currentPage >= $totalPages ? 'disabled' : ''; ?>">
-                        <a class="page-link" href="?route=expenses&page=<?php echo $next; ?>">Next</a>
+                        <a class="page-link" href="<?php echo htmlspecialchars($buildExpenseUrl(array_merge($filters, ['page' => $next])), ENT_QUOTES, 'UTF-8'); ?>">Next</a>
                     </li>
                 </ul>
             </nav>

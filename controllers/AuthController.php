@@ -138,6 +138,32 @@ class AuthController
         $envConfig = $GLOBALS['envConfig'] ?? [];
         $rbac = new RbacService();
         $canViewBudgetUtilization = $rbac->canViewOrganizationBudgetUtilization();
+        $expensesModel = new ExpensesModel();
+
+        $dashboardKpis = $expensesModel->getDashboardKpis($rbac);
+        $recentActivity = $expensesModel->getTodayRecentActivity($rbac, 12);
+        $isDepartmentHead = $rbac->isDepartmentHead();
+        
+        // Fetch department budget data for department heads
+        $departmentBudgetAllocated = 0;
+        $departmentBudgetRemaining = 0;
+        if ($isDepartmentHead) {
+            $departmentId = $rbac->departmentId();
+            if ($departmentId > 0) {
+                $budgetMonitorModel = new BudgetMonitorModel();
+                $budgetRows = $budgetMonitorModel->getMonitorRows([], $departmentId);
+                
+                $totalAllocated = 0;
+                $totalSpent = 0;
+                foreach ($budgetRows as $row) {
+                    $totalAllocated += (float) ($row['budget_allocated_amount'] ?? 0);
+                    $totalSpent += (float) ($row['budget_spent_amount'] ?? 0);
+                }
+                
+                $departmentBudgetAllocated = $totalAllocated;
+                $departmentBudgetRemaining = max(0, $totalAllocated - $totalSpent);
+            }
+        }
 
         require ROOT_PATH . '/views/main/dashboard.php';
     }

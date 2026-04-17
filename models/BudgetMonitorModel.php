@@ -71,7 +71,8 @@ class BudgetMonitorModel
 			'budget_category_type',
 		]);
 
-		$spentExpression = $spentColumn !== null ? 'db.`' . $spentColumn . '`' : 'NULL';
+		$legacySpentExpression = $spentColumn !== null ? 'db.`' . $spentColumn . '`' : 'NULL';
+		$spentExpression = 'COALESCE(req_spend.approved_spend_amount, ' . $legacySpentExpression . ', 0)';
 		$categoryNameExpression = $categoryNameColumn !== null ? 'bc.`' . $categoryNameColumn . '`' : 'db.`budget_category`';
 		$categoryTypeExpression = $categoryTypeColumn !== null ? 'bc.`' . $categoryTypeColumn . '`' : 'NULL';
 		$departmentNameExpression = in_array('department_name', $departmentColumns, true)
@@ -96,6 +97,24 @@ class BudgetMonitorModel
 			FROM department_budgets db
 			LEFT JOIN departments d ON d.id = db.department_id
 			LEFT JOIN budget_categories bc ON bc.budget_category_id = db.budget_category_id
+			LEFT JOIN (
+				SELECT
+					r.department_id,
+					r.budget_category_id,
+					DATE_FORMAT(r.request_submitted_at, '%Y') AS approved_fiscal_year,
+					CONCAT('Q', QUARTER(r.request_submitted_at)) AS approved_fiscal_period,
+					SUM(r.request_amount) AS approved_spend_amount
+				FROM requests r
+				WHERE r.request_status = 'approved'
+				GROUP BY
+					r.department_id,
+					r.budget_category_id,
+					DATE_FORMAT(r.request_submitted_at, '%Y'),
+					CONCAT('Q', QUARTER(r.request_submitted_at))
+			) req_spend ON req_spend.department_id = db.department_id
+					   AND req_spend.budget_category_id = db.budget_category_id
+					   AND LOWER(TRIM(req_spend.approved_fiscal_year)) = LOWER(TRIM(db.budget_fiscal_year))
+					   AND LOWER(TRIM(req_spend.approved_fiscal_period)) = LOWER(TRIM(db.budget_fiscal_period))
 			WHERE 1 = 1";
 
 		$params = [];

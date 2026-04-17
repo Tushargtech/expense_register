@@ -1,96 +1,15 @@
 # Functional Specification Document (FSD)
 
-## Document Control
+**Dynamic Enable/Disable Rules:**
+- Department dropdown disabled for non-finance users (pre-selected)
 
-| Field | Value |
-|-------|-------|
-| **Project Name** | Expense Register Management System |
-| **Module Name** | Budget Management & Financial Requests |
-| **Prepared By** | Development Team |
-| **Reviewed By** | QA & Product Team |
-| **Date** | 14 April 2026 |
-| **Status** | Active |
+**Conditional Visibility:**
+- Actions column hidden if `canManageBudgetRecords === false`
+- Department filter hidden if `isFinanceRole === false`
 
 ---
 
-## Revision History
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 14-Apr-2026 | Dev Team | Initial document with budget edit/delete, API endpoints, and permission framework |
-| | | | • Budget Edit/Delete workflow (web) |
-| | | | • Budget API endpoints (read, update, delete) |
-| | | | • Finance-scoped permission model |
-| | | | • DB-driven option lookups |
-| 1.1 | 14-Apr-2026 | Dev Team | Route and auth flow alignment update |
-| | | | • Web entry route changed to `/login` |
-| | | | • Login form action documented as `/auth` |
-| | | | • Authenticated landing route documented as `/dashboard` |
-| | | | • Auth API request/response schema aligned to implementation |
-
----
-
-## Overview
-
-### Purpose
-This FSD defines the functional requirements, user interfaces, API specifications, and technical implementation details for the Expense Register Management System. The system manages expense requests, budgets, workflows, and financial approvals with role-based access control and department-scoped visibility.
-
-### Scope
-
-**Included:**
-- Authentication & Session Management (Login, Logout, Current User)
-- Budget Management (upload, view, edit, delete)
-- Financial Request Management (expenses)
-- Expense Review & Approval Workflows
-- Department & User Management
-- Role-Based Access Control (RBAC)
-- Audit Trail Logging
-- RESTful JSON APIs
-- Multi-currency Support
-
-**Excluded:**
-- Email notifications (defined but not fully implemented)
-- Advanced analytics/reporting
-- Third-party payment integration
-- Mobile-native applications
-
----
-
-## Definitions
-
-| Term | Description |
-|------|-------------|
-| **Expense Request (Request)** | Reimbursement request by an employee for an expense incurred; includes attachments and workflow approval steps |
-| **Budget** | Allocated financial resource for a department/fiscal year/period/category; manually managed via upload or edit interface |
-| **Budget Category** | Classification of budgets (e.g., travel, supplies, equipment); has type and is_active flag |
-| **Workflow** | Approval routing configuration defining who approves requests based on type and amount; tied to budget categories |
-| **Department** | Organizational unit with associated budgets, users, and managers |
-| **Finance Role/Dept** | Special organization-wide role (finance user) or finance department; grants full budget management and monitoring access |
-| **RBAC** | Role-Based Access Control; users assigned roles (employee, manager, dept_head, finance, hr) with canonical permission keys |
-| **Clean URLs** | Pretty route format (e.g., `/budget-monitor`) instead of query-string fallback (`?route=budget-monitor`) |
-| **Monitor** | Budget Monitor page showing aggregated budget vs. spent amounts, filtered by department/fiscal-year/category |
-| **Uploader** | Budget CSV/Excel file upload page with row-level validation and preview before DB commit |
-
----
-
-## References
-
-### BRD
-- Expense Register Business Requirements Document (external)
-
-### Technical Docs
-- API Architecture Guide
-- RBAC Permission Keys Reference (`configs/role_permissions_updates.sql`)
-- Database Schema (`configs/schema.sql`)
-
----
-
-## Business Requirements
-
-### Problem Statement
-Organizations need centralized expense management with budget tracking, multi-level approval workflows, and financial oversight. Finance teams require the ability to manage budgets manually or via file upload, monitor allocations by department, and ensure policy compliance.
-
-### Business Objectives
+### Screen 3: Budget Monitor – Web
 1. Provide secure, role-based access to financial data
 2. Enable flexible budget management (upload and manual edit/delete)
 3. Support multi-approval workflows for expense requests
@@ -204,7 +123,6 @@ Organizations need centralized expense management with budget tracking, multi-le
 6. **Detailed Budget View Table** (main data):
    - Columns: Department, Fiscal Year, Period, Category, Type, Allocated, Spent, Remaining, Utilization, **Actions** (conditional)
    - Actions column visible only if `canManageBudgetRecords === true` (finance role or finance dept member)
-   - Action buttons: Edit Budget (links to `/budgets/edit?id={budget_id}`)
    - Empty state: "No budget rows found for the selected scope."
 
 ---
@@ -214,7 +132,6 @@ Organizations need centralized expense management with budget tracking, multi-le
 | Action | Description | Trigger | Pre-condition | Post-condition | API/Service Called | Success Message | Error Handling |
 |--------|-------------|---------|---------------|-----------------|-------------------|-----------------|-----------------|
 | Filter & View | Apply filters and display matching budgets | Click "View" button | User has view permissions | Table refreshes with filtered data | `BudgetMonitorModel::getMonitorRows()` | N/A (silent update) | Show "No data found" |
-| Edit Budget | Navigate to edit page for a specific budget row | Click "Edit Budget" link | Finance role or finance dept member; budget exists | Redirect to edit page with form pre-loaded | `BudgetController::edit()` | N/A (page load) | Redirect to monitor on error |
 | Reset Filters | Clear all filters and reload page | Click "Reset" link | Page is in filtered state | All filters cleared; full dataset shown | Page reload | N/A (silent) | N/A |
 
 ---
@@ -226,67 +143,10 @@ Organizations need centralized expense management with budget tracking, multi-le
 
 **Dynamic Enable/Disable Rules:**
 - Department dropdown disabled for non-finance users (pre-selected)
-- Edit Budget button disabled if user lacks `canManageBudgetRecords` permission
 
 **Conditional Visibility:**
 - Actions column hidden if `canManageBudgetRecords === false`
 - Department filter hidden if `isFinanceRole === false`
-
----
-
-### Screen 2: Budget Edit
-
-**Screen Name:** Budget Edit (Manual Edit Form)  
-**Description:** Form page allowing authorized users to edit an existing budget row's fiscal year, period, category, amount, currency, and notes. Also includes "Back to Monitor", "New Budget Upload" buttons, and **"Delete Budget"** button with confirmation popup.
-
-**Navigation Path:** `/budgets/edit?id={budget_id}` or `?route=budgets/edit&id={budget_id}`
-
-**User Roles Allowed:**
-- finance (organization-wide)
-- employee, manager, dept_head (in finance department only)
-- Anyone with budget management authorization
-
-**Device/Platform:** Web  
-**Responsive Behaviour:** Stacked form layout on mobile; action buttons flow
-
----
-
-#### UI Elements
-
-| Field Name | Label | Type | Control Type | Mandatory | Read Only | Default | Placeholder | Validation | Max Length | Format |
-|-----------|-------|------|-------------|-----------|-----------|---------|-------------|-----------|-----------|--------|
-| department_id | Department | Select | Dropdown | Yes | No | DB-loaded | – | Must be valid department | N/A | N/A |
-| budget_fiscal_year | Fiscal Year | Text | Text Input | Yes | No | DB-loaded | e.g., "FY2026" | Non-empty, trimmed | 50 | YYYY or YYYY-Q# |
-| budget_fiscal_period | Fiscal Period | Text | Text Input | Yes | No | DB-loaded | e.g., "Q1" | Non-empty, trimmed | 50 | Alphanumeric |
-| budget_category_id | Budget Category | Select | Dropdown | Yes | No | DB-loaded | – | Must be valid category | N/A | N/A |
-| budget_allocated_amount | Allocated Amount | Number | Number Input | Yes | No | DB-loaded | e.g., "50000.00" | > 0, numeric | N/A | Float (2 decimals) |
-| budget_currency | Currency | Select | Dropdown | Yes | No | DB-loaded | – | Must be valid currency | N/A | 3-char code (INR, USD, etc.) |
-| budget_notes | Notes | Text | Textarea | No | No | DB-loaded | "Update notes" | N/A | 1000 | Plain text |
-
-**Tooltip:** 
-- "Department": "Select or confirm the budget department"
-- "Allocated Amount": "Must be greater than zero"
-- "Currency": "Select currency for this budget"
-- "Notes": "Optional notes about this budget (max 1000 chars)"
-
-**Remarks:** All fields except Notes are required. Form is pre-populated from `BudgetModel::getBudgetById()`
-
----
-
-#### Layout & Sections
-
-**Header:**
-- Page title: "Edit Budget"
-- Subtitle: "Budget Management"
-
-**Footer:**
-- Standard site footer
-
-**Sections/Panels:**
-1. **Budget Details Section**:
-   - Card header: "Budget Details"
-   - Subtitle: "Update the selected budget row and save changes."
-   - Form fields grid (responsive): Department, Fiscal Year, Fiscal Period, Budget Category, Allocated Amount, Currency, Notes
 
 2. **Action Bar**:
    - Copy text: "Save changes to update budget in database"
@@ -376,9 +236,9 @@ Organizations need centralized expense management with budget tracking, multi-le
 | Role | Access Level | Screens | Actions | Scope |
 |------|--------------|---------|---------|-------|
 | **finance** | Full (organization-wide) | All budget screens, all expense screens | Create, Read, Update, Delete budgets; approve all expenses | All departments/budgets |
-| **employee** (finance dept only) | Conditional | Budget Monitor (read), Budget Edit/Delete, Uploader | Create/edit/delete own-dept budgets; submit expenses | Finance dept only |
-| **manager** (finance dept only) | Conditional | Budget Monitor (read), Budget Edit/Delete, Uploader | Create/edit/delete own-dept budgets; approve expenses | Finance dept budgets |
-| **dept_head** (finance dept only) | Conditional | Budget Monitor (read), Budget Edit/Delete, Uploader | Create/edit/delete own-dept budgets; approve expenses | Finance dept budgets |
+| **employee** (finance dept only) | Conditional | Budget Monitor (read), Uploader | Submit expenses | Finance dept only |
+| **manager** (finance dept only) | Conditional | Budget Monitor (read), Uploader | Approve expenses | Finance dept budgets |
+| **dept_head** (finance dept only) | Conditional | Budget Monitor (read), Uploader | Approve expenses | Finance dept budgets |
 | **manager** (any dept) | Department | Budget Monitor (own dept), Expense Approvals | View own-dept budgets; approve expenses | Own dept only |
 | **dept_head** (any dept) | Department | Budget Monitor (own dept), Expense Approvals | View own-dept budgets; approve expenses | Own dept only |
 | **hr** | HR-scoped | User/Dept Management | Manage users, departments | All |
@@ -1044,7 +904,7 @@ canManageBudgetRecords():
 ### Important Notes
 
 1. **Auth Route Flow (Web):** `/login` (GET) -> `/auth` (POST) -> `/dashboard` (GET)
-2. **Clean URLs:** All URLs support both clean format (`/budgets/edit?id=42`) and query fallback (`?route=budgets/edit&id=42`)
+2. **Clean URLs:** All URLs support both clean format and query fallback for supported routes
 3. **Responsive Design:** All screens tested on mobile (320px), tablet (768px), desktop (1024px+)
 4. **Audit Trail:** Every budget create/update/delete action logged with user_id, action name, timestamp
 5. **Permission Inheritance:** Finance role inherits all permissions; department-scoped roles can only access own-dept data

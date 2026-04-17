@@ -178,7 +178,30 @@ class WorkflowModel
 	public function getActiveUsers(): array
 	{
 		$stmt = $this->db->prepare(
-			"SELECT user_id, user_name FROM users WHERE user_is_active = 1 ORDER BY user_name ASC"
+			"SELECT
+				u.user_id,
+				u.user_name,
+				u.user_role,
+				CASE
+					WHEN u.user_role IN ('admin', 'finance', 'hr', 'employee') THEN u.user_role
+					WHEN EXISTS (
+						SELECT 1
+						FROM departments dh
+						WHERE dh.department_head_user_id = u.user_id
+						LIMIT 1
+					) THEN 'department_head'
+					WHEN EXISTS (
+						SELECT 1
+						FROM users m
+						WHERE m.manager_id = u.user_id
+						  AND m.user_is_active = 1
+						LIMIT 1
+					) THEN 'manager'
+					ELSE u.user_role
+				END AS approver_role
+			 FROM users u
+			 WHERE u.user_is_active = 1
+			 ORDER BY approver_role ASC, u.user_name ASC"
 		);
 		$stmt->execute();
 
@@ -229,6 +252,7 @@ class WorkflowModel
 				step_name,
 				step_approver_type,
 				step_approver_role,
+				step_approver_user_id,
 				step_is_required,
 				step_timeout_hours
 			 FROM workflow_steps
@@ -289,6 +313,7 @@ class WorkflowModel
 				step_name,
 				step_approver_type,
 				step_approver_role,
+				step_approver_user_id,
 				step_is_required,
 				step_timeout_hours
 			) VALUES (
@@ -297,6 +322,7 @@ class WorkflowModel
 				:step_name,
 				:step_approver_type,
 				:step_approver_role,
+				:step_approver_user_id,
 				:step_is_required,
 				:step_timeout_hours
 			)";
@@ -309,6 +335,7 @@ class WorkflowModel
 					':step_name' => (string) $step['step_name'],
 					':step_approver_type' => $step['step_approver_type'],
 					':step_approver_role' => $step['step_approver_role'],
+					':step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0) > 0 ? (int) $step['step_approver_user_id'] : null,
 					':step_is_required' => (int) $step['step_is_required'],
 					':step_timeout_hours' => $step['step_timeout_hours'],
 				]);
@@ -371,6 +398,7 @@ class WorkflowModel
 				step_name = :step_name,
 				step_approver_type = :step_approver_type,
 				step_approver_role = :step_approver_role,
+				step_approver_user_id = :step_approver_user_id,
 				step_is_required = :step_is_required,
 				step_timeout_hours = :step_timeout_hours
 				WHERE step_id = :step_id AND workflow_id = :workflow_id";
@@ -382,6 +410,7 @@ class WorkflowModel
 				step_name,
 				step_approver_type,
 				step_approver_role,
+				step_approver_user_id,
 				step_is_required,
 				step_timeout_hours
 			) VALUES (
@@ -390,6 +419,7 @@ class WorkflowModel
 				:step_name,
 				:step_approver_type,
 				:step_approver_role,
+				:step_approver_user_id,
 				:step_is_required,
 				:step_timeout_hours
 			)";
@@ -406,6 +436,7 @@ class WorkflowModel
 					':step_name' => (string) $step['step_name'],
 					':step_approver_type' => $step['step_approver_type'],
 					':step_approver_role' => $step['step_approver_role'],
+					':step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0) > 0 ? (int) $step['step_approver_user_id'] : null,
 					':step_is_required' => (int) $step['step_is_required'],
 					':step_timeout_hours' => $step['step_timeout_hours'],
 				];

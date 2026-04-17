@@ -350,6 +350,7 @@ CREATE TABLE `workflow_steps` (
   `step_name` varchar(150) DEFAULT NULL,
   `step_approver_type` varchar(50) DEFAULT NULL,
   `step_approver_role` varchar(50) DEFAULT NULL,
+  `step_approver_user_id` int(11) DEFAULT NULL,
   `step_is_required` tinyint(1) DEFAULT 1,
   `step_timeout_hours` int(11) DEFAULT NULL,
   `step_created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -452,6 +453,7 @@ ALTER TABLE `users`
   ADD UNIQUE KEY `uk_users_email` (`user_email`),
   ADD KEY `idx_users_department_id` (`department_id`),
   ADD KEY `idx_users_manager_id` (`manager_id`),
+  ADD KEY `idx_users_department_manager_active` (`department_id`,`manager_id`,`user_is_active`),
   ADD KEY `idx_users_role` (`user_role`);
 
 --
@@ -467,7 +469,8 @@ ALTER TABLE `workflows`
 --
 ALTER TABLE `workflow_steps`
   ADD PRIMARY KEY (`step_id`),
-  ADD KEY `idx_workflow_steps_workflow_id` (`workflow_id`);
+  ADD KEY `idx_workflow_steps_workflow_id` (`workflow_id`),
+  ADD KEY `idx_workflow_steps_approver_user_id` (`step_approver_user_id`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -617,6 +620,8 @@ ALTER TABLE `workflows`
 --
 ALTER TABLE `workflow_steps`
   ADD CONSTRAINT `workflow_steps_ibfk_1` FOREIGN KEY (`workflow_id`) REFERENCES `workflows` (`workflow_id`);
+ALTER TABLE `workflow_steps`
+  ADD CONSTRAINT `workflow_steps_ibfk_2` FOREIGN KEY (`step_approver_user_id`) REFERENCES `users` (`user_id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

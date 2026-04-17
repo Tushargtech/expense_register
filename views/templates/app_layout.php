@@ -51,6 +51,16 @@ if (!function_exists('renderAppLayoutStart')) {
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 	<link rel="stylesheet" href="<?php echo htmlspecialchars(buildAssetUrl('assets/css/app.css'), ENT_QUOTES, 'UTF-8'); ?>">
+	<?php
+	$extraStyles = isset($options['pageStyles']) && is_array($options['pageStyles']) ? $options['pageStyles'] : [];
+	foreach ($extraStyles as $stylePath):
+		$stylePath = (string) $stylePath;
+		if ($stylePath === '' || basename($stylePath) === 'app.css') {
+			continue;
+		}
+	?>
+	<link rel="stylesheet" href="<?php echo htmlspecialchars(buildAssetUrl($stylePath), ENT_QUOTES, 'UTF-8'); ?>">
+	<?php endforeach; ?>
 </head>
 <body class="<?php echo htmlspecialchars($bodyClassName, ENT_QUOTES, 'UTF-8'); ?>">
 	<?php if ($includeChrome): ?>
@@ -75,6 +85,7 @@ if (!function_exists('renderAppLayoutStart')) {
 		<!-- App Sidebar -->
 		<?php
 		$rbac = new RbacService();
+		$showSidebar = isset($options['showSidebar']) ? (bool) $options['showSidebar'] : true;
 		$canViewUsersDepartments = $rbac->canViewUsers() || $rbac->canViewDepartments();
 		$canAccessExpenses = $rbac->canAccessFinancialRequests();
 		$canViewBudgetCategories = $rbac->canViewBudgetCategories();
@@ -153,11 +164,12 @@ if (!function_exists('renderAppLayoutStart')) {
 			],
 		];
 		?>
-		<aside class="sidebar d-flex flex-column">
-			<button type="button" id="sidebarToggle" class="sidebar-toggle-btn" aria-label="Toggle sidebar" title="Toggle sidebar">
-				<i class="bi bi-list"></i>
-			</button>
-			<?php foreach ($sidebarGroups as $group): ?>
+		<?php if ($showSidebar): ?>
+			<aside class="sidebar d-flex flex-column">
+				<button type="button" id="sidebarToggle" class="sidebar-toggle-btn" aria-label="Toggle sidebar" title="Toggle sidebar">
+					<i class="bi bi-list"></i>
+				</button>
+				<?php foreach ($sidebarGroups as $group): ?>
 				<?php
 				$items = array_values(array_filter($group['items'], static fn($item) => is_array($item)));
 				if (count($items) === 0) {
@@ -181,7 +193,8 @@ if (!function_exists('renderAppLayoutStart')) {
 			<?php endforeach; ?>
 		</aside>
 		<?php endif; ?>
-		<?php
+	<?php endif; ?>
+	<?php
 	}
 }
 

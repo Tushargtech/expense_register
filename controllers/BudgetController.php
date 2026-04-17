@@ -434,46 +434,9 @@ class BudgetController
 			exit;
 		}
 
-		$budgetId = (int) ($_GET['id'] ?? 0);
-		if ($budgetId <= 0) {
-			flash_error('Invalid budget id.');
-			header('Location: ?route=budget-monitor');
-			exit;
-		}
-
-		$budgetModel = new BudgetModel();
-		$budget = $budgetModel->getBudgetById($budgetId);
-		if ($budget === null) {
-			flash_error('Budget row not found.');
-			header('Location: ?route=budget-monitor');
-			exit;
-		}
-
-		$departmentModel = new DepartmentModel();
-		$budgetCategoryModel = new BudgetCategoryModel();
-		$lookupModel = new LookupModel();
-
-		$departments = $departmentModel->getAllDepartments();
-		$categories = $budgetCategoryModel->getAllCategories();
-		$currencyOptions = $lookupModel->getRequestCurrencies();
-		if ($currencyOptions === [] && trim((string) ($budget['budget_currency'] ?? '')) !== '') {
-			$currencyOptions = [strtoupper(trim((string) ($budget['budget_currency'] ?? '')))];
-		}
-
-		$pageTitle = 'Edit Budget - Expense Register';
-		$pageStyles = ['assets/css/app.css'];
-		$envConfig = $GLOBALS['envConfig'] ?? [];
-		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
-		$activeMenu = 'budget-monitor';
-
-		require ROOT_PATH . '/views/templates/app_layout.php';
-		renderAppLayoutStart([
-			'pageTitle' => $pageTitle,
-			'pageStyles' => $pageStyles,
-			'activeMenu' => $activeMenu,
-		]);
-		require ROOT_PATH . '/views/module-1/budget_edit.php';
-		renderAppLayoutEnd();
+		flash_error('This action has been removed.');
+		header('Location: ?route=budget-monitor');
+		exit;
 	}
 
 	public function update(): void
@@ -518,7 +481,7 @@ class BudgetController
 			$budgetData['budget_currency'] === ''
 		) {
 			flash_error('Please fill all required fields with valid values.');
-			header('Location: ?route=budgets/edit&id=' . $budgetId);
+			header('Location: ?route=budget-monitor');
 			exit;
 		}
 
@@ -526,7 +489,7 @@ class BudgetController
 		$categoryResolution = $budgetModel->resolveBudgetCategory((string) $budgetData['budget_category_id']);
 		if ((int) ($categoryResolution['budget_category_id'] ?? 0) <= 0) {
 			flash_error('Selected budget category is invalid.');
-			header('Location: ?route=budgets/edit&id=' . $budgetId);
+			header('Location: ?route=budget-monitor');
 			exit;
 		}
 
@@ -536,7 +499,7 @@ class BudgetController
 		$updated = $budgetModel->updateBudget($budgetId, $budgetData);
 		if (!$updated) {
 			flash_error('Failed to update budget.');
-			header('Location: ?route=budgets/edit&id=' . $budgetId);
+			header('Location: ?route=budget-monitor');
 			exit;
 		}
 
@@ -578,7 +541,7 @@ class BudgetController
 		$deleted = $budgetModel->deleteBudget($budgetId);
 		if (!$deleted) {
 			flash_error('Failed to delete budget.');
-			header('Location: ?route=budgets/edit&id=' . $budgetId);
+			header('Location: ?route=budget-monitor');
 			exit;
 		}
 

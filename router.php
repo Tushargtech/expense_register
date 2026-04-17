@@ -183,16 +183,6 @@ switch ($route) {
         }
         break;
 
-    case 'budgets/edit':
-    case '/budgets/edit':
-        $budgetController = new BudgetController();
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $budgetController->update();
-        } else {
-            $budgetController->edit();
-        }
-        break;
-
     case 'budgets/delete':
     case '/budgets/delete':
         $budgetController = new BudgetController();

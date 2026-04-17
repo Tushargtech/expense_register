@@ -43,15 +43,6 @@ class ApiRouter
                 (new BudgetApiController())->upload();
                 break;
 
-            case 'budgets':
-            case 'budget':
-            case 'budgets/edit':
-            case 'budget/edit':
-            case 'budgets/delete':
-            case 'budget/delete':
-                (new BudgetApiController())->handle();
-                break;
-
             case 'budget-monitor':
                 (new BudgetMonitorApiController())->index();
                 break;

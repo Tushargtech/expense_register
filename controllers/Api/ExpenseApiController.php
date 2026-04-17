@@ -49,6 +49,61 @@ class ExpenseApiController extends ApiBaseController
         ];
     }
 
+    private function generateRequestReferenceNo(): string
+    {
+        try {
+            $randomPart = strtoupper(bin2hex(random_bytes(3)));
+        } catch (Throwable $error) {
+            $randomPart = strtoupper(substr(sha1(uniqid((string) mt_rand(), true)), 0, 6));
+        }
+
+        return 'EXP-' . date('Ymd') . '-' . $randomPart;
+    }
+
+    private function resolveStepAssigneeIds(array $step, int $departmentId, int $requesterId, WorkflowModel $workflowModel): array
+    {
+        $explicitUserId = (int) ($step['step_approver_user_id'] ?? 0);
+        if ($explicitUserId > 0) {
+            return [$explicitUserId];
+        }
+
+        $approverRole = strtolower(trim((string) ($step['step_approver_role'] ?? '')));
+        $approverType = strtolower(trim((string) ($step['step_approver_type'] ?? '')));
+        if ($approverType === 'manager') {
+            $managerAssigneeId = $this->model->findManagerAssigneeForDepartment($requesterId, $departmentId);
+            return $managerAssigneeId !== null && $managerAssigneeId > 0 ? [$managerAssigneeId] : [];
+        }
+
+        if ($approverType === 'department_head') {
+            $departmentHeadId = $this->model->findDepartmentHeadUserId($departmentId);
+            return $departmentHeadId !== null && $departmentHeadId > 0 ? [$departmentHeadId] : [];
+        }
+
+        if ($approverRole === '') {
+            if ($approverType === 'manager') {
+                $approverRole = 'manager';
+            } elseif ($approverType === 'department_head') {
+                $approverRole = 'department_head';
+            }
+        }
+
+        if ($approverRole === '') {
+            return [];
+        }
+
+        $assigneeIds = [];
+        foreach ($workflowModel->getActiveUsers() as $user) {
+            if (strtolower(trim((string) ($user['approver_role'] ?? ''))) === $approverRole) {
+                $userId = (int) ($user['user_id'] ?? 0);
+                if ($userId > 0) {
+                    $assigneeIds[] = $userId;
+                }
+            }
+        }
+
+        return array_values(array_unique($assigneeIds));
+    }
+
     private function buildAttachmentPayload(array $file): array
     {
         $originalName = (string) ($file['name'] ?? '');
@@ -307,8 +362,29 @@ class ExpenseApiController extends ApiBaseController
             $this->jsonError('Validation failed.', 422, $errors);
         }
 
+        $workflowId = (int) ($selectedWorkflow['workflow_id'] ?? 0);
+        $firstStepId = null;
+        $firstStepAssigneeIds = [];
+        if ($workflowId > 0) {
+            $workflowSteps = $workflowModel->getWorkflowStepsByWorkflowId($workflowId);
+            $firstStep = is_array($workflowSteps[0] ?? null) ? $workflowSteps[0] : [];
+            $firstStepId = (int) ($firstStep['step_id'] ?? 0);
+            if ($firstStepId <= 0) {
+                $this->jsonError('Validation failed.', 422, ['workflow_id' => 'The selected workflow has no approval steps.']);
+            }
+
+            $firstStepAssigneeIds = $this->resolveStepAssigneeIds(
+                $firstStep,
+                (int) $expenseData['department_id'],
+                (int) $expenseData['request_submitted_by'],
+                $workflowModel
+            );
+            if ($firstStepAssigneeIds === []) {
+                $this->jsonError('Validation failed.', 422, ['workflow_id' => 'The first workflow step has no approver user for the selected department.']);
+            }
+        }
+
         $expenseData['request_category'] = (string) ($selectedCategory['budget_category_name'] ?? '');
-        $expenseModel = new ExpenseModel();
         $attachmentPayload = null;
 
         try {
@@ -326,12 +402,37 @@ class ExpenseApiController extends ApiBaseController
             $this->jsonError($error->getMessage(), 422);
         }
 
-        $requestId = $expenseModel->createRequest($expenseData, $attachmentPayload);
-        if ($requestId === false) {
+        if (is_array($attachmentPayload)) {
+            $attachmentPayload['attachment_uploaded_by'] = (int) $expenseData['request_submitted_by'];
+        }
+
+        $requestData = [
+            'request_reference_no' => $this->generateRequestReferenceNo(),
+            'request_type' => (string) ($expenseData['request_type'] ?? ''),
+            'request_title' => (string) ($expenseData['request_title'] ?? ''),
+            'request_description' => $expenseData['request_description'] ?? null,
+            'request_amount' => (float) ($expenseData['request_amount'] ?? 0),
+            'request_currency' => (string) ($expenseData['request_currency'] ?? 'INR'),
+            'department_id' => (int) ($expenseData['department_id'] ?? 0),
+            'request_category' => (string) ($expenseData['request_category'] ?? ''),
+            'budget_category_id' => (int) ($expenseData['budget_category_id'] ?? 0),
+            'workflow_id' => $workflowId,
+            'request_current_step_id' => $firstStepId,
+            'request_step_assigned_to_ids' => $firstStepAssigneeIds,
+            'request_step_assigned_to' => (int) ($firstStepAssigneeIds[0] ?? 0),
+            'request_submitted_by' => (int) ($expenseData['request_submitted_by'] ?? 0),
+            'request_status' => 'pending',
+            'request_priority' => (string) ($expenseData['request_priority'] ?? 'low'),
+            'request_notes' => $expenseData['request_notes'] ?? null,
+            'request_submitted_at' => (string) ($expenseData['request_submitted_at'] ?? date('Y-m-d H:i:s')),
+        ];
+
+        $requestId = $this->model->createRequest($requestData, $attachmentPayload);
+        if ($requestId <= 0) {
             $this->jsonError('Failed to create expense request.', 500);
         }
 
-        RbacService::audit('request_create', ['request_id' => $requestId, 'request_type' => $expenseData['request_type']]);
+        RbacService::audit('request_create', ['request_id' => $requestId, 'request_type' => $requestData['request_type']]);
         $this->jsonSuccess(['request_id' => $requestId], [], 201);
     }
 

@@ -1,5 +1,6 @@
 <?php
 $roles = isset($roles) && is_array($roles) ? $roles : [];
+$users = isset($users) && is_array($users) ? $users : [];
 $workflow = isset($workflow) && is_array($workflow) ? $workflow : [];
 $workflowSteps = isset($workflowSteps) && is_array($workflowSteps) ? $workflowSteps : [];
 $formError = isset($formError) ? (string) $formError : '';
@@ -31,10 +32,16 @@ if (count($workflowSteps) === 0) {
 		'step_name' => '',
 		'step_approver_type' => 'role',
 		'step_approver_role' => '',
+		'step_approver_user_id' => 0,
 		'step_timeout_hours' => '',
 		'step_is_required' => true,
 	]];
 }
+
+$workflowTypeLabels = [
+	'expense' => 'Reimbursable',
+	'purchase' => 'Company Paid',
+];
 ?>
 
 <main class="main">
@@ -97,7 +104,7 @@ if (count($workflowSteps) === 0) {
 									<?php $normalizedWorkflowType = ucfirst(strtolower(trim((string) $workflowTypeOption))); ?>
 									<?php if ($normalizedWorkflowType === '') { continue; } ?>
 									<option value="<?php echo htmlspecialchars($normalizedWorkflowType, ENT_QUOTES, 'UTF-8'); ?>" <?php echo strtolower($workflowType) === strtolower($normalizedWorkflowType) ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars($normalizedWorkflowType, ENT_QUOTES, 'UTF-8'); ?>
+										<?php echo htmlspecialchars($workflowTypeLabels[strtolower($normalizedWorkflowType)] ?? $normalizedWorkflowType, ENT_QUOTES, 'UTF-8'); ?>
 									</option>
 								<?php endforeach; ?>
 							</select>
@@ -190,6 +197,23 @@ if (count($workflowSteps) === 0) {
 							</div>
 
 							<div class="user-create-field">
+								<label class="user-create-label">Approver User</label>
+								<select class="user-create-select approver-user-select" name="step_approver_user_id[]">
+									<option value="">Any user in selected role</option>
+									<?php foreach ($users as $user): ?>
+										<?php
+										$userId = (int) ($user['user_id'] ?? 0);
+										$userRole = strtolower(trim((string) ($user['approver_role'] ?? '')));
+										?>
+										<option value="<?php echo $userId; ?>" data-user-role="<?php echo htmlspecialchars($userRole, ENT_QUOTES, 'UTF-8'); ?>" <?php echo (int) ($step['step_approver_user_id'] ?? 0) === $userId ? 'selected' : ''; ?>>
+											<?php echo htmlspecialchars((string) ($user['user_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+								<p class="user-create-note">Optional: leave blank to assign this step to all users in the selected role.</p>
+							</div>
+
+							<div class="user-create-field">
 								<label class="user-create-label">Timeout (Hours)</label>
 								<input type="number" class="user-create-input" name="step_timeout_hours[]" min="1" step="1" placeholder="24" value="<?php echo htmlspecialchars((string) ($step['step_timeout_hours'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
 							</div>
@@ -259,22 +283,44 @@ if (count($workflowSteps) === 0) {
 	const syncApproverInputs = function (row) {
 		const typeSelect = row.querySelector('.approver-type-select');
 		const roleSelect = row.querySelector('.approver-role-select');
+		const userSelect = row.querySelector('.approver-user-select');
 		if (!typeSelect || !roleSelect) {
 			return;
 		}
 
 		const approverType = typeSelect.value;
+		let targetRole = roleSelect.value;
 		if (approverType === 'role') {
 			roleSelect.required = true;
 			roleSelect.disabled = false;
+			targetRole = roleSelect.value;
 		} else if (approverType === 'manager') {
 			roleSelect.required = false;
 			roleSelect.disabled = true;
 			roleSelect.value = 'manager';
+			targetRole = 'manager';
 		} else {
 			roleSelect.required = false;
 			roleSelect.disabled = true;
 			roleSelect.value = 'department_head';
+			targetRole = 'department_head';
+		}
+
+		if (userSelect) {
+			let visibleSelection = false;
+			userSelect.querySelectorAll('option[data-user-role]').forEach(function (option) {
+				const optionRole = String(option.getAttribute('data-user-role') || '').toLowerCase();
+				const shouldShow = targetRole !== '' && optionRole === targetRole;
+				option.hidden = !shouldShow;
+				option.disabled = !shouldShow;
+				if (option.selected && shouldShow) {
+					visibleSelection = true;
+				}
+			});
+			userSelect.required = false;
+			if (!visibleSelection) {
+				userSelect.value = '';
+			}
 		}
 	};
 
@@ -331,7 +377,7 @@ if (count($workflowSteps) === 0) {
 
 		const approverTypeSelect = clone.querySelector('.approver-type-select');
 		if (approverTypeSelect) {
-			approverTypeSelect.value = 'department_head';
+			approverTypeSelect.value = 'role';
 		}
 
 		clone.querySelectorAll('.required-toggle').forEach(function (toggle) {
@@ -435,7 +481,7 @@ if (count($workflowSteps) === 0) {
 		}
 
 		if (!target.classList.contains('required-toggle')) {
-			if (target.classList.contains('approver-type-select')) {
+			if (target.classList.contains('approver-type-select') || target.classList.contains('approver-role-select')) {
 				const row = target.closest('.workflow-step-row');
 				if (row) {
 					syncApproverInputs(row);

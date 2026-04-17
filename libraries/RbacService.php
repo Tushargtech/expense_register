@@ -76,11 +76,6 @@ class RbacService
         return $this->isManager() || $this->isDepartmentHead();
     }
 
-    private function isHrDepartmentHeadRole(): bool
-    {
-        return $this->isDepartmentHead();
-    }
-
     private function flattenPermissionsArray(array $source, string $prefix = ''): array
     {
         $normalized = [];
