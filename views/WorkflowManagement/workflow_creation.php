@@ -39,8 +39,8 @@ if (count($workflowSteps) === 0) {
 }
 
 $workflowTypeLabels = [
-	'expense' => 'Reimbursable',
-	'purchase' => 'Company Paid',
+	'reimbursable' => 'Reimbursable',
+	'company paid' => 'Company Paid',
 ];
 ?>
 
@@ -165,6 +165,7 @@ $workflowTypeLabels = [
 							</div>
 
 							<div class="user-create-grid workflow-step-grid">
+								<input type="hidden" name="step_id[]" value="<?php echo (int) ($step['step_id'] ?? 0); ?>">
 							<div class="user-create-field">
 								<label class="user-create-label">Step Order</label>
 								<input type="number" class="user-create-input" name="step_order[]" min="1" value="<?php echo (int) ($step['step_order'] ?? ($stepIndex + 1)); ?>" required>

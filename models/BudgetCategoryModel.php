@@ -99,7 +99,7 @@ class BudgetCategoryModel
 			$whereClauses[] = 'budget_category_is_active = 0';
 		}
 
-		if ($type === 'expense' || $type === 'purchase') {
+		if ($type === 'reimbursable' || $type === 'company paid') {
 			$whereClauses[] = 'LOWER(TRIM(budget_category_type)) = :type';
 			$params[':type'] = $type;
 		}
@@ -138,7 +138,7 @@ class BudgetCategoryModel
 			$whereClauses[] = 'budget_category_is_active = 0';
 		}
 
-		if ($type === 'expense' || $type === 'purchase') {
+		if ($type === 'reimbursable' || $type === 'company paid') {
 			$whereClauses[] = 'LOWER(TRIM(budget_category_type)) = :type';
 			$params[':type'] = $type;
 		}

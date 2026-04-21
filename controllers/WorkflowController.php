@@ -97,6 +97,7 @@ class WorkflowController
 	private function normalizeStepsPayload(array $source): array
 	{
 		$steps = [];
+		$stepIds = isset($source['step_id']) && is_array($source['step_id']) ? $source['step_id'] : [];
 		$stepNames = isset($source['step_name']) && is_array($source['step_name']) ? $source['step_name'] : [];
 		$roleValues = isset($source['step_approver_role']) && is_array($source['step_approver_role']) ? array_values($source['step_approver_role']) : [];
 		$roleValueCursor = 0;
@@ -138,6 +139,7 @@ class WorkflowController
 			$approverUserId = (int) ($source['step_approver_user_id'][$index] ?? 0);
 
 			$steps[] = [
+				'step_id' => (int) ($stepIds[$index] ?? 0),
 				'step_order' => $stepOrder > 0 ? $stepOrder : ($index + 1),
 				'step_name' => $stepName,
 				'step_approver_type' => $approverType,

@@ -3,13 +3,11 @@
 class ExpenseApiController extends ApiBaseController
 {
     private $model;
-    private $rbac;
 
     public function __construct()
     {
         parent::__construct();
-        $this->model = new ExpensesModel();
-        $this->rbac = new RbacService();
+        $this->model = new ExpenseModel();
     }
 
 
@@ -24,6 +22,17 @@ class ExpenseApiController extends ApiBaseController
         $this->ensurePermission($this->rbac()->canAccessFinancialRequests(), 'Forbidden');
     }
 
+    private function normalizeRequestTypeValue(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+
+        return match ($normalized) {
+            'reimbursable' => 'expense',
+            'company paid', 'company_paid' => 'purchase',
+            default => $normalized,
+        };
+    }
+
     private function normalizeExpensePayload(array $source): array
     {
         $lookup = $this->lookup();
@@ -36,7 +45,7 @@ class ExpenseApiController extends ApiBaseController
         $defaultPriority = strtolower((string) ($priorityOptions[0] ?? ''));
 
         return [
-            'request_type' => strtolower(trim((string) ($source['request_type'] ?? $defaultType))),
+            'request_type' => $this->normalizeRequestTypeValue((string) ($source['request_type'] ?? $defaultType)),
             'request_title' => trim((string) ($source['request_title'] ?? '')),
             'request_description' => trim((string) ($source['request_description'] ?? '')),
             'request_amount' => trim((string) ($source['request_amount'] ?? '')),
@@ -261,25 +270,20 @@ class ExpenseApiController extends ApiBaseController
         $filters = [
             'search' => $this->request->queryString('search'),
             'status' => $this->request->queryString('status'),
-            'department_id' => (int) ($this->request->routeParam('department_id', 0) ?? 0),
+            'department' => (string) ((int) ($this->request->routeParam('department_id', 0) ?? 0)),
             'date_from' => $this->request->queryString('date_from'),
             'date_to' => $this->request->queryString('date_to'),
             'page' => max(1, (int) ($_GET['page'] ?? 1)),
             'limit' => max(1, min(100, (int) ($_GET['limit'] ?? 10))),
         ];
 
-        $result = $expenseModel->getFiltered(
-            $filters['search'],
-            $filters['status'],
-            $filters['department_id'],
-            $filters['date_from'],
-            $filters['date_to'],
-            $filters['page'],
-            $filters['limit'],
-            (int) ($this->rbac()->userId() ?? 0)
-        );
+        if ($filters['department'] === '0') {
+            $filters['department'] = '';
+        }
 
-        $this->jsonSuccess($result['records'] ?? [], [
+        $result = $expenseModel->getExpenses($filters, $filters['page'], $filters['limit']);
+
+        $this->jsonSuccess($result['expenses'] ?? [], [
             'pagination' => [
                 'page' => $filters['page'],
                 'limit' => $filters['limit'],
@@ -293,7 +297,7 @@ class ExpenseApiController extends ApiBaseController
     {
         $this->ensureAccess();
         $expenseModel = new ExpenseModel();
-        $request = $expenseModel->getRequestDetailsById($requestId);
+        $request = $expenseModel->getRequestReviewDetails($requestId);
 
         if ($request === null) {
             $this->jsonError('Expense request not found.', 404);
@@ -433,6 +437,74 @@ class ExpenseApiController extends ApiBaseController
         }
 
         RbacService::audit('request_create', ['request_id' => $requestId, 'request_type' => $requestData['request_type']]);
+
+        $requestRecord = $this->model->getRequestReviewDetails($requestId);
+        if (is_array($requestRecord)) {
+            $requestTypeLabel = match (strtolower(trim((string) ($requestRecord['request_type'] ?? '')))) {
+                'reimbursable' => 'Reimbursable',
+                'company paid' => 'Company Paid',
+                default => ucfirst((string) ($requestRecord['request_type'] ?? 'Request')),
+            };
+            $requestNo = (string) ($requestRecord['request_reference_no'] ?? $requestData['request_reference_no']);
+            $requestAmount = number_format((float) ($requestRecord['request_amount'] ?? 0), 2, '.', '');
+            $requestCurrency = (string) ($requestRecord['request_currency'] ?? $requestData['request_currency']);
+            $requestBudgetHead = trim((string) ($requestRecord['budget_category_name'] ?? ''));
+            if ($requestBudgetHead === '') {
+                $requestBudgetHead = trim((string) ($requestRecord['request_category'] ?? ''));
+            }
+            $requestDescription = (string) ($requestRecord['request_description'] ?? '');
+            $requesterEmail = trim((string) ($requestRecord['submitter_email'] ?? ''));
+            $requesterName = trim((string) ($requestRecord['submitter_name'] ?? ''));
+            $requestLink = buildCleanRouteUrl('expenses/review', ['id' => $requestId]);
+            $mailService = new MailService();
+
+            if ($requesterEmail !== '') {
+                $sent = $mailService->sendRequestSubmittedEmail(
+                    $requesterEmail,
+                    $requesterName !== '' ? $requesterName : 'User',
+                    $requestTypeLabel,
+                    $requestNo,
+                    $requestCurrency,
+                    $requestAmount,
+                    $requestBudgetHead !== '' ? $requestBudgetHead : '—',
+                    $requestDescription,
+                    $requestLink
+                );
+
+                if (!$sent) {
+                    error_log('Failed to send request submission email for request ' . $requestId);
+                }
+            }
+
+            $approverNotifications = $this->model->getCurrentStepApproverNotifications($requestId);
+            foreach ($approverNotifications as $approverNotification) {
+                $approverEmail = trim((string) ($approverNotification['approver_email'] ?? ''));
+                if ($approverEmail === '') {
+                    continue;
+                }
+
+                $sent = $mailService->sendRequestActionRequiredEmail(
+                    $approverEmail,
+                    trim((string) ($approverNotification['approver_name'] ?? 'Approver')),
+                    $requesterName !== '' ? $requesterName : 'Employee',
+                    '',
+                    $requestTypeLabel,
+                    $requestNo,
+                    $requestCurrency,
+                    $requestAmount,
+                    $requestBudgetHead !== '' ? $requestBudgetHead : '—',
+                    $requestDescription,
+                    $requestLink,
+                    (int) ($approverNotification['approval_timeout'] ?? 24),
+                    true
+                );
+
+                if (!$sent) {
+                    error_log('Failed to send action required email for request ' . $requestId . ' to approver ' . ((int) ($approverNotification['approver_id'] ?? 0)));
+                }
+            }
+        }
+
         $this->jsonSuccess(['request_id' => $requestId], [], 201);
     }
 
@@ -450,33 +522,201 @@ class ExpenseApiController extends ApiBaseController
             $this->jsonError('Invalid request or action.', 400);
         }
 
-        $queryModel = new ExpenseQueryModel();
-        $pendingAssignment = $queryModel->getPendingAssignmentForUser($requestId, $userId);
+        $pendingAssignment = $this->model->getPendingAssignmentForUser($requestId, $userId);
         if ($pendingAssignment === null) {
             $this->jsonError('You are not authorized to perform this action.', 403);
         }
 
-        $request = $queryModel->getRequestById($requestId);
+        $request = $this->model->getRequestById($requestId);
         if ($request === null) {
             $this->jsonError('Request not found.', 404);
         }
 
         $this->ensureCanAccessRequestRecord($request);
 
-        $writeModel = new ExpenseWriteModel();
         try {
+            if ($action === 'reject' && $comment === '') {
+                $this->jsonError('A comment is required when rejecting.', 400);
+            }
+
+            if ($action === 'reassign' && $reassignTo <= 0) {
+                $this->jsonError('Please select a user to reassign to.', 400);
+            }
+
+            $rejectionStepTitle = 'Current Step';
+            if ($action === 'reject') {
+                $currentStepDefinition = $this->model->getCurrentRequestStepDefinition(
+                    $requestId,
+                    (int) ($request['request_current_step_id'] ?? 0),
+                    (int) ($request['workflow_id'] ?? 0)
+                );
+                if (is_array($currentStepDefinition)) {
+                    $resolvedStepTitle = trim((string) ($currentStepDefinition['step_name'] ?? ''));
+                    if ($resolvedStepTitle !== '') {
+                        $rejectionStepTitle = $resolvedStepTitle;
+                    }
+                }
+            }
+
+            $result = $this->model->processRequestAction(
+                $requestId,
+                $userId,
+                $action,
+                $comment !== '' ? $comment : null,
+                $action === 'reassign' ? $reassignTo : null
+            );
+
             if ($action === 'approve') {
-                $writeModel->approveStep($requestId, $userId);
+                $updatedRequest = $this->model->getRequestReviewDetails($requestId);
+                if (is_array($updatedRequest) && strtolower(trim((string) ($updatedRequest['request_status'] ?? ''))) === 'pending') {
+                    $requestTypeLabel = match (strtolower(trim((string) ($updatedRequest['request_type'] ?? '')))) {
+                        'reimbursable' => 'Reimbursable',
+                        'company paid' => 'Company Paid',
+                        default => ucfirst((string) ($updatedRequest['request_type'] ?? 'Request')),
+                    };
+                    $requestNo = (string) ($updatedRequest['request_reference_no'] ?? '');
+                    $requestAmount = number_format((float) ($updatedRequest['request_amount'] ?? 0), 2, '.', '');
+                    $requestCurrency = (string) ($updatedRequest['request_currency'] ?? 'INR');
+                    $requestBudgetHead = trim((string) ($updatedRequest['budget_category_name'] ?? ''));
+                    if ($requestBudgetHead === '') {
+                        $requestBudgetHead = trim((string) ($updatedRequest['request_category'] ?? ''));
+                    }
+                    $requestDescription = (string) ($updatedRequest['request_description'] ?? '');
+                    $requesterName = trim((string) ($updatedRequest['submitter_name'] ?? ''));
+                    $previousActor = (string) ($this->model->getLatestRequestActionActorName($requestId) ?? 'Previous Approver');
+                    $requestLink = buildCleanRouteUrl('expenses/review', ['id' => $requestId]);
+                    $mailService = new MailService();
+
+                    $approverNotifications = $this->model->getCurrentStepApproverNotifications($requestId);
+                    foreach ($approverNotifications as $approverNotification) {
+                        $approverEmail = trim((string) ($approverNotification['approver_email'] ?? ''));
+                        if ($approverEmail === '') {
+                            continue;
+                        }
+
+                        $sent = $mailService->sendRequestActionRequiredEmail(
+                            $approverEmail,
+                            trim((string) ($approverNotification['approver_name'] ?? 'Approver')),
+                            $requesterName !== '' ? $requesterName : 'Employee',
+                            $previousActor,
+                            $requestTypeLabel,
+                            $requestNo,
+                            $requestCurrency,
+                            $requestAmount,
+                            $requestBudgetHead !== '' ? $requestBudgetHead : '—',
+                            $requestDescription,
+                            $requestLink,
+                            (int) ($approverNotification['approval_timeout'] ?? 24),
+                            false
+                        );
+
+                        if (!$sent) {
+                            error_log('Failed to send next-step action required email for request ' . $requestId . ' to approver ' . ((int) ($approverNotification['approver_id'] ?? 0)));
+                        }
+                    }
+                } elseif (is_array($updatedRequest) && strtolower(trim((string) ($updatedRequest['request_status'] ?? ''))) === 'approved') {
+                    $requestTypeLabel = match (strtolower(trim((string) ($updatedRequest['request_type'] ?? '')))) {
+                        'reimbursable' => 'Reimbursable',
+                        'company paid' => 'Company Paid',
+                        default => ucfirst((string) ($updatedRequest['request_type'] ?? 'Request')),
+                    };
+                    $requestNo = (string) ($updatedRequest['request_reference_no'] ?? '');
+                    $requestAmount = number_format((float) ($updatedRequest['request_amount'] ?? 0), 2, '.', '');
+                    $requestCurrency = (string) ($updatedRequest['request_currency'] ?? 'INR');
+                    $requestBudgetHead = trim((string) ($updatedRequest['budget_category_name'] ?? ''));
+                    if ($requestBudgetHead === '') {
+                        $requestBudgetHead = trim((string) ($updatedRequest['request_category'] ?? ''));
+                    }
+                    $requestDescription = (string) ($updatedRequest['request_description'] ?? '');
+                    $requesterName = trim((string) ($updatedRequest['submitter_name'] ?? ''));
+                    $requesterEmail = trim((string) ($updatedRequest['submitter_email'] ?? ''));
+                    $actorName = (string) ($this->model->getLatestRequestActionActorName($requestId) ?? 'Approver');
+
+                    if ($requesterEmail !== '') {
+                        $mailService = new MailService();
+                        $sent = $mailService->sendRequestApprovedEmail(
+                            $requesterEmail,
+                            $requesterName !== '' ? $requesterName : 'Employee',
+                            $requestTypeLabel,
+                            $requestNo,
+                            $actorName,
+                            $comment !== '' ? $comment : null,
+                            $requestCurrency,
+                            $requestAmount,
+                            $requestBudgetHead !== '' ? $requestBudgetHead : '—',
+                            $requestDescription,
+                            buildCleanRouteUrl('expenses/review', ['id' => $requestId])
+                        );
+
+                        if (!$sent) {
+                            error_log('Failed to send final request approved email for request ' . $requestId);
+                        }
+                    }
+                }
             } elseif ($action === 'reject') {
-                if ($comment === '') {
-                    $this->jsonError('A comment is required when rejecting.', 400);
+                $updatedRequest = $this->model->getRequestReviewDetails($requestId);
+                if (is_array($updatedRequest) && strtolower(trim((string) ($updatedRequest['request_status'] ?? ''))) === 'rejected') {
+                    if ($rejectionStepTitle === 'Current Step') {
+                        $fallbackStepTitle = $this->model->getLatestRequestActionStepTitle($requestId, 'reject');
+                        if (is_string($fallbackStepTitle) && trim($fallbackStepTitle) !== '') {
+                            $rejectionStepTitle = trim($fallbackStepTitle);
+                        }
+                    }
+
+                    $requestTypeLabel = match (strtolower(trim((string) ($updatedRequest['request_type'] ?? '')))) {
+                        'reimbursable' => 'Reimbursable',
+                        'company paid' => 'Company Paid',
+                        default => ucfirst((string) ($updatedRequest['request_type'] ?? 'Request')),
+                    };
+                    $requestNo = (string) ($updatedRequest['request_reference_no'] ?? '');
+                    $requesterName = trim((string) ($updatedRequest['submitter_name'] ?? ''));
+                    $requesterEmail = trim((string) ($updatedRequest['submitter_email'] ?? ''));
+                    $actorName = (string) ($this->model->getLatestRequestActionActorName($requestId) ?? 'Approver');
+
+                    if ($requesterEmail !== '') {
+                        $mailService = new MailService();
+                        $sent = $mailService->sendRequestRejectedEmail(
+                            $requesterEmail,
+                            $requesterName !== '' ? $requesterName : 'Employee',
+                            $requestTypeLabel,
+                            $requestNo,
+                            $actorName,
+                            $rejectionStepTitle,
+                            $comment !== '' ? $comment : null,
+                            buildCleanRouteUrl('expenses/review', ['id' => $requestId])
+                        );
+
+                        if (!$sent) {
+                            error_log('Failed to send request rejected email for request ' . $requestId);
+                        }
+                    }
                 }
-                $writeModel->rejectStep($requestId, $userId, $comment);
             } elseif ($action === 'reassign') {
-                if ($reassignTo <= 0) {
-                    $this->jsonError('Please select a user to reassign to.', 400);
+                $updatedRequest = $this->model->getRequestReviewDetails($requestId);
+                if (is_array($updatedRequest)) {
+                    $requestNo = (string) ($updatedRequest['request_reference_no'] ?? '');
+                    $requestLink = buildCleanRouteUrl('expenses/review', ['id' => $requestId]);
+                    $userModel = new UserModel();
+                    $newApprover = $reassignTo > 0 ? $userModel->getUserById($reassignTo) : null;
+                    $actorUser = $userModel->getUserById($userId);
+                    $newApproverEmail = trim((string) ($newApprover['user_email'] ?? ''));
+
+                    if ($newApproverEmail !== '') {
+                        $mailService = new MailService();
+                        $sent = $mailService->sendTicketReassignmentEmail(
+                            $newApproverEmail,
+                            trim((string) ($newApprover['user_name'] ?? 'Approver')),
+                            trim((string) ($actorUser['user_name'] ?? 'Department Head')),
+                            $requestNo,
+                            $comment !== '' ? $comment : null,
+                            $requestLink
+                        );
+
+                        if (!$sent) {
+                            error_log('Failed to send ticket reassignment email for request ' . $requestId . ' to user ' . $reassignTo);
+                        }
+                    }
                 }
-                $writeModel->reassignStep($requestId, $userId, $reassignTo, $comment);
             }
         } catch (Throwable $e) {
             $this->jsonError('Action failed: ' . $e->getMessage(), 500);
@@ -503,7 +743,7 @@ class ExpenseApiController extends ApiBaseController
             $this->jsonError('Attachment not found.', 404);
         }
 
-        $request = $expenseModel->getRequestDetailsById($requestId);
+        $request = $expenseModel->getRequestById($requestId);
         if ($request === null) {
             $this->jsonError('Expense request not found.', 404);
         }

@@ -278,11 +278,38 @@ class UserController
 		}
 
 		$userModel = new UserModel();
-		$success = $userModel->createUser($userData);
+		$result = $userModel->createUser($userData);
 
-		if ($success) {
+		if ($result['success'] ?? false) {
+			// Send welcome email with temporary password
+			$userId = (int) ($result['user_id'] ?? 0);
+			$tempPassword = (string) ($result['temporary_password'] ?? '');
+			$email = (string) ($result['email'] ?? '');
+			$name = (string) ($result['name'] ?? '');
+
+			if ($userId > 0) {
+				// Mark user for forced password change on first login
+				$userModel->setForcePasswordChange($userId);
+
+				if ($tempPassword) {
+					// Generate login link
+					$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+					$scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+					$basePath = '/expense_register';
+					$loginLink = "{$scheme}://{$host}{$basePath}/";
+
+					// Send welcome email with login link and temporary password
+					$mailService = new MailService();
+					$sent = $mailService->sendNewUserEmail($email, $name, $tempPassword, $loginLink, 120);
+
+					if (!$sent) {
+						error_log("Failed to send welcome email to {$email} for user {$userId}");
+					}
+				}
+			}
+
 			RbacService::audit('user_create', ['email' => $userData['email'], 'role' => $userData['role']]);
-			flash_success('Employee created successfully.');
+			flash_success('Employee created successfully. Welcome email has been sent.');
 			header('Location: ' . buildCleanRouteUrl('users'));
 		} else {
 			flash_error('Failed to create employee.');

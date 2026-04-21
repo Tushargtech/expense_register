@@ -17,8 +17,8 @@ $submittedAt = (string) ($request['request_submitted_at'] ?? '');
 $resolvedAt = (string) ($request['request_resolved_at'] ?? '');
 
 $typeLabel = match ($requestType) {
-    'expense' => 'Reimbursable',
-    'purchase' => 'Company Paid',
+    'reimbursable' => 'Reimbursable',
+    'company paid' => 'Company Paid',
     default => ucfirst($requestType),
 };
 

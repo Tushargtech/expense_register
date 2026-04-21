@@ -3,9 +3,22 @@
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
+date_default_timezone_set('Asia/Kolkata');
+
 session_start();
 
 define('ROOT_PATH', __DIR__);
+
+$composerAutoload = ROOT_PATH . '/vendor/autoload.php';
+if (file_exists($composerAutoload)) {
+	require_once $composerAutoload;
+
+	if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+		require_once ROOT_PATH . '/libraries/PHPMailerAutoloader.php';
+	}
+} else {
+	require_once ROOT_PATH . '/libraries/PHPMailerAutoloader.php';
+}
 
 $envConfig = require ROOT_PATH . '/configs/env.php';
 $dbConfig = $envConfig['db'];
@@ -16,15 +29,18 @@ require_once ROOT_PATH . '/models/DepartmentModel.php';
 require_once ROOT_PATH . '/models/BudgetCategoryModel.php';
 require_once ROOT_PATH . '/models/BudgetModel.php';
 require_once ROOT_PATH . '/models/BudgetMonitorModel.php';
-require_once ROOT_PATH . '/models/ExpensesModel.php';
+require_once ROOT_PATH . '/models/ExpenseModel.php';
 require_once ROOT_PATH . '/models/WorkflowModel.php';
 require_once ROOT_PATH . '/models/LookupModel.php';
+require_once ROOT_PATH . '/models/PasswordResetModel.php';
 require_once ROOT_PATH . '/libraries/FlashMessage.php';
 require_once ROOT_PATH . '/libraries/RbacService.php';
 require_once ROOT_PATH . '/libraries/ApiRequest.php';
 require_once ROOT_PATH . '/libraries/ApiResponse.php';
+require_once ROOT_PATH . '/libraries/MailService.php';
 require_once ROOT_PATH . '/controllers/ApiBaseController.php';
 require_once ROOT_PATH . '/controllers/AuthController.php';
+require_once ROOT_PATH . '/controllers/PasswordResetController.php';
 require_once ROOT_PATH . '/controllers/UserController.php';
 require_once ROOT_PATH . '/controllers/DepartmentController.php';
 require_once ROOT_PATH . '/controllers/BudgetCategoryController.php';

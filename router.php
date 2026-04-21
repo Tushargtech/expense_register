@@ -61,6 +61,7 @@ if (str_starts_with($route, 'api/')) {
 }
 
 $auth = new AuthController();
+$resetController = new PasswordResetController();
 
 switch ($route) {
     case 'login':
@@ -71,6 +72,26 @@ switch ($route) {
 
     case 'auth':
         $auth->login();
+        break;
+    
+    case 'forgot-password':
+    case '/forgot-password':
+        $resetController->showForgotPasswordForm();
+        break;
+
+    case 'forgot-password-submit':
+    case '/forgot-password-submit':
+        $resetController->sendForgotPasswordEmail();
+        break;
+
+    case 'password-reset':
+    case '/password-reset':
+        $resetController->showResetForm();
+        break;
+
+    case 'password-reset-submit':
+    case '/password-reset-submit':
+        $resetController->resetPassword();
         break;
 
     case 'home':
@@ -183,17 +204,7 @@ switch ($route) {
         }
         break;
 
-    case 'budgets/delete':
-    case '/budgets/delete':
-        $budgetController = new BudgetController();
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $budgetController->delete();
-        } else {
-            header('Location: ?route=budget-monitor');
-            exit;
-        }
-        break;
-
+   
     case 'budget-monitor':
     case '/budget-monitor':
         $budgetMonitorController = new BudgetMonitorController();

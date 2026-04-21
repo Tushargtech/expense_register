@@ -15,14 +15,19 @@ $priorityOptions = isset($priorityOptions) && is_array($priorityOptions) ? $prio
     'high' => 'High',
 ];
 $currencyOptions = isset($currencyOptions) && is_array($currencyOptions) ? $currencyOptions : ['INR'];
-$departments = isset($departments) && is_array($departments) ? $departments : [];
+
 $budgetCategories = isset($budgetCategories) && is_array($budgetCategories) ? $budgetCategories : [];
 
 $selectedRequestType = strtolower(trim((string) ($oldInput['request_type'] ?? 'expense')));
+$selectedRequestType = match ($selectedRequestType) {
+	'expense', 'reimbursable' => 'expense',
+	'purchase', 'company paid', 'company_paid' => 'purchase',
+	default => $selectedRequestType,
+};
 $selectedTitle = (string) ($oldInput['request_title'] ?? '');
 $selectedAmount = (string) ($oldInput['request_amount'] ?? '');
 $selectedCurrency = strtoupper(trim((string) ($oldInput['request_currency'] ?? (string) ($currencyOptions[0] ?? 'INR'))));
-$selectedDepartmentId = (int) ($oldInput['department_id'] ?? 0);
+
 $selectedBudgetCategoryId = (int) ($oldInput['budget_category_id'] ?? 0);
 $selectedPriority = strtolower(trim((string) ($oldInput['request_priority'] ?? 'low')));
 $selectedDescription = (string) ($oldInput['request_description'] ?? '');
@@ -88,19 +93,7 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 								<?php endforeach; ?>
 							</select>
 						</div>
-
-						<div class="user-create-field">
-							<label class="user-create-label" for="department_id">Department</label>
-							<select class="user-create-select" id="department_id" name="department_id" required>
-								<option value="">Select Department</option>
-								<?php foreach ($departments as $department): ?>
-									<?php $departmentId = (int) ($department['id'] ?? 0); ?>
-									<option value="<?php echo $departmentId; ?>" <?php echo $selectedDepartmentId === $departmentId ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars((string) ($department['department_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-						</div>
+					
 
 						<div class="user-create-field">
 							<label class="user-create-label" for="budget_category_id">Budget Category</label>
@@ -109,7 +102,12 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 								<?php foreach ($budgetCategories as $category): ?>
 									<?php
 									$categoryId = (int) ($category['budget_category_id'] ?? 0);
-									$categoryType = strtolower(trim((string) ($category['budget_category_type'] ?? '')));
+									$categoryTypeRaw = strtolower(trim((string) ($category['budget_category_type'] ?? '')));
+									$categoryType = match ($categoryTypeRaw) {
+										'expense' => 'reimbursable',
+										'purchase', 'company_paid' => 'company paid',
+										default => $categoryTypeRaw,
+									};
 									?>
 									<option
 										value="<?php echo $categoryId; ?>"
@@ -193,12 +191,23 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 	}
 
 	const syncBudgetCategories = function () {
-		const requestType = String(requestTypeSelect.value || '').toLowerCase();
+		const normalizeType = function (value) {
+			const normalized = String(value || '').toLowerCase().trim();
+			if (normalized === 'reimbursable' || normalized === 'expense') {
+				return 'expense';
+			}
+			if (normalized === 'company paid' || normalized === 'company_paid' || normalized === 'purchase') {
+				return 'purchase';
+			}
+			return normalized;
+		};
+
+		const requestType = normalizeType(requestTypeSelect.value || '');
 		const options = budgetCategorySelect.querySelectorAll('option[data-category-type]');
 		let selectedOptionVisible = false;
 
 		options.forEach(function (option) {
-			const categoryType = String(option.getAttribute('data-category-type') || '').toLowerCase();
+			const categoryType = normalizeType(option.getAttribute('data-category-type') || '');
 			const shouldShow = requestType === '' || categoryType === '' || categoryType === requestType;
 			option.hidden = !shouldShow;
 			option.disabled = !shouldShow;

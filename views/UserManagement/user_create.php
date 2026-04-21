@@ -15,6 +15,18 @@ $selectedRole = (string) ($user['user_role'] ?? 'employee');
 $selectedDepartmentId = (int) ($user['department_id'] ?? 0);
 $selectedManagerId = (int) ($user['manager_id'] ?? 0);
 $selectedStatus = (int) ($user['user_is_active'] ?? 1);
+$managerOptionsByDepartment = [];
+
+foreach ($managers as $manager) {
+	$departmentId = (int) ($manager['department_id'] ?? 0);
+	if (!isset($managerOptionsByDepartment[$departmentId])) {
+		$managerOptionsByDepartment[$departmentId] = [];
+	}
+	$managerOptionsByDepartment[$departmentId][] = [
+		'id' => (int) ($manager['user_id'] ?? 0),
+		'name' => (string) ($manager['user_name'] ?? ''),
+	];
+}
 ?>
 
 <main class="main">
@@ -82,15 +94,10 @@ $selectedStatus = (int) ($user['user_is_active'] ?? 1);
 
 						<div class="user-create-field">
 							<label class="user-create-label" for="manager_id">Manager</label>
-							<select class="user-create-select" id="manager_id" name="manager_id" required>
+							<select class="user-create-select" id="manager_id" name="manager_id" required data-selected-manager-id="<?php echo (int) $selectedManagerId; ?>"></select>
 								<option value="">Select Manager</option>
-								<?php foreach ($managers as $manager): ?>
-									<?php $managerId = (int) ($manager['user_id'] ?? 0); ?>
-									<option value="<?php echo $managerId; ?>" <?php echo $selectedManagerId === $managerId ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars((string) ($manager['user_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-									</option>
-								<?php endforeach; ?>
 							</select>
+							<small class="text-muted d-block mt-1" id="managerHelpText">Select a department to load matching managers.</small>
 						</div>
 
 						<div class="user-create-field">
@@ -116,3 +123,63 @@ $selectedStatus = (int) ($user['user_is_active'] ?? 1);
 		</div>
 	</div>
 </main>
+<script>
+	(function () {
+		const departmentSelect = document.getElementById('department_id');
+		const managerSelect = document.getElementById('manager_id');
+		const managerHelpText = document.getElementById('managerHelpText');
+		const managerOptionsByDepartment = <?php echo json_encode($managerOptionsByDepartment, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+		const selectedManagerId = String(managerSelect ? managerSelect.getAttribute('data-selected-manager-id') || '' : '');
+
+		if (!departmentSelect || !managerSelect) {
+			return;
+		}
+
+		function getManagersForDepartment(departmentId) {
+			const key = String(departmentId || '0');
+			return managerOptionsByDepartment[key] || [];
+		}
+
+		function populateManagers() {
+			const departmentId = departmentSelect.value || '0';
+			const managers = getManagersForDepartment(departmentId);
+			const previousValue = managerSelect.value || selectedManagerId;
+
+			managerSelect.innerHTML = '';
+
+			const placeholder = document.createElement('option');
+			placeholder.value = '';
+			placeholder.textContent = departmentId === '0' ? 'Select Department First' : 'Select Manager';
+			managerSelect.appendChild(placeholder);
+
+			managers.forEach(function (manager) {
+				if (!manager || !manager.id) {
+					return;
+				}
+
+				const option = document.createElement('option');
+				option.value = String(manager.id);
+				option.textContent = manager.name || '';
+				if (String(manager.id) === previousValue) {
+					option.selected = true;
+				}
+				managerSelect.appendChild(option);
+			});
+
+			const hasManagers = managers.length > 0;
+			managerSelect.disabled = !hasManagers;
+			if (managerHelpText) {
+				managerHelpText.textContent = hasManagers
+					? 'Only employees from the selected department are shown.'
+					: 'No employees found for the selected department.';
+			}
+
+			if (!hasManagers) {
+				managerSelect.value = '';
+			}
+		}
+
+		departmentSelect.addEventListener('change', populateManagers);
+		populateManagers();
+	})();
+</script>

@@ -120,6 +120,18 @@ class AuthController
         ];
 
         unset($_SESSION['old_email']);
+
+        // Check if user must reset password (first-time login or admin-required)
+        if (!empty($user['force_password_change']) || !empty($user['password_must_reset'])) {
+            $resetModel = new PasswordResetModel();
+            $token = $resetModel->createResetToken((int) ($user['id'] ?? 0), 120); // 2 hours
+            if ($token) {
+                flash_success('Please set your new password.');
+                header('Location: ' . buildCleanRouteUrl('password-reset', ['token' => $token]));
+                exit;
+            }
+        }
+
         flash_success('Login successful.');
 
         header('Location: ?route=dashboard');
@@ -138,7 +150,7 @@ class AuthController
         $envConfig = $GLOBALS['envConfig'] ?? [];
         $rbac = new RbacService();
         $canViewBudgetUtilization = $rbac->canViewOrganizationBudgetUtilization();
-        $expensesModel = new ExpensesModel();
+        $expensesModel = new ExpenseModel();
 
         $dashboardKpis = $expensesModel->getDashboardKpis($rbac);
         $recentActivity = $expensesModel->getTodayRecentActivity($rbac, 12);
@@ -152,6 +164,11 @@ class AuthController
             if ($departmentId > 0) {
                 $budgetMonitorModel = new BudgetMonitorModel();
                 $budgetRows = $budgetMonitorModel->getMonitorRows([], $departmentId);
+
+                $budgetAlertService = new BudgetMonitorController();
+                if (method_exists($budgetAlertService, 'dispatchBudgetThresholdAlerts')) {
+                    $budgetAlertService->dispatchBudgetThresholdAlerts($budgetRows);
+                }
                 
                 $totalAllocated = 0;
                 $totalSpent = 0;

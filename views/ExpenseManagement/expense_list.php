@@ -7,6 +7,7 @@ $selectedStatus = (string) ($filters['status'] ?? 'pending');
 $selectedRequestScope = (string) ($filters['request_scope'] ?? '');
 $selectedType = (string) ($filters['type'] ?? '');
 $selectedDepartment = (string) ($filters['department'] ?? '');
+$canFilterByDepartment = isset($canFilterByDepartment) ? (bool) $canFilterByDepartment : false;
 
 $currentPage = isset($currentPage) ? (int) $currentPage : 1;
 $totalPages = isset($totalPages) ? (int) $totalPages : 1;
@@ -18,9 +19,10 @@ $rangeEnd = $total > 0 ? min($total, $rangeStart + count($expenses) - 1) : 0;
 
 // Mock data for filters - in real app, these would come from controller
 $departments = isset($departments) && is_array($departments) ? $departments : [];
-$requestTypes = ['expense' => 'Reimbursable', 'purchase' => 'Company Paid'];
+$requestTypes = ['reimbursable' => 'Reimbursable', 'company paid' => 'Company Paid'];
 $requestScopes = [
-    'pending_approvals' => 'Pending Approvals',
+    "all" => 'All Requests',
+    'others' => 'Others',
     'my_requests' => 'My Requests',
 ];
 $statuses = ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'];
@@ -70,7 +72,6 @@ $buildExpenseUrl = static function (array $params = []) use ($expenseListUrl) : 
 
                         <div class="filter-field">
                             <select name="request_scope" class="form-select">
-                                <option value="">All Requests</option>
                                 <?php foreach ($requestScopes as $key => $label): ?>
                                     <option value="<?php echo htmlspecialchars($key, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedRequestScope === $key ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
@@ -101,16 +102,18 @@ $buildExpenseUrl = static function (array $params = []) use ($expenseListUrl) : 
                             </select>
                         </div>
 
-                        <div class="filter-field">
-                            <select name="department" class="form-select">
-                                <option value="">All Departments</option>
-                                <?php foreach ($departments as $dept): ?>
-                                    <option value="<?php echo htmlspecialchars((string) ($dept['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedDepartment === (string) ($dept['id'] ?? '') ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars((string) ($dept['department_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+                        <?php if ($canFilterByDepartment): ?>
+                            <div class="filter-field">
+                                <select name="department" class="form-select">
+                                    <option value="">All Departments</option>
+                                    <?php foreach ($departments as $dept): ?>
+                                        <option value="<?php echo htmlspecialchars((string) ($dept['id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedDepartment === (string) ($dept['id'] ?? '') ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars((string) ($dept['department_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        <?php endif; ?>
 
                         <div class="filter-actions">
                             <button type="submit" class="btn btn-primary btn-filter">Search</button>
@@ -167,8 +170,8 @@ $buildExpenseUrl = static function (array $params = []) use ($expenseListUrl) : 
                                     <td>
                                         <?php echo htmlspecialchars(
                                             match ($expense['request_type'] ?? '') {
-                                                'expense' => 'Reimbursable',
-                                                'purchase' => 'Company Paid',
+                                                'reimbursable' => 'Reimbursable',
+                                                'company paid' => 'Company Paid',
                                                 default => ucfirst((string) ($expense['request_type'] ?? '')),
                                             },
                                             ENT_QUOTES,

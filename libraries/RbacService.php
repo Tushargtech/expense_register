@@ -5,6 +5,7 @@ class RbacService
     private array $auth;
     private ?array $resolvedPermissions = null;
     private static array $rolePermissionCache = [];
+    private ?bool $departmentHeadAssignmentCache = null;
 
     public function __construct(?array $auth = null)
     {
@@ -74,6 +75,51 @@ class RbacService
     private function isHrManagerOrDepartmentHead(): bool
     {
         return $this->isManager() || $this->isDepartmentHead();
+    }
+
+    private function hasDepartmentHeadAssignment(): bool
+    {
+        if ($this->departmentHeadAssignmentCache !== null) {
+            return $this->departmentHeadAssignmentCache;
+        }
+
+        if (!empty($this->auth['is_department_head'])) {
+            $this->departmentHeadAssignmentCache = true;
+            return true;
+        }
+
+        if (in_array($this->rawRole(), ['department_head', 'dept_head', 'depthead', 'hr_department_head', 'hr_dept_head'], true)) {
+            $this->departmentHeadAssignmentCache = true;
+            return true;
+        }
+
+        $userId = $this->userId();
+        if ($userId <= 0 || !function_exists('getDB')) {
+            $this->departmentHeadAssignmentCache = false;
+            return false;
+        }
+
+        try {
+            $db = getDB();
+            $departmentId = (int) ($this->auth['department_id'] ?? 0);
+
+            if ($departmentId > 0) {
+                $stmt = $db->prepare('SELECT 1 FROM departments WHERE id = :department_id AND department_head_user_id = :user_id LIMIT 1');
+                $stmt->execute([
+                    ':department_id' => $departmentId,
+                    ':user_id' => $userId,
+                ]);
+            } else {
+                $stmt = $db->prepare('SELECT 1 FROM departments WHERE department_head_user_id = :user_id LIMIT 1');
+                $stmt->execute([':user_id' => $userId]);
+            }
+
+            $this->departmentHeadAssignmentCache = $stmt->fetch(PDO::FETCH_ASSOC) !== false;
+            return $this->departmentHeadAssignmentCache;
+        } catch (Throwable $error) {
+            $this->departmentHeadAssignmentCache = false;
+            return false;
+        }
     }
 
     private function flattenPermissionsArray(array $source, string $prefix = ''): array
@@ -231,7 +277,12 @@ class RbacService
 
     public function userId(): int
     {
-        return (int) ($this->auth['user_id'] ?? 0);
+        $userId = (int) ($this->auth['user_id'] ?? 0);
+        if ($userId > 0) {
+            return $userId;
+        }
+
+        return (int) ($this->auth['id'] ?? 0);
     }
 
     public function departmentId(): int
@@ -384,7 +435,9 @@ class RbacService
         }
 
         // Department heads from other departments can access budget monitor for their department only
-        if ($this->isDepartmentHead()) {
+        // Department heads from non-finance departments can access budget monitor for their department only.
+        // This intentionally checks department-head assignment directly so admin department heads are not blocked.
+        if ($this->hasDepartmentHeadAssignment()) {
             return true;
         }
 

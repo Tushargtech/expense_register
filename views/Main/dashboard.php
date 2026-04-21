@@ -125,7 +125,7 @@ $totalExpense = (float) ($dashboardKpis['total_expense'] ?? 0);
 						<h5 class="mb-3">Quick Actions</h5>
 						<div class="d-grid gap-2 mb-3">
 							<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Request</a>
-							<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses', ['request_scope' => 'pending_approvals']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-primary"><i class="bi bi-list-check me-1"></i>Pending Approvals</a>
+							<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses', ['request_scope' => 'others', 'status' => 'pending']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-primary"><i class="bi bi-list-check me-1"></i>Pending Approvals</a>
 						</div>
 
 						<h6 class="mb-2">Quick Links</h6>
