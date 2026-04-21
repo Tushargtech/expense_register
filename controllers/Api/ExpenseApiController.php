@@ -131,8 +131,8 @@ class ExpenseApiController extends ApiBaseController
             throw new RuntimeException('Invalid attachment type. Allowed: PDF, JPG, JPEG, PNG.');
         }
 
-        if ($size > 5 * 1024 * 1024) {
-            throw new RuntimeException('Attachment size must be 5 MB or less.');
+        if ($size > $this->fileUploadMaxSizeBytes()) {
+            throw new RuntimeException('Attachment size must be ' . $this->fileUploadMaxSizeMb() . ' MB or less.');
         }
 
         $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -157,6 +157,46 @@ class ExpenseApiController extends ApiBaseController
             'attachment_mime_type' => $mimeType,
             'attachment_type' => 'other',
         ];
+    }
+
+    private function fileUploadMaxSizeMb(): int
+    {
+        return max(1, (int) (($GLOBALS['envConfig']['app']['file_upload_max_size_mb'] ?? FILE_UPLOAD_MAX_SIZE_MB)));
+    }
+
+    private function fileUploadMaxSizeBytes(): int
+    {
+        return $this->fileUploadMaxSizeMb() * 1024 * 1024;
+    }
+
+    private function normalizeUploadedFiles(string $fieldName): array
+    {
+        if (!isset($_FILES[$fieldName]) || !is_array($_FILES[$fieldName])) {
+            return [];
+        }
+
+        $raw = $_FILES[$fieldName];
+        if (!isset($raw['name'])) {
+            return [];
+        }
+
+        if (!is_array($raw['name'])) {
+            return [$raw];
+        }
+
+        $normalized = [];
+        $count = count($raw['name']);
+        for ($index = 0; $index < $count; $index++) {
+            $normalized[] = [
+                'name' => (string) ($raw['name'][$index] ?? ''),
+                'type' => (string) ($raw['type'][$index] ?? ''),
+                'tmp_name' => (string) ($raw['tmp_name'][$index] ?? ''),
+                'error' => (int) ($raw['error'][$index] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($raw['size'][$index] ?? 0),
+            ];
+        }
+
+        return $normalized;
     }
 
     private function ensureCanAccessRequestRecord(array $request): void
@@ -391,26 +431,31 @@ class ExpenseApiController extends ApiBaseController
         }
 
         $expenseData['request_category'] = (string) ($selectedCategory['budget_category_name'] ?? '');
-        $attachmentPayload = null;
+        $attachmentPayloads = [];
 
         try {
-            if (isset($_FILES['attachment_file']) && is_array($_FILES['attachment_file'])) {
-                $file = $_FILES['attachment_file'];
+            foreach ($this->normalizeUploadedFiles('attachment_file') as $file) {
                 $errorCode = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
-                if ($errorCode !== UPLOAD_ERR_NO_FILE) {
-                    if ($errorCode !== UPLOAD_ERR_OK) {
-                        throw new RuntimeException('Attachment upload failed.');
-                    }
-                    $attachmentPayload = $this->buildAttachmentPayload($file);
+                if ($errorCode === UPLOAD_ERR_NO_FILE) {
+                    continue;
                 }
+
+                if ($errorCode !== UPLOAD_ERR_OK) {
+                    throw new RuntimeException('Attachment upload failed.');
+                }
+
+                $attachmentPayloads[] = $this->buildAttachmentPayload($file);
             }
         } catch (Throwable $error) {
             $this->jsonError($error->getMessage(), 422);
         }
 
-        if (is_array($attachmentPayload)) {
-            $attachmentPayload['attachment_uploaded_by'] = (int) $expenseData['request_submitted_by'];
+        foreach ($attachmentPayloads as &$attachmentPayload) {
+            if (is_array($attachmentPayload)) {
+                $attachmentPayload['attachment_uploaded_by'] = (int) $expenseData['request_submitted_by'];
+            }
         }
+        unset($attachmentPayload);
 
         $requestData = [
             'request_reference_no' => $this->generateRequestReferenceNo(),
@@ -433,7 +478,7 @@ class ExpenseApiController extends ApiBaseController
             'request_submitted_at' => (string) ($expenseData['request_submitted_at'] ?? date('Y-m-d H:i:s')),
         ];
 
-        $requestId = $this->model->createRequest($requestData, $attachmentPayload);
+        $requestId = $this->model->createRequest($requestData, $attachmentPayloads);
         if ($requestId <= 0) {
             $this->jsonError('Failed to create expense request.', 500);
         }

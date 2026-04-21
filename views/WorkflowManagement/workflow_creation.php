@@ -40,7 +40,7 @@ if (count($workflowSteps) === 0) {
 
 $workflowTypeLabels = [
 	'reimbursable' => 'Reimbursable',
-	'company paid' => 'Company Paid',
+	'company_paid' => 'Company Paid',
 ];
 ?>
 
@@ -101,12 +101,13 @@ $workflowTypeLabels = [
 							<select class="user-create-select" id="workflow_type" name="workflow_type" required>
 								<option value="">Select Workflow Type</option>
 								<?php foreach ($workflowTypeOptions as $workflowTypeOption): ?>
-									<?php $normalizedWorkflowType = ucfirst(strtolower(trim((string) $workflowTypeOption))); ?>
-									<?php if ($normalizedWorkflowType === '') { continue; } ?>
-									<option value="<?php echo htmlspecialchars($normalizedWorkflowType, ENT_QUOTES, 'UTF-8'); ?>" <?php echo strtolower($workflowType) === strtolower($normalizedWorkflowType) ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars($workflowTypeLabels[strtolower($normalizedWorkflowType)] ?? $normalizedWorkflowType, ENT_QUOTES, 'UTF-8'); ?>
-									</option>
-								<?php endforeach; ?>
+	                            <?php $value = strtolower(trim((string) $workflowTypeOption)); ?>
+	                            <?php if ($value === '') { continue; } ?>
+	                            <option value="<?php echo htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); ?>"
+		                        <?php echo strtolower($workflowType) === $value ? 'selected' : ''; ?>>
+								<?php echo htmlspecialchars($workflowTypeLabels[$value] ?? ucwords(str_replace('_',' ', $value)), ENT_QUOTES, 'UTF-8'); ?>
+	                           </option>
+                            <?php endforeach; ?>
 							</select>
 						</div>
 

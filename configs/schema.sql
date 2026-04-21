@@ -201,6 +201,19 @@ INSERT INTO `password_reset_tokens` (`token_id`, `user_id`, `token_hash`, `token
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `system_maintenance_runs`
+--
+
+CREATE TABLE `system_maintenance_runs` (
+  `job_name` varchar(100) NOT NULL,
+  `last_run_at` datetime NOT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`job_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `requests`
 --
 
@@ -461,6 +474,22 @@ INSERT INTO `users` (`user_id`, `user_name`, `user_email`, `user_password_hash`,
 (27, 'Tushar Garg', 'tusharga.2004@gmail.com', '$2y$10$NnWoBvVckjm1gp0rOzjS4O0fA52TQGiSB3BMUcPL2z/RPY4.VEJSO', 'employee', 1, 26, 1, '2026-04-21 07:18:14', 0, 0),
 (28, 'Nitin Kumar', 'nitinthakur.cs@gmail.com', '$2y$10$KwdxRzG4jBGcoxRpZCTm/uuRz8t/M7uF3Y1KazOelyWAdpd5vGO5e', 'employee', 1, 26, 1, '2026-04-21 07:22:36', 0, 0),
 (29, 'tarun kumar 2', 'tarunk0877@gmail.com', '$2y$10$wEKl1aKrS/Tqra7cc.vqaeXn4uIrnX8whEbysSG0ArvIoXGWIuyEa', 'employee', 1, 28, 1, '2026-04-21 08:44:33', 0, 0);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `auth_login_attempts`
+--
+
+CREATE TABLE `auth_login_attempts` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `attempt_email` varchar(150) NOT NULL,
+  `attempt_success` tinyint(1) NOT NULL DEFAULT 0,
+  `attempted_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_auth_attempt_email_time` (`attempt_email`,`attempted_at`),
+  KEY `idx_auth_attempt_time` (`attempted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 

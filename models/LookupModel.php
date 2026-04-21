@@ -90,11 +90,15 @@ class LookupModel
     private function normalizeWorkflowType(string $value): string
     {
         $normalized = strtolower(trim($value));
+        $normalized = str_replace('_', ' ', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
 
         $aliases = [
+            'expense' => 'reimbursable',
             'expnse' => 'reimbursable',
             'expence' => 'reimbursable',
             'exponse' => 'reimbursable',
+            'purchase' => 'company paid',
             'puchase' => 'company paid',
             'purchse' => 'company paid',
             'prchase' => 'company paid',

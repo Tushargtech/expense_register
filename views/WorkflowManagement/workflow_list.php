@@ -25,7 +25,7 @@ $canEditWorkflow = isset($canEditWorkflow) ? (bool) $canEditWorkflow : false;
 
 $workflowTypeLabels = [
 	'reimbursable' => 'Reimbursable',
-	'company paid' => 'Company Paid',
+	'company_paid' => 'Company Paid',
 ];
 
 function formatWorkflowAmountRange($minAmount, $maxAmount): string

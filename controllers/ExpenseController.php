@@ -212,8 +212,8 @@ class ExpenseController
             throw new RuntimeException('Invalid attachment type. Allowed: PDF, JPG, JPEG, PNG, DOC.');
         }
 
-        if ($size > 5 * 1024 * 1024) {
-            throw new RuntimeException('Attachment size must be 5 MB or less.');
+        if ($size > $this->fileUploadMaxSizeBytes()) {
+            throw new RuntimeException('Attachment size must be ' . $this->fileUploadMaxSizeMb() . ' MB or less.');
         }
 
         $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -238,6 +238,46 @@ class ExpenseController
             'attachment_type' => 'other',
             'attachment_uploaded_by' => (int) ($_SESSION['auth']['user_id'] ?? 0),
         ];
+    }
+
+    private function fileUploadMaxSizeMb(): int
+    {
+        return max(1, (int) (($GLOBALS['envConfig']['app']['file_upload_max_size_mb'] ?? FILE_UPLOAD_MAX_SIZE_MB)));
+    }
+
+    private function fileUploadMaxSizeBytes(): int
+    {
+        return $this->fileUploadMaxSizeMb() * 1024 * 1024;
+    }
+
+    private function normalizeUploadedFiles(string $fieldName): array
+    {
+        if (!isset($_FILES[$fieldName]) || !is_array($_FILES[$fieldName])) {
+            return [];
+        }
+
+        $raw = $_FILES[$fieldName];
+        if (!isset($raw['name'])) {
+            return [];
+        }
+
+        if (!is_array($raw['name'])) {
+            return [$raw];
+        }
+
+        $normalized = [];
+        $count = count($raw['name']);
+        for ($index = 0; $index < $count; $index++) {
+            $normalized[] = [
+                'name' => (string) ($raw['name'][$index] ?? ''),
+                'type' => (string) ($raw['type'][$index] ?? ''),
+                'tmp_name' => (string) ($raw['tmp_name'][$index] ?? ''),
+                'error' => (int) ($raw['error'][$index] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($raw['size'][$index] ?? 0),
+            ];
+        }
+
+        return $normalized;
     }
 
         private function validateCreatePayload(array $payload, array $category, array $workflow, ?int $firstStepId, array $firstStepAssigneeIds): array
@@ -441,6 +481,7 @@ class ExpenseController
         $formAction = buildCleanRouteUrl('expenses/create');
         $submitLabel = 'Submit Request';
         $formError = trim((string) ($_GET['error'] ?? ''));
+        $attachmentMaxSizeMb = $this->fileUploadMaxSizeMb();
 
         $requestTypes = $this->requestTypeOptions();
         $priorityOptions = $this->priorityOptions();
@@ -515,31 +556,32 @@ class ExpenseController
             'request_submitted_at' => date('Y-m-d H:i:s'),
         ];
 
-        $attachmentPayload = null;
-        if (isset($_FILES['attachment_file']) && is_array($_FILES['attachment_file'])) {
-            $file = $_FILES['attachment_file'];
+        $attachmentPayloads = [];
+        foreach ($this->normalizeUploadedFiles('attachment_file') as $file) {
             $uploadError = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
 
-            if ($uploadError !== UPLOAD_ERR_NO_FILE) {
-                if ($uploadError !== UPLOAD_ERR_OK) {
-                    $_SESSION['expense_create_old_input'] = $payload;
-                    flash_error('Failed to upload attachment. Please try again.');
-                    header('Location: ' . buildCleanRouteUrl('expenses/create'));
-                    exit;
-                }
+            if ($uploadError === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
 
-                try {
-                    $attachmentPayload = $this->buildAttachmentPayload($file);
-                } catch (Throwable $error) {
-                    $_SESSION['expense_create_old_input'] = $payload;
-                    flash_error($error->getMessage());
-                    header('Location: ' . buildCleanRouteUrl('expenses/create'));
-                    exit;
-                }
+            if ($uploadError !== UPLOAD_ERR_OK) {
+                $_SESSION['expense_create_old_input'] = $payload;
+                flash_error('Failed to upload attachment. Please try again.');
+                header('Location: ' . buildCleanRouteUrl('expenses/create'));
+                exit;
+            }
+
+            try {
+                $attachmentPayloads[] = $this->buildAttachmentPayload($file);
+            } catch (Throwable $error) {
+                $_SESSION['expense_create_old_input'] = $payload;
+                flash_error($error->getMessage());
+                header('Location: ' . buildCleanRouteUrl('expenses/create'));
+                exit;
             }
         }
 
-        $requestId = $this->model->createRequest($requestData, $attachmentPayload);
+        $requestId = $this->model->createRequest($requestData, $attachmentPayloads);
         if ($requestId <= 0) {
             $_SESSION['expense_create_old_input'] = $payload;
             flash_error('Failed to create expense request.');

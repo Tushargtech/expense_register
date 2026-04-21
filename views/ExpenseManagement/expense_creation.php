@@ -32,6 +32,7 @@ $selectedBudgetCategoryId = (int) ($oldInput['budget_category_id'] ?? 0);
 $selectedPriority = strtolower(trim((string) ($oldInput['request_priority'] ?? 'low')));
 $selectedDescription = (string) ($oldInput['request_description'] ?? '');
 $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
+$attachmentMaxSizeMb = isset($attachmentMaxSizeMb) ? max(1, (int) $attachmentMaxSizeMb) : 5;
 ?>
 
 <main class="main">
@@ -138,7 +139,7 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 					<div class="user-create-head">
 						<div>
 							<h2 class="user-create-section-title">Additional Information</h2>
-							<p class="user-create-note">Add context, notes, and an optional attachment.</p>
+							<p class="user-create-note">Add context, notes, and optional attachments.</p>
 						</div>
 					</div>
 
@@ -154,15 +155,16 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="attachment_file">Attachment</label>
+							<label class="user-create-label" for="attachment_file">Attachments</label>
 							<input
 								type="file"
 								class="user-create-input"
 								id="attachment_file"
-								name="attachment_file"
+								name="attachment_file[]"
+								multiple
 								accept=".pdf,.jpg,.jpeg,.png,.doc"
 							>
-							<p class="user-create-note">Allowed file types: PDF, JPG, JPEG, PNG, DOC.</p>
+							<p class="user-create-note">Allowed file types: PDF, JPG, JPEG, PNG, DOC. Max <?php echo (int) $attachmentMaxSizeMb; ?> MB per file. You can upload multiple files.</p>
 						</div>
 					</div>
 				</section>

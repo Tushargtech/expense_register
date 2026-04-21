@@ -4,10 +4,170 @@ class ExpenseModel
 {
     private $db;
     private ?bool $requestWorkflowSnapshotAvailable = null;
+    private ?bool $maintenanceRunsTableAvailable = null;
 
     public function __construct()
     {
         $this->db = getDB();
+    }
+
+    private function ensureMaintenanceRunsTable(): bool
+    {
+        if ($this->maintenanceRunsTableAvailable !== null) {
+            return $this->maintenanceRunsTableAvailable;
+        }
+
+        try {
+            $this->db->exec(
+                "CREATE TABLE IF NOT EXISTS system_maintenance_runs (
+                    job_name VARCHAR(100) NOT NULL PRIMARY KEY,
+                    last_run_at DATETIME NOT NULL,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+            $this->maintenanceRunsTableAvailable = true;
+        } catch (Throwable $error) {
+            $this->maintenanceRunsTableAvailable = false;
+            error_log('ExpenseModel::ensureMaintenanceRunsTable failed: ' . $error->getMessage());
+        }
+
+        return $this->maintenanceRunsTableAvailable;
+    }
+
+    private function wasMaintenanceJobRunToday(string $jobName, string $todayDate): bool
+    {
+        if (!$this->ensureMaintenanceRunsTable()) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare('SELECT last_run_at FROM system_maintenance_runs WHERE job_name = :job_name LIMIT 1');
+        $stmt->execute([':job_name' => $jobName]);
+        $lastRunAt = (string) $stmt->fetchColumn();
+
+        return $lastRunAt !== '' && substr($lastRunAt, 0, 10) === $todayDate;
+    }
+
+    private function markMaintenanceJobRun(string $jobName, string $runAt): void
+    {
+        if (!$this->ensureMaintenanceRunsTable()) {
+            return;
+        }
+
+        $stmt = $this->db->prepare(
+            'INSERT INTO system_maintenance_runs (job_name, last_run_at) VALUES (:job_name, :last_run_at)
+             ON DUPLICATE KEY UPDATE last_run_at = VALUES(last_run_at)'
+        );
+        $stmt->execute([
+            ':job_name' => $jobName,
+            ':last_run_at' => $runAt,
+        ]);
+    }
+
+    private function isTemporaryAttachmentPath(string $path): bool
+    {
+        $normalized = str_replace('\\', '/', strtolower(trim($path)));
+        if ($normalized === '') {
+            return false;
+        }
+
+        $tempDir = str_replace('\\', '/', strtolower((string) sys_get_temp_dir()));
+        if ($tempDir !== '' && str_starts_with($normalized, rtrim($tempDir, '/') . '/')) {
+            return true;
+        }
+
+        return str_contains($normalized, '/tmp/')
+            || str_contains($normalized, '/temp/')
+            || str_contains($normalized, '/uploads/tmp/');
+    }
+
+    private function resolveAttachmentPath(string $path): string
+    {
+        if ($path === '') {
+            return '';
+        }
+
+        if (str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        if (preg_match('/^[A-Za-z]:\\\\/', $path) === 1) {
+            return $path;
+        }
+
+        return ROOT_PATH . '/' . ltrim($path, '/');
+    }
+
+    public function runDailyTempFileCleanupCron(): array
+    {
+        $now = new DateTimeImmutable('now');
+        $today = $now->format('Y-m-d');
+        $hour = (int) $now->format('H');
+        $jobName = 'temp_file_cleanup';
+
+        if ($hour < 3) {
+            return ['ran' => false, 'reason' => 'before_schedule'];
+        }
+
+        try {
+            $lockStmt = $this->db->query("SELECT GET_LOCK('expense_register_temp_file_cleanup', 0)");
+            $hasLock = (int) ($lockStmt !== false ? $lockStmt->fetchColumn() : 0) === 1;
+
+            if (!$hasLock) {
+                return ['ran' => false, 'reason' => 'lock_unavailable'];
+            }
+
+            try {
+                if ($this->wasMaintenanceJobRunToday($jobName, $today)) {
+                    return ['ran' => false, 'reason' => 'already_ran_today'];
+                }
+
+                $sql = "SELECT
+                            ra.attachment_id,
+                            ra.attachment_file_path,
+                            r.request_id,
+                            LOWER(TRIM(COALESCE(r.request_status, ''))) AS request_status
+                        FROM request_attachments ra
+                        LEFT JOIN requests r ON r.request_id = ra.request_id
+                        WHERE COALESCE(ra.attachment_file_path, '') <> ''";
+
+                $stmt = $this->db->query($sql);
+                $rows = $stmt !== false ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+                $deletedFiles = 0;
+                foreach ($rows as $row) {
+                    $requestStatus = (string) ($row['request_status'] ?? '');
+                    $isFinalized = in_array($requestStatus, ['approved', 'accepted', 'rejected'], true);
+                    if ($isFinalized) {
+                        continue;
+                    }
+
+                    $rawPath = (string) ($row['attachment_file_path'] ?? '');
+                    if (!$this->isTemporaryAttachmentPath($rawPath)) {
+                        continue;
+                    }
+
+                    $resolvedPath = $this->resolveAttachmentPath($rawPath);
+                    if ($resolvedPath !== '' && is_file($resolvedPath)) {
+                        if (@unlink($resolvedPath)) {
+                            $deletedFiles++;
+                        }
+                    }
+                }
+
+                $this->markMaintenanceJobRun($jobName, $now->format('Y-m-d H:i:s'));
+
+                return [
+                    'ran' => true,
+                    'deleted_files' => $deletedFiles,
+                ];
+            } finally {
+                $this->db->query("SELECT RELEASE_LOCK('expense_register_temp_file_cleanup')");
+            }
+        } catch (Throwable $error) {
+            error_log('ExpenseModel::runDailyTempFileCleanupCron failed: ' . $error->getMessage());
+
+            return ['ran' => false, 'reason' => 'exception'];
+        }
     }
 
     private function ensureRequestWorkflowSnapshotTable(): bool
@@ -700,7 +860,20 @@ class ExpenseModel
                     }
                 }
 
-            if ($requestId > 0 && is_array($attachmentData) && !empty($attachmentData)) {
+            $attachmentRows = [];
+            if (is_array($attachmentData) && !empty($attachmentData)) {
+                if (array_keys($attachmentData) === range(0, count($attachmentData) - 1)) {
+                    foreach ($attachmentData as $attachmentRow) {
+                        if (is_array($attachmentRow) && !empty($attachmentRow)) {
+                            $attachmentRows[] = $attachmentRow;
+                        }
+                    }
+                } else {
+                    $attachmentRows[] = $attachmentData;
+                }
+            }
+
+            if ($requestId > 0 && $attachmentRows !== []) {
                 $attachmentSql = "INSERT INTO request_attachments (
                         request_id,
                         attachment_file_name,
@@ -724,17 +897,19 @@ class ExpenseModel
                     )";
 
                 $attachmentStmt = $this->db->prepare($attachmentSql);
-                $attachmentStmt->execute([
-                    ':request_id' => $requestId,
-                    ':attachment_file_name' => (string) ($attachmentData['attachment_file_name'] ?? ''),
-                    ':attachment_stored_name' => (string) ($attachmentData['attachment_stored_name'] ?? ''),
-                    ':attachment_file_path' => (string) ($attachmentData['attachment_file_path'] ?? ''),
-                    ':attachment_file_data' => (string) ($attachmentData['attachment_file_data'] ?? ''),
-                    ':attachment_file_size' => (int) ($attachmentData['attachment_file_size'] ?? 0),
-                    ':attachment_mime_type' => (string) ($attachmentData['attachment_mime_type'] ?? ''),
-                    ':attachment_type' => (string) ($attachmentData['attachment_type'] ?? 'other'),
-                    ':attachment_uploaded_by' => (int) ($attachmentData['attachment_uploaded_by'] ?? 0),
-                ]);
+                foreach ($attachmentRows as $attachmentRow) {
+                    $attachmentStmt->execute([
+                        ':request_id' => $requestId,
+                        ':attachment_file_name' => (string) ($attachmentRow['attachment_file_name'] ?? ''),
+                        ':attachment_stored_name' => (string) ($attachmentRow['attachment_stored_name'] ?? ''),
+                        ':attachment_file_path' => (string) ($attachmentRow['attachment_file_path'] ?? ''),
+                        ':attachment_file_data' => (string) ($attachmentRow['attachment_file_data'] ?? ''),
+                        ':attachment_file_size' => (int) ($attachmentRow['attachment_file_size'] ?? 0),
+                        ':attachment_mime_type' => (string) ($attachmentRow['attachment_mime_type'] ?? ''),
+                        ':attachment_type' => (string) ($attachmentRow['attachment_type'] ?? 'other'),
+                        ':attachment_uploaded_by' => (int) ($attachmentRow['attachment_uploaded_by'] ?? 0),
+                    ]);
+                }
             }
 
             $this->db->commit();
