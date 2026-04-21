@@ -35,7 +35,7 @@ class WorkflowListController
 		$workflows = $workflowModel->getAllWorkflows($filters, $perPage, $offset);
 
 		$pageTitle = 'Workflow List - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/list.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'workflow-list';

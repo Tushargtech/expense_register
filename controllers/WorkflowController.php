@@ -52,6 +52,20 @@ class WorkflowController
 		}
 	}
 
+	private function resolveApproverUserRoleMap(): array
+	{
+		$map = [];
+		foreach ((new WorkflowModel())->getActiveUsers() as $user) {
+			$userId = (int) ($user['user_id'] ?? 0);
+			$approverRole = strtolower(trim((string) ($user['approver_role'] ?? '')));
+			if ($userId > 0 && $approverRole !== '') {
+				$map[$userId] = $approverRole;
+			}
+		}
+
+		return $map;
+	}
+
 	private function normalizeWorkflowPayload(array $source): array
 	{
 		$rawMin = trim((string) ($source['workflow_amount_min'] ?? ''));
@@ -83,6 +97,7 @@ class WorkflowController
 	private function normalizeStepsPayload(array $source): array
 	{
 		$steps = [];
+		$stepIds = isset($source['step_id']) && is_array($source['step_id']) ? $source['step_id'] : [];
 		$stepNames = isset($source['step_name']) && is_array($source['step_name']) ? $source['step_name'] : [];
 		$roleValues = isset($source['step_approver_role']) && is_array($source['step_approver_role']) ? array_values($source['step_approver_role']) : [];
 		$roleValueCursor = 0;
@@ -121,11 +136,15 @@ class WorkflowController
 				$approverRole = 'department_head';
 			}
 
+			$approverUserId = (int) ($source['step_approver_user_id'][$index] ?? 0);
+
 			$steps[] = [
+				'step_id' => (int) ($stepIds[$index] ?? 0),
 				'step_order' => $stepOrder > 0 ? $stepOrder : ($index + 1),
 				'step_name' => $stepName,
 				'step_approver_type' => $approverType,
 				'step_approver_role' => $approverRole,
+				'step_approver_user_id' => $approverUserId > 0 ? $approverUserId : 0,
 				'step_is_required' => (int) (($source['step_is_required'][$index] ?? '1') === '1' ? 1 : 0),
 				'step_timeout_hours' => $rawTimeoutHours === '' ? null : max(1, (int) $rawTimeoutHours),
 			];
@@ -142,6 +161,7 @@ class WorkflowController
 			'step_name' => (string) ($step['step_name'] ?? ''),
 			'step_approver_type' => (string) ($step['step_approver_type'] ?? 'role'),
 			'step_approver_role' => (string) ($step['step_approver_role'] ?? ''),
+			'step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0),
 			'step_timeout_hours' => $step['step_timeout_hours'] !== null && $step['step_timeout_hours'] !== '' ? (string) $step['step_timeout_hours'] : '',
 			'step_is_required' => (int) ($step['step_is_required'] ?? 1) === 1,
 		];
@@ -171,19 +191,36 @@ class WorkflowController
 			return false;
 		}
 
+		$approverUserRoleMap = $this->resolveApproverUserRoleMap();
+
 		foreach ($steps as $step) {
 			if ($step['step_name'] === '') {
 				return false;
 			}
 
-			if ($step['step_approver_type'] === 'role' && trim((string) ($step['step_approver_role'] ?? '')) === '') {
+			$approverType = strtolower(trim((string) ($step['step_approver_type'] ?? '')));
+			$approverRole = strtolower(trim((string) ($step['step_approver_role'] ?? '')));
+			$approverUserId = (int) ($step['step_approver_user_id'] ?? 0);
+
+			if (!in_array($approverType, ['role', 'manager', 'department_head'], true)) {
 				return false;
 			}
 
-			if (!in_array((string) ($step['step_approver_type'] ?? ''), ['role', 'manager', 'department_head'], true)) {
-				return false;
-			}
+			if ($approverType === 'role') {
+				if ($approverRole === '') {
+					return false;
+				}
 
+				if ($approverUserId > 0 && ($approverUserRoleMap[$approverUserId] ?? '') !== $approverRole) {
+					return false;
+				}
+			} else {
+				$approverRole = $approverType;
+
+				if ($approverUserId > 0 && ($approverUserRoleMap[$approverUserId] ?? '') !== $approverRole) {
+					return false;
+				}
+			}
 		}
 
 		return true;
@@ -255,6 +292,7 @@ class WorkflowController
 		$model = new WorkflowModel();
 		$categoryModel = new BudgetCategoryModel();
 		$roles = $model->getRoles();
+		$users = $model->getActiveUsers();
 		$budgetCategories = $categoryModel->getSelectableCategories();
 		$lookupModel = new LookupModel();
 		$workflowTypeOptions = $lookupModel->getWorkflowTypes();
@@ -291,6 +329,7 @@ class WorkflowController
 
 		$this->renderForm(compact(
 			'roles',
+			'users',
 			'budgetCategories',
 			'pageTitle',
 			'pageStyles',
@@ -329,6 +368,7 @@ class WorkflowController
 		}
 
 		$roles = $model->getRoles();
+		$users = $model->getActiveUsers();
 		$budgetCategories = $categoryModel->getSelectableCategories();
 		$lookupModel = new LookupModel();
 		$workflowTypeOptions = $lookupModel->getWorkflowTypes();
@@ -344,6 +384,7 @@ class WorkflowController
 				'step_name' => '',
 				'step_approver_type' => 'role',
 				'step_approver_role' => '',
+				'step_approver_user_id' => 0,
 				'step_timeout_hours' => '',
 				'step_is_required' => true,
 			];
@@ -363,6 +404,7 @@ class WorkflowController
 
 		$this->renderForm(compact(
 			'roles',
+			'users',
 			'budgetCategories',
 			'pageTitle',
 			'pageStyles',

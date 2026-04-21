@@ -92,12 +92,12 @@ class LookupModel
         $normalized = strtolower(trim($value));
 
         $aliases = [
-            'expnse' => 'expense',
-            'expence' => 'expense',
-            'exponse' => 'expense',
-            'puchase' => 'purchase',
-            'purchse' => 'purchase',
-            'prchase' => 'purchase',
+            'expnse' => 'reimbursable',
+            'expence' => 'reimbursable',
+            'exponse' => 'reimbursable',
+            'puchase' => 'company paid',
+            'purchse' => 'company paid',
+            'prchase' => 'company paid',
         ];
 
         if (isset($aliases[$normalized])) {

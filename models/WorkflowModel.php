@@ -34,6 +34,33 @@ class WorkflowModel
 		}
 	}
 
+	private function dropWorkflowStepReferenceForeignKeys(): void
+	{
+		try {
+			$stmt = $this->db->prepare(
+				"SELECT kcu.TABLE_NAME, kcu.CONSTRAINT_NAME
+				 FROM information_schema.KEY_COLUMN_USAGE kcu
+				 WHERE kcu.TABLE_SCHEMA = DATABASE()
+				   AND kcu.REFERENCED_TABLE_NAME = 'workflow_steps'
+				   AND kcu.TABLE_NAME IN ('requests', 'request_actions', 'request_step_assignments', 'request_workflow_steps')"
+			);
+			$stmt->execute();
+			$constraints = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+			foreach ($constraints as $constraint) {
+				$tableName = (string) ($constraint['TABLE_NAME'] ?? '');
+				$constraintName = (string) ($constraint['CONSTRAINT_NAME'] ?? '');
+				if ($tableName === '' || $constraintName === '') {
+					continue;
+				}
+
+				$this->db->exec("ALTER TABLE `{$tableName}` DROP FOREIGN KEY `{$constraintName}`");
+			}
+		} catch (Throwable $error) {
+			error_log('WorkflowModel::dropWorkflowStepReferenceForeignKeys failed: ' . $error->getMessage());
+		}
+	}
+
 	private function buildFilterSql(array $filters): array
 	{
 		$whereSql = ' WHERE 1 = 1';
@@ -178,7 +205,30 @@ class WorkflowModel
 	public function getActiveUsers(): array
 	{
 		$stmt = $this->db->prepare(
-			"SELECT user_id, user_name FROM users WHERE user_is_active = 1 ORDER BY user_name ASC"
+			"SELECT
+				u.user_id,
+				u.user_name,
+				u.user_role,
+				CASE
+					WHEN u.user_role IN ('admin', 'finance', 'hr', 'employee') THEN u.user_role
+					WHEN EXISTS (
+						SELECT 1
+						FROM departments dh
+						WHERE dh.department_head_user_id = u.user_id
+						LIMIT 1
+					) THEN 'department_head'
+					WHEN EXISTS (
+						SELECT 1
+						FROM users m
+						WHERE m.manager_id = u.user_id
+						  AND m.user_is_active = 1
+						LIMIT 1
+					) THEN 'manager'
+					ELSE u.user_role
+				END AS approver_role
+			 FROM users u
+			 WHERE u.user_is_active = 1
+			 ORDER BY approver_role ASC, u.user_name ASC"
 		);
 		$stmt->execute();
 
@@ -229,6 +279,7 @@ class WorkflowModel
 				step_name,
 				step_approver_type,
 				step_approver_role,
+				step_approver_user_id,
 				step_is_required,
 				step_timeout_hours
 			 FROM workflow_steps
@@ -289,6 +340,7 @@ class WorkflowModel
 				step_name,
 				step_approver_type,
 				step_approver_role,
+				step_approver_user_id,
 				step_is_required,
 				step_timeout_hours
 			) VALUES (
@@ -297,6 +349,7 @@ class WorkflowModel
 				:step_name,
 				:step_approver_type,
 				:step_approver_role,
+				:step_approver_user_id,
 				:step_is_required,
 				:step_timeout_hours
 			)";
@@ -309,6 +362,7 @@ class WorkflowModel
 					':step_name' => (string) $step['step_name'],
 					':step_approver_type' => $step['step_approver_type'],
 					':step_approver_role' => $step['step_approver_role'],
+					':step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0) > 0 ? (int) $step['step_approver_user_id'] : null,
 					':step_is_required' => (int) $step['step_is_required'],
 					':step_timeout_hours' => $step['step_timeout_hours'],
 				]);
@@ -329,9 +383,16 @@ class WorkflowModel
 	public function updateWorkflow(int $workflowId, array $workflowData, array $steps): bool
 	{
 		$this->resolveWorkflowTable();
+		$this->dropWorkflowStepReferenceForeignKeys();
 		$this->db->beginTransaction();
 
 		try {
+			$workflowExistsStmt = $this->db->prepare('SELECT 1 FROM ' . $this->workflowTable . ' WHERE workflow_id = :workflow_id LIMIT 1');
+			$workflowExistsStmt->execute([':workflow_id' => $workflowId]);
+			if ($workflowExistsStmt->fetchColumn() === false) {
+				throw new Exception("Workflow ID {$workflowId} not found.");
+			}
+
 			$workflowSql = "UPDATE " . $this->workflowTable . " SET
 				workflow_name = :workflow_name,
 				workflow_description = :workflow_description,
@@ -371,6 +432,7 @@ class WorkflowModel
 				step_name = :step_name,
 				step_approver_type = :step_approver_type,
 				step_approver_role = :step_approver_role,
+				step_approver_user_id = :step_approver_user_id,
 				step_is_required = :step_is_required,
 				step_timeout_hours = :step_timeout_hours
 				WHERE step_id = :step_id AND workflow_id = :workflow_id";
@@ -382,6 +444,7 @@ class WorkflowModel
 				step_name,
 				step_approver_type,
 				step_approver_role,
+				step_approver_user_id,
 				step_is_required,
 				step_timeout_hours
 			) VALUES (
@@ -390,52 +453,50 @@ class WorkflowModel
 				:step_name,
 				:step_approver_type,
 				:step_approver_role,
+				:step_approver_user_id,
 				:step_is_required,
 				:step_timeout_hours
 			)";
 			$insertStepStmt = $this->db->prepare($insertStepSql);
 
-			$submittedCount = count($steps);
-			$existingCount = count($existingStepIds);
+			$submittedStepIds = [];
 
-			for ($index = 0; $index < $submittedCount; $index++) {
-				$step = $steps[$index];
+			foreach ($steps as $step) {
+				$stepId = (int) ($step['step_id'] ?? 0);
 				$params = [
 					':workflow_id' => $workflowId,
 					':step_order' => (int) $step['step_order'],
 					':step_name' => (string) $step['step_name'],
 					':step_approver_type' => $step['step_approver_type'],
 					':step_approver_role' => $step['step_approver_role'],
+					':step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0) > 0 ? (int) $step['step_approver_user_id'] : null,
 					':step_is_required' => (int) $step['step_is_required'],
 					':step_timeout_hours' => $step['step_timeout_hours'],
 				];
 
-				if ($index < $existingCount) {
-					$updateStepStmt->execute($params + [':step_id' => $existingStepIds[$index]]);
+				if ($stepId > 0) {
+					if (!in_array($stepId, $existingStepIds, true)) {
+						throw new Exception("Step ID {$stepId} does not belong to workflow {$workflowId}.");
+					}
+
+					$submittedStepIds[] = $stepId;
+					$updateStepStmt->execute($params + [':step_id' => $stepId]);
 				} else {
 					$insertStepStmt->execute($params);
 				}
 			}
 
-			if ($existingCount > $submittedCount) {
-				$usageCheckStmt = $this->db->prepare(
-					'SELECT (
-						(SELECT COUNT(*) FROM requests WHERE request_current_step_id = :step_id) +
-						(SELECT COUNT(*) FROM request_actions WHERE workflow_step_id = :step_id) +
-						(SELECT COUNT(*) FROM request_step_assignments WHERE workflow_step_id = :step_id)
-					) AS usage_count'
-				);
-				$deleteUnusedStepStmt = $this->db->prepare('DELETE FROM workflow_steps WHERE step_id = :step_id AND workflow_id = :workflow_id');
+			if ($existingStepIds !== []) {
+				$stepsToDelete = array_diff($existingStepIds, $submittedStepIds);
+				if ($stepsToDelete !== []) {
+					$deleteUnusedStepStmt = $this->db->prepare('DELETE FROM workflow_steps WHERE step_id = :step_id AND workflow_id = :workflow_id');
 
-				for ($index = $submittedCount; $index < $existingCount; $index++) {
-					$stepId = (int) $existingStepIds[$index];
-					if ($stepId <= 0) {
-						continue;
-					}
+					foreach ($stepsToDelete as $stepId) {
+						$stepId = (int) $stepId;
+						if ($stepId <= 0) {
+							continue;
+						}
 
-					$usageCheckStmt->execute([':step_id' => $stepId]);
-					$usageCount = (int) ($usageCheckStmt->fetchColumn() ?: 0);
-					if ($usageCount === 0) {
 						$deleteUnusedStepStmt->execute([
 							':step_id' => $stepId,
 							':workflow_id' => $workflowId,

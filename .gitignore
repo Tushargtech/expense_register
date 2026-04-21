@@ -48,3 +48,5 @@ Thumbs.db
 *.mov
 *.wmv
 
+# Microsoft Office temporary files
+~$*

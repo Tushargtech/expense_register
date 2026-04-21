@@ -55,6 +55,9 @@ $credentialHints = isset($credentialHints) && is_array($credentialHints) ? $cred
 						<label for="password" class="form-label">Password</label>
 						<input type="password" class="form-control" id="password" name="password" placeholder="Enter password" required>
 					</div>
+					<div class="mb-3 text-end">
+					<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('forgot-password'), ENT_QUOTES, 'UTF-8'); ?>" class="small text-decoration-none">Forgot password?</a>
+				</div>
 
 					<button type="submit" class="btn btn-primary w-100">Sign In</button>
 				</form>

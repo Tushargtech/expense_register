@@ -1,39 +1,36 @@
 <?php
-$departments = isset($departments) && is_array($departments) ? $departments : [];
-$categories = isset($categories) && is_array($categories) ? $categories : [];
-$formAction = isset($formAction) ? (string) $formAction : buildCleanRouteUrl('expenses/create');
+$formError = isset($formError) ? (string) $formError : '';
 $formTitle = isset($formTitle) ? (string) $formTitle : 'Create Expense Request';
+$formAction = isset($formAction) ? (string) $formAction : buildCleanRouteUrl('expenses/create');
 $submitLabel = isset($submitLabel) ? (string) $submitLabel : 'Submit Request';
-$expense = isset($expense) && is_array($expense) ? $expense : [];
-$isReadOnly = isset($isReadOnly) ? (bool) $isReadOnly : false;
-$requestAttachments = isset($requestAttachments) && is_array($requestAttachments) ? $requestAttachments : [];
-$requestTypeOptions = isset($requestTypeOptions) && is_array($requestTypeOptions) ? $requestTypeOptions : [];
-$requestCurrencyOptions = isset($requestCurrencyOptions) && is_array($requestCurrencyOptions) ? $requestCurrencyOptions : [];
-$requestPriorityOptions = isset($requestPriorityOptions) && is_array($requestPriorityOptions) ? $requestPriorityOptions : [];
+$oldInput = isset($oldInput) && is_array($oldInput) ? $oldInput : [];
 
-$selectedTitle = (string) ($expense['request_title'] ?? '');
-$selectedType = (string) ($expense['request_type'] ?? 'expense');
-$selectedDescription = (string) ($expense['request_description'] ?? '');
-$selectedAmount = (string) ($expense['request_amount'] ?? '');
-$selectedCurrency = (string) ($expense['request_currency'] ?? 'INR');
-$selectedDepartmentId = (int) ($expense['department_id'] ?? 0);
-$selectedBudgetCategoryId = (int) ($expense['budget_category_id'] ?? 0);
-$selectedPriority = (string) ($expense['request_priority'] ?? 'medium');
-$selectedNotes = (string) ($expense['request_notes'] ?? '');
+$requestTypes = isset($requestTypes) && is_array($requestTypes) ? $requestTypes : [
+	'reimbursable' => 'Reimbursable',
+    'company paid' => 'Company Paid',
+];
+$priorityOptions = isset($priorityOptions) && is_array($priorityOptions) ? $priorityOptions : [
+    'low' => 'Low',
+    'medium' => 'Medium',
+    'high' => 'High',
+];
+$currencyOptions = isset($currencyOptions) && is_array($currencyOptions) ? $currencyOptions : ['INR'];
 
-if ($requestCurrencyOptions === [] && trim($selectedCurrency) !== '') {
-	$requestCurrencyOptions = [strtoupper(trim($selectedCurrency))];
-}
-if ($requestTypeOptions === [] && trim($selectedType) !== '') {
-	$requestTypeOptions = [strtolower(trim($selectedType))];
-}
-if ($requestPriorityOptions === [] && trim($selectedPriority) !== '') {
-	$requestPriorityOptions = [strtolower(trim($selectedPriority))];
-}
+$budgetCategories = isset($budgetCategories) && is_array($budgetCategories) ? $budgetCategories : [];
+
+$selectedRequestType = strtolower(trim((string) ($oldInput['request_type'] ?? 'reimbursable')));
+$selectedTitle = (string) ($oldInput['request_title'] ?? '');
+$selectedAmount = (string) ($oldInput['request_amount'] ?? '');
+$selectedCurrency = strtoupper(trim((string) ($oldInput['request_currency'] ?? (string) ($currencyOptions[0] ?? 'INR'))));
+
+$selectedBudgetCategoryId = (int) ($oldInput['budget_category_id'] ?? 0);
+$selectedPriority = strtolower(trim((string) ($oldInput['request_priority'] ?? 'low')));
+$selectedDescription = (string) ($oldInput['request_description'] ?? '');
+$selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 ?>
 
 <main class="main">
-	<div class="page-shell user-create-page">
+	<div class="page-shell user-create-page expense-create-page">
 		<div class="user-create-shell">
 			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
 
@@ -42,28 +39,33 @@ if ($requestPriorityOptions === [] && trim($selectedPriority) !== '') {
 				<h1 class="user-create-title"><?php echo htmlspecialchars($formTitle, ENT_QUOTES, 'UTF-8'); ?></h1>
 			</section>
 
-			<form method="POST" action="<?php echo htmlspecialchars($formAction, ENT_QUOTES, 'UTF-8'); ?>" class="user-create-form" enctype="multipart/form-data">
-				<section class="user-create-section">
+			<?php if ($formError !== ''): ?>
+				<div class="alert alert-danger py-2 mb-3" role="alert">
+					<?php echo htmlspecialchars($formError, ENT_QUOTES, 'UTF-8'); ?>
+				</div>
+			<?php endif; ?>
+
+			<form method="POST" action="<?php echo htmlspecialchars($formAction, ENT_QUOTES, 'UTF-8'); ?>" enctype="multipart/form-data" class="user-create-form expense-create-form">
+				<section class="user-create-section expense-create-left-section">
 					<div class="user-create-head">
 						<div>
-							<h2 class="user-create-section-title">Expense Information</h2>
-							<p class="user-create-note">Fill all required fields to continue.</p>
+							<h2 class="user-create-section-title">Request Details</h2>
+							<p class="user-create-note">Fill in the request details below.</p>
 						</div>
 					</div>
 
-					<div class="user-create-grid">
+					<div class="user-create-grid expense-details-grid">
 						<div class="user-create-field user-create-field-medium">
 							<label class="user-create-label" for="request_title">Title</label>
-							<input type="text" class="user-create-input" id="request_title" name="request_title" placeholder="Enter expense title" value="<?php echo htmlspecialchars($selectedTitle, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isReadOnly ? 'readonly' : 'required'; ?>>
+							<input type="text" class="user-create-input" id="request_title" name="request_title" placeholder="Enter request title" value="<?php echo htmlspecialchars($selectedTitle, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
-						<div class="user-create-field user-create-field-medium">
+
+						<div class="user-create-field">
 							<label class="user-create-label" for="request_type">Request Type</label>
-							<select class="user-create-select" id="request_type" name="request_type" <?php echo $isReadOnly ? 'disabled' : 'required'; ?>>
-								<?php foreach ($requestTypeOptions as $requestTypeOption): ?>
-									<?php $normalizedRequestType = strtolower(trim((string) $requestTypeOption)); ?>
-									<?php if ($normalizedRequestType === '') { continue; } ?>
-									<option value="<?php echo htmlspecialchars($normalizedRequestType, ENT_QUOTES, 'UTF-8'); ?>" <?php echo strtolower($selectedType) === $normalizedRequestType ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars(ucfirst($normalizedRequestType), ENT_QUOTES, 'UTF-8'); ?>
+							<select class="user-create-select" id="request_type" name="request_type" required>
+								<?php foreach ($requestTypes as $key => $label): ?>
+									<option value="<?php echo htmlspecialchars($key, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedRequestType === $key ? 'selected' : ''; ?>>
+										<?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
 									</option>
 								<?php endforeach; ?>
 							</select>
@@ -71,146 +73,150 @@ if ($requestPriorityOptions === [] && trim($selectedPriority) !== '') {
 
 						<div class="user-create-field">
 							<label class="user-create-label" for="request_amount">Amount</label>
-							<input type="number" step="0.01" min="0.01" class="user-create-input" id="request_amount" name="request_amount" placeholder="0.00" value="<?php echo htmlspecialchars($selectedAmount, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $isReadOnly ? 'readonly' : 'required'; ?>>
+							<input type="number" class="user-create-input" id="request_amount" name="request_amount" placeholder="0.00" step="0.01" min="0.01" value="<?php echo htmlspecialchars($selectedAmount, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field">
 							<label class="user-create-label" for="request_currency">Currency</label>
-							<select class="user-create-select" id="request_currency" name="request_currency" <?php echo $isReadOnly ? 'disabled' : 'required'; ?>>
-								<?php foreach ($requestCurrencyOptions as $requestCurrencyOption): ?>
-									<?php $normalizedRequestCurrency = strtoupper(trim((string) $requestCurrencyOption)); ?>
-									<?php if ($normalizedRequestCurrency === '') { continue; } ?>
-									<option value="<?php echo htmlspecialchars($normalizedRequestCurrency, ENT_QUOTES, 'UTF-8'); ?>" <?php echo strtoupper($selectedCurrency) === $normalizedRequestCurrency ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars($normalizedRequestCurrency, ENT_QUOTES, 'UTF-8'); ?>
+							<select class="user-create-select" id="request_currency" name="request_currency" required>
+								<?php foreach ($currencyOptions as $currency): ?>
+									<?php $currencyValue = strtoupper(trim((string) $currency)); ?>
+									<?php if ($currencyValue === '') { continue; } ?>
+									<option value="<?php echo htmlspecialchars($currencyValue, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedCurrency === $currencyValue ? 'selected' : ''; ?>>
+										<?php echo htmlspecialchars($currencyValue, ENT_QUOTES, 'UTF-8'); ?>
 									</option>
 								<?php endforeach; ?>
 							</select>
 						</div>
-
-						<div class="user-create-field">
-							<label class="user-create-label" for="department_id">Department</label>
-							<select class="user-create-select" id="department_id" name="department_id" <?php echo $isReadOnly ? 'disabled' : 'required'; ?>>
-								<option value="">Select Department</option>
-								<?php foreach ($departments as $department): ?>
-									<?php $departmentId = (int) ($department['id'] ?? 0); ?>
-									<option value="<?php echo $departmentId; ?>" <?php echo $selectedDepartmentId === $departmentId ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars((string) ($department['department_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-						</div>
+					
 
 						<div class="user-create-field">
 							<label class="user-create-label" for="budget_category_id">Budget Category</label>
-							<select class="user-create-select" id="budget_category_id" name="budget_category_id" <?php echo $isReadOnly ? 'disabled' : 'required'; ?>>
-								<option value="">Select Category</option>
-								<?php foreach ($categories as $category): ?>
-									<?php $categoryId = (int) ($category['budget_category_id'] ?? 0); ?>
-									<option value="<?php echo $categoryId; ?>" <?php echo $selectedBudgetCategoryId === $categoryId ? 'selected' : ''; ?>>
+							<select class="user-create-select" id="budget_category_id" name="budget_category_id" required>
+								<option value="">Select Budget Category</option>
+								<?php foreach ($budgetCategories as $category): ?>
+									<?php
+									$categoryId = (int) ($category['budget_category_id'] ?? 0);
+									$categoryTypeRaw = strtolower(trim((string) ($category['budget_category_type'] ?? '')));
+									$categoryType = match ($categoryTypeRaw) {
+										'expense' => 'reimbursable',
+										'purchase', 'company_paid' => 'company paid',
+										default => $categoryTypeRaw,
+									};
+									?>
+									<option
+										value="<?php echo $categoryId; ?>"
+										data-category-type="<?php echo htmlspecialchars($categoryType, ENT_QUOTES, 'UTF-8'); ?>"
+										<?php echo $selectedBudgetCategoryId === $categoryId ? 'selected' : ''; ?>
+									>
 										<?php echo htmlspecialchars((string) ($category['budget_category_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
 									</option>
 								<?php endforeach; ?>
 							</select>
+							<p class="user-create-note">Categories are filtered by request type.</p>
 						</div>
 
 						<div class="user-create-field">
 							<label class="user-create-label" for="request_priority">Priority</label>
-							<select class="user-create-select" id="request_priority" name="request_priority" <?php echo $isReadOnly ? 'disabled' : 'required'; ?>>
-								<?php foreach ($requestPriorityOptions as $requestPriorityOption): ?>
-									<?php $normalizedRequestPriority = strtolower(trim((string) $requestPriorityOption)); ?>
-									<?php if ($normalizedRequestPriority === '') { continue; } ?>
-									<option value="<?php echo htmlspecialchars($normalizedRequestPriority, ENT_QUOTES, 'UTF-8'); ?>" <?php echo strtolower($selectedPriority) === $normalizedRequestPriority ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars(ucfirst($normalizedRequestPriority), ENT_QUOTES, 'UTF-8'); ?>
+							<select class="user-create-select" id="request_priority" name="request_priority" required>
+								<?php foreach ($priorityOptions as $key => $label): ?>
+									<option value="<?php echo htmlspecialchars($key, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedPriority === $key ? 'selected' : ''; ?>>
+										<?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
 									</option>
 								<?php endforeach; ?>
 							</select>
 						</div>
+					</div>
+				</section>
 
-						<div class="user-create-field user-create-field-medium">
+				<section class="user-create-section expense-create-right-section">
+					<div class="user-create-head">
+						<div>
+							<h2 class="user-create-section-title">Additional Information</h2>
+							<p class="user-create-note">Add context, notes, and an optional attachment.</p>
+						</div>
+					</div>
+
+					<div class="user-create-grid expense-additional-grid">
+						<div class="user-create-field">
 							<label class="user-create-label" for="request_description">Description</label>
-							<textarea class="user-create-input" id="request_description" name="request_description" rows="4" placeholder="Enter expense details" <?php echo $isReadOnly ? 'readonly' : ''; ?>><?php echo htmlspecialchars($selectedDescription, ENT_QUOTES, 'UTF-8'); ?></textarea>
+							<textarea class="user-create-input" id="request_description" name="request_description" rows="4" placeholder="Describe the expense request"><?php echo htmlspecialchars($selectedDescription, ENT_QUOTES, 'UTF-8'); ?></textarea>
 						</div>
 
-						<div class="user-create-field user-create-field-medium">
+						<div class="user-create-field">
 							<label class="user-create-label" for="request_notes">Notes</label>
-							<textarea class="user-create-input" id="request_notes" name="request_notes" rows="4" placeholder="Additional notes" <?php echo $isReadOnly ? 'readonly' : ''; ?>><?php echo htmlspecialchars($selectedNotes, ENT_QUOTES, 'UTF-8'); ?></textarea>
+							<textarea class="user-create-input" id="request_notes" name="request_notes" rows="4" placeholder="Add any internal notes"><?php echo htmlspecialchars($selectedNotes, ENT_QUOTES, 'UTF-8'); ?></textarea>
 						</div>
 
-						<div class="user-create-field user-create-field-medium">
+						<div class="user-create-field">
 							<label class="user-create-label" for="attachment_file">Attachment</label>
-							<?php if ($isReadOnly): ?>
-								<div class="form-control bg-light">Attachments are shown below in read-only mode.</div>
-							<?php else: ?>
-								<input type="file" class="user-create-input" id="attachment_file" name="attachment_file" accept=".pdf,.jpg,.jpeg,.png">
-								<small class="user-create-note">Allowed: PDF, JPG, JPEG, PNG</small>
-							<?php endif; ?>
+							<input
+								type="file"
+								class="user-create-input"
+								id="attachment_file"
+								name="attachment_file"
+								accept=".pdf,.jpg,.jpeg,.png,.doc"
+							>
+							<p class="user-create-note">Allowed file types: PDF, JPG, JPEG, PNG, DOC.</p>
 						</div>
 					</div>
 				</section>
 
-				<?php if ($isReadOnly && !empty($requestAttachments)): ?>
-					<section class="user-create-section">
-						<div class="user-create-head">
-							<div>
-								<h2 class="user-create-section-title">Attachment Details</h2>
-							</div>
-						</div>
-						<div class="table-responsive">
-							<table class="table align-middle mb-0">
-								<thead>
-									<tr>
-										<th>File Name</th>
-										<th>Type</th>
-										<th>Size</th>
-										<th>MIME</th>
-										<th class="text-end">Action</th>
-									</tr>
-								</thead>
-								<tbody>
-									<?php foreach ($requestAttachments as $attachment): ?>
-										<?php $isAttachmentAvailable = (bool) ($attachment['is_available'] ?? false); ?>
-										<tr>
-											<td><?php echo htmlspecialchars((string) ($attachment['attachment_file_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
-											<td><?php echo htmlspecialchars((string) ($attachment['attachment_type'] ?? 'other'), ENT_QUOTES, 'UTF-8'); ?></td>
-											<td><?php echo number_format(((int) ($attachment['attachment_file_size'] ?? 0)) / 1024, 2); ?> KB</td>
-											<td><?php echo htmlspecialchars((string) ($attachment['attachment_mime_type'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
-											<td class="text-end">
-												<?php if ($isAttachmentAvailable): ?>
-													<a class="btn btn-sm btn-outline-secondary action-icon-btn" target="_blank" rel="noopener" href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/attachment/view', ['request_id' => (int) ($expense['request_id'] ?? 0), 'attachment_id' => (int) ($attachment['attachment_id'] ?? 0)]), ENT_QUOTES, 'UTF-8'); ?>" title="View" aria-label="View attachment">
-														<i class="bi bi-eye" aria-hidden="true"></i>
-													</a>
-													<a class="btn btn-sm btn-primary" href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/attachment/download', ['request_id' => (int) ($expense['request_id'] ?? 0), 'attachment_id' => (int) ($attachment['attachment_id'] ?? 0)]), ENT_QUOTES, 'UTF-8'); ?>">Download</a>
-												<?php else: ?>
-													<button type="button" class="btn btn-sm btn-outline-secondary action-icon-btn" disabled title="View" aria-label="View attachment unavailable">
-														<i class="bi bi-eye" aria-hidden="true"></i>
-													</button>
-													<button type="button" class="btn btn-sm btn-primary" disabled>Download</button>
-												<?php endif; ?>
-											</td>
-										</tr>
-									<?php endforeach; ?>
-								</tbody>
-							</table>
-						</div>
-					</section>
-				<?php endif; ?>
-
 				<div class="user-create-action-bar">
 					<div class="user-create-action-copy">
-						<strong><?php echo $isReadOnly ? 'View only mode' : 'Review before submitting'; ?></strong>
+						<strong>Review before submitting</strong>
+						<span>The request will start in pending status.</span>
 					</div>
 					<div class="user-create-actions">
 						<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses'), ENT_QUOTES, 'UTF-8'); ?>" class="user-create-btn user-create-btn-secondary">Back to Expense List</a>
-						<?php if (!$isReadOnly): ?>
-							<button type="submit" class="user-create-btn user-create-btn-primary"><?php echo htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8'); ?></button>
-						<?php endif; ?>
+						<button type="submit" class="user-create-btn user-create-btn-primary"><?php echo htmlspecialchars($submitLabel, ENT_QUOTES, 'UTF-8'); ?></button>
 					</div>
 				</div>
-
-					<?php if (!$isReadOnly): ?>
-						<input type="hidden" name="workflow_id" value="0">
-					<?php endif; ?>
 			</form>
 		</div>
 	</div>
 </main>
+
+<script>
+(function () {
+	const requestTypeSelect = document.getElementById('request_type');
+	const budgetCategorySelect = document.getElementById('budget_category_id');
+	if (!requestTypeSelect || !budgetCategorySelect) {
+		return;
+	}
+
+	const syncBudgetCategories = function () {
+		const normalizeType = function (value) {
+			const normalized = String(value || '').toLowerCase().trim();
+			if (normalized === 'expense') {
+				return 'reimbursable';
+			}
+			if (normalized === 'purchase' || normalized === 'company_paid') {
+				return 'company paid';
+			}
+			return normalized;
+		};
+
+		const requestType = normalizeType(requestTypeSelect.value || '');
+		const options = budgetCategorySelect.querySelectorAll('option[data-category-type]');
+		let selectedOptionVisible = false;
+
+		options.forEach(function (option) {
+			const categoryType = normalizeType(option.getAttribute('data-category-type') || '');
+			const shouldShow = requestType === '' || categoryType === '' || categoryType === requestType;
+			option.hidden = !shouldShow;
+			option.disabled = !shouldShow;
+			if (option.selected && shouldShow) {
+				selectedOptionVisible = true;
+			}
+		});
+
+		if (!selectedOptionVisible) {
+			budgetCategorySelect.value = '';
+		}
+	};
+
+	requestTypeSelect.addEventListener('change', syncBudgetCategories);
+	syncBudgetCategories();
+})();
+</script>

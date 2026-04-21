@@ -23,6 +23,11 @@ $budgetCategories = isset($budgetCategories) && is_array($budgetCategories) ? $b
 $canCreateWorkflow = isset($canCreateWorkflow) ? (bool) $canCreateWorkflow : false;
 $canEditWorkflow = isset($canEditWorkflow) ? (bool) $canEditWorkflow : false;
 
+$workflowTypeLabels = [
+	'reimbursable' => 'Reimbursable',
+	'company paid' => 'Company Paid',
+];
+
 function formatWorkflowAmountRange($minAmount, $maxAmount): string
 {
 	$hasMin = $minAmount !== null && $minAmount !== '';
@@ -51,8 +56,7 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 				<h2 class="list-page-title">Workflows</h2>
 			</div>
 			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
-
-			<form class="user-filter-bar search-bar" method="GET" action="<?php echo htmlspecialchars(buildCleanRouteUrl('workflows'), ENT_QUOTES, 'UTF-8'); ?>">
+<form class="user-filter-bar search-bar" method="GET" action="<?php echo htmlspecialchars(buildCleanRouteUrl('workflows'), ENT_QUOTES, 'UTF-8'); ?>">
 	<div class="filter-layout">
 
 		<div class="filter-left">
@@ -80,7 +84,7 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 					<option value="">Workflow Types</option>
 					<?php foreach ($workflowTypes as $type): ?>
 						<option value="<?php echo htmlspecialchars($type, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedWorkflowType === $type ? 'selected' : ''; ?>>
-							<?php echo htmlspecialchars($type, ENT_QUOTES, 'UTF-8'); ?>
+							<?php echo htmlspecialchars($workflowTypeLabels[strtolower($type)] ?? $type, ENT_QUOTES, 'UTF-8'); ?>
 						</option>
 					<?php endforeach; ?>
 				</select>
@@ -143,7 +147,7 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 								<tr class="<?php echo $rowClass; ?>">
 									<td><?php echo htmlspecialchars((string) ($row['workflow_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['budget_category_name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
-									<td><?php echo htmlspecialchars((string) ($row['workflow_type'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
+									<td><?php echo htmlspecialchars($workflowTypeLabels[strtolower((string) ($row['workflow_type'] ?? ''))] ?? (string) ($row['workflow_type'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars($amountRange, ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['approval_flow'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td class="text-end pe-3">

@@ -120,6 +120,18 @@ class AuthController
         ];
 
         unset($_SESSION['old_email']);
+
+        // Check if user must reset password (first-time login or admin-required)
+        if (!empty($user['force_password_change']) || !empty($user['password_must_reset'])) {
+            $resetModel = new PasswordResetModel();
+            $token = $resetModel->createResetToken((int) ($user['id'] ?? 0), 120); // 2 hours
+            if ($token) {
+                flash_success('Please set your new password.');
+                header('Location: ' . buildCleanRouteUrl('password-reset', ['token' => $token]));
+                exit;
+            }
+        }
+
         flash_success('Login successful.');
 
         header('Location: ?route=dashboard');
@@ -138,6 +150,37 @@ class AuthController
         $envConfig = $GLOBALS['envConfig'] ?? [];
         $rbac = new RbacService();
         $canViewBudgetUtilization = $rbac->canViewOrganizationBudgetUtilization();
+        $expensesModel = new ExpenseModel();
+
+        $dashboardKpis = $expensesModel->getDashboardKpis($rbac);
+        $recentActivity = $expensesModel->getTodayRecentActivity($rbac, 12);
+        $isDepartmentHead = $rbac->isDepartmentHead();
+        
+        // Fetch department budget data for department heads
+        $departmentBudgetAllocated = 0;
+        $departmentBudgetRemaining = 0;
+        if ($isDepartmentHead) {
+            $departmentId = $rbac->departmentId();
+            if ($departmentId > 0) {
+                $budgetMonitorModel = new BudgetMonitorModel();
+                $budgetRows = $budgetMonitorModel->getMonitorRows([], $departmentId);
+
+                $budgetAlertService = new BudgetMonitorController();
+                if (method_exists($budgetAlertService, 'dispatchBudgetThresholdAlerts')) {
+                    $budgetAlertService->dispatchBudgetThresholdAlerts($budgetRows);
+                }
+                
+                $totalAllocated = 0;
+                $totalSpent = 0;
+                foreach ($budgetRows as $row) {
+                    $totalAllocated += (float) ($row['budget_allocated_amount'] ?? 0);
+                    $totalSpent += (float) ($row['budget_spent_amount'] ?? 0);
+                }
+                
+                $departmentBudgetAllocated = $totalAllocated;
+                $departmentBudgetRemaining = max(0, $totalAllocated - $totalSpent);
+            }
+        }
 
         require ROOT_PATH . '/views/main/dashboard.php';
     }

@@ -133,7 +133,7 @@ class UserModel
 	public function getRoleOptions(): array
 	{
 		$stmt = $this->db->prepare(
-			"SELECT role_slug, role_name FROM roles WHERE role_slug IN ('admin', 'finance', 'hr', 'employee') ORDER BY role_name ASC"
+			"SELECT role_slug, role_name FROM roles ORDER BY role_name ASC"
 		);
 		$stmt->execute();
 
@@ -165,13 +165,16 @@ class UserModel
 	public function getManagerOptions(): array
 	{
 		$stmt = $this->db->prepare(
-			"SELECT user_id, user_name FROM users WHERE user_is_active = 1 ORDER BY user_name ASC"
+			"SELECT user_id, user_name, department_id, user_role
+			 FROM users
+			 WHERE user_is_active = 1
+			 ORDER BY user_name ASC"
 		);
 		$stmt->execute();
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 
-	public function createUser(array $userData): bool
+	public function createUser(array $userData): array
 	{
 		$this->resolveUserCreatedAtColumn();
 		$initialPasswordPlain = bin2hex(random_bytes(8));
@@ -225,9 +228,21 @@ class UserModel
 		$stmt = $this->db->prepare($sql);
 
 		try {
-			return $stmt->execute($params);
+			$success = $stmt->execute($params);
+			if ($success) {
+				$userId = (int) $this->db->lastInsertId();
+				return [
+					'success' => true,
+					'user_id' => $userId,
+					'temporary_password' => $initialPasswordPlain,
+					'email' => $params[':email'],
+					'name' => $params[':name'],
+				];
+			}
+			return ['success' => false];
 		} catch (Throwable $error) {
-			return false;
+			error_log('Error creating user: ' . $error->getMessage());
+			return ['success' => false];
 		}
 	}
 
@@ -237,6 +252,31 @@ class UserModel
 			"SELECT user_id, user_name, user_email, user_role, department_id, manager_id, user_is_active
 			 FROM users
 			 WHERE user_id = :user_id
+			 LIMIT 1"
+		);
+		$stmt->execute([':user_id' => $userId]);
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return $row !== false ? $row : null;
+	}
+
+	public function getUserProfileById(int $userId): ?array
+	{
+		$stmt = $this->db->prepare(
+			"SELECT
+				u.user_id,
+				u.user_name,
+				u.user_email,
+				u.user_role,
+				u.department_id,
+				u.manager_id,
+				m.user_name AS manager_name,
+				u.user_is_active,
+				d.department_name AS dept_name
+			 FROM users u
+			 LEFT JOIN departments d ON u.department_id = d.id
+			 LEFT JOIN users m ON u.manager_id = m.user_id
+			 WHERE u.user_id = :user_id
 			 LIMIT 1"
 		);
 		$stmt->execute([':user_id' => $userId]);
@@ -279,5 +319,61 @@ class UserModel
 			return false;
 		}
 	}
-}
 
+        /**
+         * Update user password
+         */
+        public function updateUserPassword(int $userId, string $hashedPassword): bool
+        {
+                try {
+                        $stmt = $this->db->prepare('
+                                UPDATE users 
+                                SET user_password_hash = :password, password_must_reset = 0
+                                WHERE user_id = :user_id
+                        ');
+                        return $stmt->execute([
+                                ':password' => $hashedPassword,
+                                ':user_id' => $userId,
+                        ]);
+                } catch (Throwable $error) {
+                        error_log('Error updating user password: ' . $error->getMessage());
+                        return false;
+                }
+        }
+
+        /**
+         * Clear force password change flag
+         */
+        public function clearForcePasswordChange(int $userId): bool
+        {
+                try {
+                        $stmt = $this->db->prepare('
+                                UPDATE users 
+                                SET force_password_change = 0, password_must_reset = 0
+                                WHERE user_id = :user_id
+                        ');
+                        return $stmt->execute([':user_id' => $userId]);
+                } catch (Throwable $error) {
+                        error_log('Error clearing force password change: ' . $error->getMessage());
+                        return false;
+                }
+        }
+
+        /**
+         * Set force password change flag (used when HR creates new user)
+         */
+        public function setForcePasswordChange(int $userId): bool
+        {
+                try {
+                        $stmt = $this->db->prepare('
+                                UPDATE users 
+                                SET force_password_change = 1, password_must_reset = 1
+                                WHERE user_id = :user_id
+                        ');
+                        return $stmt->execute([':user_id' => $userId]);
+                } catch (Throwable $error) {
+                        error_log('Error setting force password change: ' . $error->getMessage());
+                        return false;
+                }
+        }
+}

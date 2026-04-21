@@ -38,6 +38,64 @@ class BudgetController
 		return round((float) $clean, 2);
 	}
 
+	private function getCurrentIstDate(): string
+	{
+		$istNow = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+
+		return $istNow->format('Y-m-d');
+	}
+
+	private function notifyDepartmentHeadBudgetUpdate(
+		int $departmentId,
+		string $budgetHead,
+		string $fiscalYear,
+		string $fiscalPeriod,
+		string $currency,
+		float $currentLimit,
+		float $previousLimit,
+		string $actionType
+	): void {
+		if ($departmentId <= 0) {
+			return;
+		}
+
+		$departmentModel = new DepartmentModel();
+		$department = $departmentModel->getDepartmentById($departmentId);
+		if (!is_array($department)) {
+			return;
+		}
+
+		$departmentHeadEmail = trim((string) ($department['head_email'] ?? ''));
+		if ($departmentHeadEmail === '') {
+			return;
+		}
+
+		$departmentHeadName = trim((string) ($department['head_name'] ?? 'Department Head'));
+		$departmentName = trim((string) ($department['department_name'] ?? 'Department'));
+		$differenceAmount = $currentLimit - $previousLimit;
+		$differenceAmountFormatted = ($differenceAmount >= 0 ? '+' : '-') . number_format(abs($differenceAmount), 2, '.', '');
+
+		$mailService = new MailService();
+		$sent = $mailService->sendBudgetUpdateNotificationEmail(
+			$departmentHeadEmail,
+			$departmentHeadName !== '' ? $departmentHeadName : 'Department Head',
+			$departmentName !== '' ? $departmentName : 'Department',
+			$budgetHead !== '' ? $budgetHead : 'Budget',
+			$fiscalYear,
+			$fiscalPeriod,
+			$currency !== '' ? $currency : 'INR',
+			number_format($currentLimit, 2, '.', ''),
+			number_format($previousLimit, 2, '.', ''),
+			$differenceAmountFormatted,
+			$this->getCurrentIstDate(),
+			strtolower(trim($actionType)) === 'created' ? 'created' : 'updated'
+		);
+
+		if (!$sent) {
+			error_log('Failed to send budget update notification to department head for department ' . $departmentId);
+		}
+	}
+
 	private function mapToDatabaseSchema(array $row, BudgetModel $budgetModel, int $uploadedBy): array
 	{
 		$errors = [];
@@ -214,8 +272,11 @@ class BudgetController
 			}
 
 			$budgetModel = new BudgetModel();
+			$budgetMonitorController = new BudgetMonitorController();
 			$insertedCount = 0;
 			$updatedCount = 0;
+			$alertBudgetIds = [];
+			$budgetUpdateNotifications = [];
 			$db = getDB();
 			$db->beginTransaction();
 			try {
@@ -228,10 +289,22 @@ class BudgetController
 
 					if (is_array($existingBudget) && (int) ($existingBudget['budget_id'] ?? 0) > 0) {
 						$existingBudgetId = (int) $existingBudget['budget_id'];
+						$previousLimit = (float) ($existingBudget['budget_allocated_amount'] ?? 0);
 						$updated = $budgetModel->updateBudget($existingBudgetId, $rowData);
 						if (!$updated) {
 							throw new RuntimeException('Could not update existing budget for row ' . $rowNum . '.');
 						}
+						$alertBudgetIds[] = $existingBudgetId;
+						$budgetUpdateNotifications[] = [
+							'department_id' => (int) ($rowData['department_id'] ?? 0),
+							'budget_head' => (string) ($rowData['budget_category'] ?? ''),
+							'fiscal_year' => (string) ($rowData['budget_fiscal_year'] ?? ''),
+							'fiscal_period' => (string) ($rowData['budget_fiscal_period'] ?? ''),
+							'currency' => (string) ($rowData['budget_currency'] ?? 'INR'),
+							'current_limit' => (float) ($rowData['budget_allocated_amount'] ?? 0),
+							'previous_limit' => $previousLimit,
+							'action_type' => 'updated',
+						];
 						$updatedCount++;
 						continue;
 					}
@@ -244,10 +317,48 @@ class BudgetController
 						}
 						throw new RuntimeException('Could not save row ' . $rowNum . ': ' . $insertError);
 					}
+
+					$insertedBudget = $budgetModel->findExistingBudgetByScope(
+						(int) ($rowData['department_id'] ?? 0),
+						(int) ($rowData['budget_category_id'] ?? 0),
+						(string) ($rowData['budget_fiscal_year'] ?? ''),
+						(string) ($rowData['budget_fiscal_period'] ?? '')
+					);
+					if (is_array($insertedBudget) && (int) ($insertedBudget['budget_id'] ?? 0) > 0) {
+						$alertBudgetIds[] = (int) $insertedBudget['budget_id'];
+					}
+
+					$budgetUpdateNotifications[] = [
+						'department_id' => (int) ($rowData['department_id'] ?? 0),
+						'budget_head' => (string) ($rowData['budget_category'] ?? ''),
+						'fiscal_year' => (string) ($rowData['budget_fiscal_year'] ?? ''),
+						'fiscal_period' => (string) ($rowData['budget_fiscal_period'] ?? ''),
+						'currency' => (string) ($rowData['budget_currency'] ?? 'INR'),
+						'current_limit' => (float) ($rowData['budget_allocated_amount'] ?? 0),
+						'previous_limit' => 0.0,
+						'action_type' => 'created',
+					];
 					$insertedCount++;
 				}
 
 				$db->commit();
+
+				foreach (array_values(array_unique(array_filter($alertBudgetIds))) as $budgetId) {
+					$budgetMonitorController->dispatchBudgetThresholdAlertForBudgetId((int) $budgetId);
+				}
+
+				foreach ($budgetUpdateNotifications as $notificationData) {
+					$this->notifyDepartmentHeadBudgetUpdate(
+						(int) ($notificationData['department_id'] ?? 0),
+						(string) ($notificationData['budget_head'] ?? ''),
+						(string) ($notificationData['fiscal_year'] ?? ''),
+						(string) ($notificationData['fiscal_period'] ?? ''),
+						(string) ($notificationData['currency'] ?? 'INR'),
+						(float) ($notificationData['current_limit'] ?? 0),
+						(float) ($notificationData['previous_limit'] ?? 0),
+						(string) ($notificationData['action_type'] ?? 'updated')
+					);
+				}
 
 				foreach ($parsedPreview as $i => $previewRow) {
 					if (($previewRow['status'] ?? '') === 'ready') {
@@ -434,46 +545,9 @@ class BudgetController
 			exit;
 		}
 
-		$budgetId = (int) ($_GET['id'] ?? 0);
-		if ($budgetId <= 0) {
-			flash_error('Invalid budget id.');
-			header('Location: ?route=budget-monitor');
-			exit;
-		}
-
-		$budgetModel = new BudgetModel();
-		$budget = $budgetModel->getBudgetById($budgetId);
-		if ($budget === null) {
-			flash_error('Budget row not found.');
-			header('Location: ?route=budget-monitor');
-			exit;
-		}
-
-		$departmentModel = new DepartmentModel();
-		$budgetCategoryModel = new BudgetCategoryModel();
-		$lookupModel = new LookupModel();
-
-		$departments = $departmentModel->getAllDepartments();
-		$categories = $budgetCategoryModel->getAllCategories();
-		$currencyOptions = $lookupModel->getRequestCurrencies();
-		if ($currencyOptions === [] && trim((string) ($budget['budget_currency'] ?? '')) !== '') {
-			$currencyOptions = [strtoupper(trim((string) ($budget['budget_currency'] ?? '')))];
-		}
-
-		$pageTitle = 'Edit Budget - Expense Register';
-		$pageStyles = ['assets/css/app.css'];
-		$envConfig = $GLOBALS['envConfig'] ?? [];
-		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
-		$activeMenu = 'budget-monitor';
-
-		require ROOT_PATH . '/views/templates/app_layout.php';
-		renderAppLayoutStart([
-			'pageTitle' => $pageTitle,
-			'pageStyles' => $pageStyles,
-			'activeMenu' => $activeMenu,
-		]);
-		require ROOT_PATH . '/views/module-1/budget_edit.php';
-		renderAppLayoutEnd();
+		flash_error('This action has been removed.');
+		header('Location: ?route=budget-monitor');
+		exit;
 	}
 
 	public function update(): void
@@ -518,15 +592,22 @@ class BudgetController
 			$budgetData['budget_currency'] === ''
 		) {
 			flash_error('Please fill all required fields with valid values.');
-			header('Location: ?route=budgets/edit&id=' . $budgetId);
+			header('Location: ?route=budget-monitor');
 			exit;
 		}
 
 		$budgetModel = new BudgetModel();
+		$budgetMonitorController = new BudgetMonitorController();
+		$existingBudget = $budgetModel->getBudgetById($budgetId);
+		if (!is_array($existingBudget)) {
+			flash_error('Budget row not found.');
+			header('Location: ?route=budget-monitor');
+			exit;
+		}
 		$categoryResolution = $budgetModel->resolveBudgetCategory((string) $budgetData['budget_category_id']);
 		if ((int) ($categoryResolution['budget_category_id'] ?? 0) <= 0) {
 			flash_error('Selected budget category is invalid.');
-			header('Location: ?route=budgets/edit&id=' . $budgetId);
+			header('Location: ?route=budget-monitor');
 			exit;
 		}
 
@@ -536,9 +617,21 @@ class BudgetController
 		$updated = $budgetModel->updateBudget($budgetId, $budgetData);
 		if (!$updated) {
 			flash_error('Failed to update budget.');
-			header('Location: ?route=budgets/edit&id=' . $budgetId);
+			header('Location: ?route=budget-monitor');
 			exit;
 		}
+
+		$budgetMonitorController->dispatchBudgetThresholdAlertForBudgetId($budgetId);
+		$this->notifyDepartmentHeadBudgetUpdate(
+			(int) ($budgetData['department_id'] ?? 0),
+			(string) ($budgetData['budget_category'] ?? ''),
+			(string) ($budgetData['budget_fiscal_year'] ?? ''),
+			(string) ($budgetData['budget_fiscal_period'] ?? ''),
+			(string) ($budgetData['budget_currency'] ?? 'INR'),
+			(float) ($budgetData['budget_allocated_amount'] ?? 0),
+			(float) ($existingBudget['budget_allocated_amount'] ?? 0),
+			'updated'
+		);
 
 		RbacService::audit('budget_update', ['budget_id' => $budgetId]);
 		flash_success('Budget updated successfully.');
@@ -578,7 +671,7 @@ class BudgetController
 		$deleted = $budgetModel->deleteBudget($budgetId);
 		if (!$deleted) {
 			flash_error('Failed to delete budget.');
-			header('Location: ?route=budgets/edit&id=' . $budgetId);
+			header('Location: ?route=budget-monitor');
 			exit;
 		}
 

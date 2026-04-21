@@ -150,18 +150,6 @@ class WorkflowApiController extends ApiBaseController
         return $errors;
     }
 
-    private function formatStepForApi(array $step): array
-    {
-        return [
-            'step_id' => (int) ($step['step_id'] ?? 0),
-            'step_order' => (int) ($step['step_order'] ?? 1),
-            'step_name' => (string) ($step['step_name'] ?? ''),
-            'step_approver_type' => (string) ($step['step_approver_type'] ?? 'role'),
-            'step_approver_role' => (string) ($step['step_approver_role'] ?? ''),
-            'step_timeout_hours' => $step['step_timeout_hours'] !== null && $step['step_timeout_hours'] !== '' ? (int) $step['step_timeout_hours'] : null,
-            'step_is_required' => (int) ($step['step_is_required'] ?? 1) === 1,
-        ];
-    }
 
     public function handle(): void
     {

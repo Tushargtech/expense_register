@@ -17,7 +17,7 @@ class WorkflowCreationController
 		$rawMax = trim((string) ($source['workflow_amount_max'] ?? ''));
 		$workflowDescription = trim((string) ($source['workflow_description'] ?? ''));
 		$workflowType = strtolower(trim((string) ($source['workflow_type'] ?? '')));
-		$allowedTypes = ['expense', 'purchase'];
+		$allowedTypes = ['reimbursable', 'company paid'];
 		$normalizedType = in_array($workflowType, $allowedTypes, true)
 			? ucfirst($workflowType)
 			: '';
@@ -142,7 +142,7 @@ class WorkflowCreationController
 		$users = $model->getActiveUsers();
 
 		$pageTitle = 'Create Workflow - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'workflow-list';
@@ -231,7 +231,7 @@ class WorkflowCreationController
 		}
 
 		$pageTitle = 'Edit Workflow - Expense Register';
-		$pageStyles = ['assets/css/dashboard.css', 'assets/css/creation.css'];
+		$pageStyles = ['assets/css/app.css'];
 		$envConfig = $GLOBALS['envConfig'] ?? [];
 		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$activeMenu = 'workflow-list';

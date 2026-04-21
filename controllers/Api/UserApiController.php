@@ -169,23 +169,43 @@ class UserApiController extends ApiBaseController
         }
 
         $userModel = new UserModel();
-        if (!$userModel->createUser($userData)) {
+        $result = $userModel->createUser($userData);
+
+        if (!($result['success'] ?? false)) {
             $this->jsonError('Failed to create employee.', 500);
         }
 
-        $createdId = 0;
-        try {
-            $stmt = getDB()->prepare('SELECT user_id FROM users WHERE user_email = :email ORDER BY user_id DESC LIMIT 1');
-            $stmt->execute([':email' => $userData['email']]);
-            $createdId = (int) ($stmt->fetchColumn() ?: 0);
-        } catch (Throwable $error) {
-            $createdId = 0;
+        $userId = (int) ($result['user_id'] ?? 0);
+        $tempPassword = (string) ($result['temporary_password'] ?? '');
+        $email = (string) ($result['email'] ?? '');
+        $name = (string) ($result['name'] ?? '');
+
+        // Send welcome email with temporary password
+        if ($userId > 0) {
+            // Mark user for forced password change on first login
+            $userModel->setForcePasswordChange($userId);
+
+            if ($tempPassword) {
+                // Generate login link
+                $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+                $basePath = '/expense_register';
+                $loginLink = "{$scheme}://{$host}{$basePath}/";
+
+                // Send welcome email with login link and temporary password
+                $mailService = new MailService();
+                $sent = $mailService->sendNewUserEmail($email, $name, $tempPassword, $loginLink, 120);
+
+                if (!$sent) {
+                    error_log("Failed to send welcome email to {$email} for user {$userId}");
+                }
+            }
         }
 
         RbacService::audit('user_create', ['email' => $userData['email'], 'role' => $userData['role']]);
         $this->jsonSuccess([
-            'message' => 'Employee created successfully.',
-            'user_id' => $createdId,
+            'message' => 'Employee created successfully. Welcome email has been sent.',
+            'user_id' => $userId,
         ], [], 201);
     }
 

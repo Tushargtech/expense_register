@@ -62,7 +62,7 @@ $selectedFiscalYear = isset($selectedFiscalYear) ? (string) $selectedFiscalYear 
 
 								<div class="filter-actions">
 									<button type="submit" class="btn btn-primary btn-filter">
-										<i class="bi bi-search me-1"></i>View
+										<i class="bi bi-search me-1"></i>Search
 									</button>
 									<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-monitor'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">
 										<i class="bi bi-arrow-counterclockwise me-1"></i>Reset

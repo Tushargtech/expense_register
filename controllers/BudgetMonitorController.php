@@ -26,95 +26,6 @@ class BudgetMonitorController
 		return $this->rbac()->canViewOrganizationBudgetUtilization();
 	}
 
-	private function formatMoney(?float $amount, string $currency = 'INR'): string
-	{
-		if ($amount === null) {
-			return 'N/A';
-		}
-
-		return trim($currency) . ' ' . number_format($amount, 2);
-	}
-
-	private function summarizeByField(array $rows, string $fieldName, ?string $typeFieldName = null): array
-	{
-		$summary = [];
-
-		foreach ($rows as $row) {
-			$key = trim((string) ($row[$fieldName] ?? ''));
-			if ($key === '') {
-				$key = 'Unassigned';
-			}
-
-			$typeLabel = 'General';
-			if ($typeFieldName !== null) {
-				$typeLabel = trim((string) ($row[$typeFieldName] ?? ''));
-				if ($typeLabel === '') {
-					$typeLabel = 'General';
-				}
-			}
-
-			$allocated = (float) ($row['budget_allocated_amount'] ?? 0);
-			$spentRaw = $row['budget_spent_amount'] ?? null;
-			$spent = ($spentRaw === null || $spentRaw === '') ? null : (float) $spentRaw;
-
-			if (!isset($summary[$key])) {
-				$summary[$key] = [
-					'label' => $key,
-					'type' => $typeLabel,
-					'count' => 0,
-					'allocated' => 0.0,
-					'spent' => 0.0,
-					'has_spend_data' => false,
-				];
-			} elseif ($typeFieldName !== null && ($summary[$key]['type'] ?? 'General') === 'General' && $typeLabel !== 'General') {
-				$summary[$key]['type'] = $typeLabel;
-			}
-
-			$summary[$key]['count']++;
-			$summary[$key]['allocated'] += $allocated;
-			if ($spent !== null) {
-				$summary[$key]['spent'] += $spent;
-				$summary[$key]['has_spend_data'] = true;
-			}
-		}
-
-		return array_values($summary);
-	}
-
-	private function buildTypeSummary(array $rows): array
-	{
-		$summary = [];
-
-		foreach ($rows as $row) {
-			$type = trim((string) ($row['budget_category_type'] ?? ''));
-			if ($type === '') {
-				$type = 'General';
-			}
-
-			$allocated = (float) ($row['budget_allocated_amount'] ?? 0);
-			$spentRaw = $row['budget_spent_amount'] ?? null;
-			$spent = ($spentRaw === null || $spentRaw === '') ? null : (float) $spentRaw;
-
-			if (!isset($summary[$type])) {
-				$summary[$type] = [
-					'label' => $type,
-					'count' => 0,
-					'allocated' => 0.0,
-					'spent' => 0.0,
-					'has_spend_data' => false,
-				];
-			}
-
-			$summary[$type]['count']++;
-			$summary[$type]['allocated'] += $allocated;
-			if ($spent !== null) {
-				$summary[$type]['spent'] += $spent;
-				$summary[$type]['has_spend_data'] = true;
-			}
-		}
-
-		return array_values($summary);
-	}
 
 	private function summarizeByDepartmentAndCategory(array $rows): array
 	{
@@ -168,6 +79,77 @@ class BudgetMonitorController
 		return array_values($summary);
 	}
 
+	public function dispatchBudgetThresholdAlerts(array $rows): void
+	{
+		$budgetMonitorModel = new BudgetMonitorModel();
+		$mailService = new MailService();
+
+		foreach ($rows as $row) {
+			$budgetId = (int) ($row['budget_id'] ?? 0);
+			$allocated = (float) ($row['budget_allocated_amount'] ?? 0);
+			$spent = (float) ($row['budget_spent_amount'] ?? 0);
+			if ($budgetId <= 0 || $allocated <= 0) {
+				continue;
+			}
+
+			$usagePercent = round(($spent / $allocated) * 100, 2);
+			if ($usagePercent < 90.0) {
+				continue;
+			}
+
+			if (!$budgetMonitorModel->shouldSendBudgetThresholdAlert($budgetId, $usagePercent, 90.0)) {
+				continue;
+			}
+
+			$departmentId = (int) ($row['department_id'] ?? 0);
+			$departmentName = trim((string) ($row['department_name'] ?? 'Department'));
+			$budgetHead = trim((string) ($row['budget_category_name'] ?? ''));
+			if ($budgetHead === '') {
+				$budgetHead = trim((string) ($row['budget_category'] ?? 'Budget'));
+			}
+			$currency = trim((string) ($row['budget_currency'] ?? ''));
+			$totalLimit = number_format($allocated, 2, '.', '');
+			$usedAmount = number_format($spent, 2, '.', '');
+			$recipients = $budgetMonitorModel->getBudgetThresholdRecipients($departmentId);
+
+			foreach ($recipients as $recipient) {
+				$recipientEmail = trim((string) ($recipient['email'] ?? ''));
+				if ($recipientEmail === '') {
+					continue;
+				}
+
+				$sent = $mailService->sendBudgetThresholdAlertEmail(
+					$recipientEmail,
+					$departmentName !== '' ? $departmentName : 'Department',
+					$budgetHead !== '' ? $budgetHead : 'Budget',
+					number_format($usagePercent, 1, '.', ''),
+					$currency !== '' ? $currency : 'INR',
+					$totalLimit,
+					$usedAmount
+				);
+
+				if (!$sent) {
+					error_log('Failed to send budget threshold alert for budget ' . $budgetId . ' to ' . $recipientEmail);
+				}
+			}
+		}
+	}
+
+	public function dispatchBudgetThresholdAlertForBudgetId(int $budgetId): void
+	{
+		if ($budgetId <= 0) {
+			return;
+		}
+
+		$budgetMonitorModel = new BudgetMonitorModel();
+		$contextRow = $budgetMonitorModel->getBudgetThresholdAlertContextByBudgetId($budgetId);
+		if (!is_array($contextRow)) {
+			return;
+		}
+
+		$this->dispatchBudgetThresholdAlerts([$contextRow]);
+	}
+
 	public function index(): void
 	{
 		$this->ensureAuthenticated();
@@ -198,6 +180,7 @@ class BudgetMonitorController
 		$budgetMonitorModel = new BudgetMonitorModel();
 		$departmentModel = new DepartmentModel();
 		$rows = $budgetMonitorModel->getMonitorRows($filters, $scopeDepartmentId !== null ? $scopeDepartmentId : ($filters['department_id'] > 0 ? $filters['department_id'] : null));
+		$this->dispatchBudgetThresholdAlerts($rows);
 		$rowsForYearOptions = $budgetMonitorModel->getMonitorRows(
 			['department_id' => $filters['department_id']],
 			$scopeDepartmentId !== null ? $scopeDepartmentId : ($filters['department_id'] > 0 ? $filters['department_id'] : null)

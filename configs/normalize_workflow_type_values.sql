@@ -3,10 +3,10 @@
 
 UPDATE workflows
 SET workflow_type = CASE
-    WHEN LOWER(TRIM(workflow_type)) IN ('expnse', 'expence', 'exponse') THEN 'Expense'
-    WHEN LOWER(TRIM(workflow_type)) IN ('puchase', 'purchse', 'prchase') THEN 'Purchase'
-    WHEN LOWER(TRIM(workflow_type)) = 'expense' THEN 'Expense'
-    WHEN LOWER(TRIM(workflow_type)) = 'purchase' THEN 'Purchase'
+    WHEN LOWER(TRIM(workflow_type)) IN ('expnse', 'expence', 'exponse') THEN 'Reimbursable'
+    WHEN LOWER(TRIM(workflow_type)) IN ('puchase', 'purchse', 'prchase') THEN 'Company Paid'
+    WHEN LOWER(TRIM(workflow_type)) = 'reimbursable' THEN 'Reimbursable'
+    WHEN LOWER(TRIM(workflow_type)) = 'company paid' THEN 'Company Paid'
     WHEN LOWER(TRIM(workflow_type)) = 'other' THEN 'Other'
     ELSE workflow_type
 END
@@ -17,8 +17,8 @@ WHERE workflow_type IS NOT NULL
 UPDATE workflows w
 INNER JOIN budget_categories bc ON bc.budget_category_id = w.budget_category_id
 SET w.workflow_type = CASE
-    WHEN LOWER(TRIM(bc.budget_category_type)) = 'expense' THEN 'Expense'
-    WHEN LOWER(TRIM(bc.budget_category_type)) = 'purchase' THEN 'Purchase'
+    WHEN LOWER(TRIM(bc.budget_category_type)) = 'reimbursable' THEN 'Reimbursable'
+    WHEN LOWER(TRIM(bc.budget_category_type)) = 'company paid' THEN 'Company Paid'
     WHEN LOWER(TRIM(bc.budget_category_type)) = 'other' THEN 'Other'
     ELSE w.workflow_type
 END

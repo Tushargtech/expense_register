@@ -45,15 +45,15 @@ class UserController
 			return 'employee';
 		}
 
-		if (in_array($normalizedRole, ['dept_head', 'depthead', 'department_head', 'manager'], true)) {
-			return 'employee';
+		if ($normalizedRole === 'dept_head' || $normalizedRole === 'depthead') {
+			return 'department_head';
 		}
 
-		if (in_array($normalizedRole, ['hr_manager', 'hr_department_head', 'hr_dept_head'], true)) {
-			return 'hr';
+		if ($normalizedRole === 'hr_manager' || $normalizedRole === 'hr_department_head') {
+			return $normalizedRole;
 		}
 
-		return in_array($normalizedRole, ['admin', 'finance', 'hr', 'employee'], true) ? $normalizedRole : 'employee';
+		return $normalizedRole;
 	}
 
 	private function isValidUserPayload(array $userData): bool
@@ -136,6 +136,42 @@ class UserController
 			'activeMenu' => $activeMenu,
 		]);
 		require ROOT_PATH . '/views/UserManagement/user_list.php';
+		renderAppLayoutEnd();
+	}
+
+	public function myProfile(): void
+	{
+		$this->ensureAuthenticated();
+
+		$loggedInUserId = (int) ($_SESSION['auth']['user_id'] ?? 0);
+		if ($loggedInUserId <= 0) {
+			flash_error('Unable to resolve logged-in user profile. Please login again.');
+			header('Location: ' . buildCleanRouteUrl('logout'));
+			exit;
+		}
+
+		$userModel = new UserModel();
+		$userProfile = $userModel->getUserProfileById($loggedInUserId);
+
+		if ($userProfile === null) {
+			flash_error('Profile details not found.');
+			header('Location: ' . buildCleanRouteUrl('dashboard'));
+			exit;
+		}
+
+		$pageTitle = 'My Profile - Expense Register';
+		$pageStyles = ['assets/css/app.css'];
+		$envConfig = $GLOBALS['envConfig'] ?? [];
+		$userName = (string) ($_SESSION['auth']['name'] ?? 'User');
+		$activeMenu = 'my-profile';
+
+		require ROOT_PATH . '/views/templates/app_layout.php';
+		renderAppLayoutStart([
+			'pageTitle' => $pageTitle,
+			'pageStyles' => $pageStyles,
+			'activeMenu' => $activeMenu,
+		]);
+		require ROOT_PATH . '/views/UserManagement/my_profile.php';
 		renderAppLayoutEnd();
 	}
 
@@ -242,11 +278,38 @@ class UserController
 		}
 
 		$userModel = new UserModel();
-		$success = $userModel->createUser($userData);
+		$result = $userModel->createUser($userData);
 
-		if ($success) {
+		if ($result['success'] ?? false) {
+			// Send welcome email with temporary password
+			$userId = (int) ($result['user_id'] ?? 0);
+			$tempPassword = (string) ($result['temporary_password'] ?? '');
+			$email = (string) ($result['email'] ?? '');
+			$name = (string) ($result['name'] ?? '');
+
+			if ($userId > 0) {
+				// Mark user for forced password change on first login
+				$userModel->setForcePasswordChange($userId);
+
+				if ($tempPassword) {
+					// Generate login link
+					$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+					$scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+					$basePath = '/expense_register';
+					$loginLink = "{$scheme}://{$host}{$basePath}/";
+
+					// Send welcome email with login link and temporary password
+					$mailService = new MailService();
+					$sent = $mailService->sendNewUserEmail($email, $name, $tempPassword, $loginLink, 120);
+
+					if (!$sent) {
+						error_log("Failed to send welcome email to {$email} for user {$userId}");
+					}
+				}
+			}
+
 			RbacService::audit('user_create', ['email' => $userData['email'], 'role' => $userData['role']]);
-			flash_success('Employee created successfully.');
+			flash_success('Employee created successfully. Welcome email has been sent.');
 			header('Location: ' . buildCleanRouteUrl('users'));
 		} else {
 			flash_error('Failed to create employee.');
@@ -304,4 +367,3 @@ class UserController
 		exit;
 	}
 }
-
