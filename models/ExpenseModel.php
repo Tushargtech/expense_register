@@ -574,10 +574,10 @@ class ExpenseModel
         $normalized = strtolower(trim($requestType));
 
         return match ($normalized) {
-            'expense' => 'reimbursable',
-            'purchase', 'company_paid' => 'company paid',
-            'reimbursable', 'company paid', 'other' => $normalized,
-            default => 'reimbursable',
+            'expense', 'reimbursable' => 'expense',
+            'purchase', 'company paid', 'company_paid' => 'purchase',
+            'other' => 'other',
+            default => 'expense',
         };
     }
 

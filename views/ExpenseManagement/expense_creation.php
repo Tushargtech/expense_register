@@ -6,8 +6,8 @@ $submitLabel = isset($submitLabel) ? (string) $submitLabel : 'Submit Request';
 $oldInput = isset($oldInput) && is_array($oldInput) ? $oldInput : [];
 
 $requestTypes = isset($requestTypes) && is_array($requestTypes) ? $requestTypes : [
-	'reimbursable' => 'Reimbursable',
-    'company paid' => 'Company Paid',
+	'expense' => 'Reimbursable',
+    'purchase' => 'Company Paid',
 ];
 $priorityOptions = isset($priorityOptions) && is_array($priorityOptions) ? $priorityOptions : [
     'low' => 'Low',
@@ -18,7 +18,12 @@ $currencyOptions = isset($currencyOptions) && is_array($currencyOptions) ? $curr
 
 $budgetCategories = isset($budgetCategories) && is_array($budgetCategories) ? $budgetCategories : [];
 
-$selectedRequestType = strtolower(trim((string) ($oldInput['request_type'] ?? 'reimbursable')));
+$selectedRequestType = strtolower(trim((string) ($oldInput['request_type'] ?? 'expense')));
+$selectedRequestType = match ($selectedRequestType) {
+	'expense', 'reimbursable' => 'expense',
+	'purchase', 'company paid', 'company_paid' => 'purchase',
+	default => $selectedRequestType,
+};
 $selectedTitle = (string) ($oldInput['request_title'] ?? '');
 $selectedAmount = (string) ($oldInput['request_amount'] ?? '');
 $selectedCurrency = strtoupper(trim((string) ($oldInput['request_currency'] ?? (string) ($currencyOptions[0] ?? 'INR'))));
@@ -188,11 +193,11 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 	const syncBudgetCategories = function () {
 		const normalizeType = function (value) {
 			const normalized = String(value || '').toLowerCase().trim();
-			if (normalized === 'expense') {
-				return 'reimbursable';
+			if (normalized === 'reimbursable' || normalized === 'expense') {
+				return 'expense';
 			}
-			if (normalized === 'purchase' || normalized === 'company_paid') {
-				return 'company paid';
+			if (normalized === 'company paid' || normalized === 'company_paid' || normalized === 'purchase') {
+				return 'purchase';
 			}
 			return normalized;
 		};

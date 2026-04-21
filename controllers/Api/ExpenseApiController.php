@@ -24,6 +24,17 @@ class ExpenseApiController extends ApiBaseController
         $this->ensurePermission($this->rbac()->canAccessFinancialRequests(), 'Forbidden');
     }
 
+    private function normalizeRequestTypeValue(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+
+        return match ($normalized) {
+            'reimbursable' => 'expense',
+            'company paid', 'company_paid' => 'purchase',
+            default => $normalized,
+        };
+    }
+
     private function normalizeExpensePayload(array $source): array
     {
         $lookup = $this->lookup();
@@ -36,7 +47,7 @@ class ExpenseApiController extends ApiBaseController
         $defaultPriority = strtolower((string) ($priorityOptions[0] ?? ''));
 
         return [
-            'request_type' => strtolower(trim((string) ($source['request_type'] ?? $defaultType))),
+            'request_type' => $this->normalizeRequestTypeValue((string) ($source['request_type'] ?? $defaultType)),
             'request_title' => trim((string) ($source['request_title'] ?? '')),
             'request_description' => trim((string) ($source['request_description'] ?? '')),
             'request_amount' => trim((string) ($source['request_amount'] ?? '')),

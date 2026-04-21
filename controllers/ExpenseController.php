@@ -70,8 +70,8 @@ class ExpenseController
     private function requestTypeOptions(): array
     {
         return [
-                'reimbursable' => 'Reimbursable',
-            'company paid' => 'Company Paid',
+            'expense' => 'Reimbursable',
+            'purchase' => 'Company Paid',
         ];
     }
 
@@ -89,9 +89,8 @@ class ExpenseController
         $normalized = strtolower(trim($value));
 
         return match ($normalized) {
-            'expense' => 'reimbursable',
-            'purchase' => 'company paid',
-            'company_paid' => 'company paid',
+            'reimbursable', 'expense' => 'expense',
+            'company paid', 'company_paid', 'purchase' => 'purchase',
             default => $normalized,
         };
     }
