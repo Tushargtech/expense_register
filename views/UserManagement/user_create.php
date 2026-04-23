@@ -56,12 +56,12 @@ foreach ($managers as $manager) {
 
 					<div class="user-create-grid">
 						<div class="user-create-field user-create-field-medium">
-							<label class="user-create-label" for="name">User Name</label>
+							<label class="user-create-label" for="name">User Name <span class="text-danger">*</span></label>
 							<input type="text" class="user-create-input" id="name" name="name" placeholder="Enter full name" value="<?php echo htmlspecialchars($selectedName, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="role">Role</label>
+							<label class="user-create-label" for="role">Role <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="role" name="role" required>
 								<?php foreach ($roleOptions as $roleOption): ?>
 									<?php $roleValue = strtolower(trim((string) ($roleOption['value'] ?? ''))); ?>
@@ -75,12 +75,12 @@ foreach ($managers as $manager) {
 						</div>
 
 						<div class="user-create-field user-create-field-medium">
-							<label class="user-create-label" for="email">User Email</label>
+							<label class="user-create-label" for="email">User Email <span class="text-danger">*</span></label>
 							<input type="email" class="user-create-input" id="email" name="email" placeholder="name@example.com" value="<?php echo htmlspecialchars($selectedEmail, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="department_id">Department</label>
+							<label class="user-create-label" for="department_id">Department <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="department_id" name="department_id" required>
 								<option value="">Select Department</option>
 								<?php foreach ($departments as $department): ?>
@@ -93,15 +93,14 @@ foreach ($managers as $manager) {
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="manager_id">Manager</label>
-							<select class="user-create-select" id="manager_id" name="manager_id" required data-selected-manager-id="<?php echo (int) $selectedManagerId; ?>"></select>
-								<option value="">Select Manager</option>
+							<label class="user-create-label" for="manager_id">Manager <span class="text-danger">*</span></label>
+							<select class="user-create-select" id="manager_id" name="manager_id" required data-selected-manager-id="<?php echo (int) $selectedManagerId; ?>">
+								<option value="">Choose Manager</option>
 							</select>
-							<small class="text-muted d-block mt-1" id="managerHelpText">Select a department to load matching managers.</small>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="user_is_active">Status</label>
+							<label class="user-create-label" for="user_is_active">Status <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="user_is_active" name="user_is_active" required>
 								<option value="1" <?php echo $selectedStatus === 1 ? 'selected' : ''; ?>>Active</option>
 								<option value="0" <?php echo $selectedStatus === 0 ? 'selected' : ''; ?>>Inactive</option>
@@ -127,7 +126,6 @@ foreach ($managers as $manager) {
 	(function () {
 		const departmentSelect = document.getElementById('department_id');
 		const managerSelect = document.getElementById('manager_id');
-		const managerHelpText = document.getElementById('managerHelpText');
 		const managerOptionsByDepartment = <?php echo json_encode($managerOptionsByDepartment, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 		const selectedManagerId = String(managerSelect ? managerSelect.getAttribute('data-selected-manager-id') || '' : '');
 
@@ -149,7 +147,7 @@ foreach ($managers as $manager) {
 
 			const placeholder = document.createElement('option');
 			placeholder.value = '';
-			placeholder.textContent = departmentId === '0' ? 'Select Department First' : 'Select Manager';
+			placeholder.textContent = departmentId === '0' ? 'Choose Department First' : 'Choose Manager';
 			managerSelect.appendChild(placeholder);
 
 			managers.forEach(function (manager) {
@@ -168,11 +166,6 @@ foreach ($managers as $manager) {
 
 			const hasManagers = managers.length > 0;
 			managerSelect.disabled = !hasManagers;
-			if (managerHelpText) {
-				managerHelpText.textContent = hasManagers
-					? 'Only employees from the selected department are shown.'
-					: 'No employees found for the selected department.';
-			}
 
 			if (!hasManagers) {
 				managerSelect.value = '';

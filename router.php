@@ -233,6 +233,16 @@ switch ($route) {
         $expenseController->review();
         break;
 
+    case 'expenses/edit':
+    case '/expenses/edit':
+        $expenseController = new ExpenseController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $expenseController->update();
+        } else {
+            $expenseController->edit();
+        }
+        break;
+
     case 'expenses/attachment/download':
     case '/expenses/attachment/download':
         $expenseController = new ExpenseController();

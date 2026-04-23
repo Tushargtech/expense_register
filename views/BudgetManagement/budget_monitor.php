@@ -9,6 +9,10 @@ $totals = isset($totals) && is_array($totals) ? $totals : [];
 $isFinanceRole = isset($isFinanceRole) ? (bool) $isFinanceRole : true;
 $fiscalYears = isset($fiscalYears) && is_array($fiscalYears) ? $fiscalYears : [];
 $selectedFiscalYear = isset($selectedFiscalYear) ? (string) $selectedFiscalYear : '';
+$currentPage = isset($currentPage) ? (int) $currentPage : 1;
+$totalPages = isset($totalPages) ? (int) $totalPages : 1;
+$perPage = isset($perPage) ? (int) $perPage : 10;
+$totalSummaryRows = isset($totalSummaryRows) ? (int) $totalSummaryRows : count($departmentSummary);
 ?>
 
 <main class="main">
@@ -141,6 +145,39 @@ $selectedFiscalYear = isset($selectedFiscalYear) ? (string) $selectedFiscalYear 
 						</tbody>
 					</table>
 				</div>
+
+				<?php
+				$baseQuery = [
+					'department_id' => $selectedDepartmentId > 0 ? $selectedDepartmentId : '',
+					'fiscal_year' => $selectedFiscalYear !== '' ? $selectedFiscalYear : '',
+				];
+				$rangeStart = $totalSummaryRows > 0 ? (($currentPage - 1) * $perPage) + 1 : 0;
+				$rangeEnd = $totalSummaryRows > 0 ? min($totalSummaryRows, $rangeStart + count($departmentSummary) - 1) : 0;
+				?>
+				<nav class="user-pagination-wrap" aria-label="Budget monitor pagination" style="margin-top: 12px;">
+					<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalSummaryRows; ?></div>
+					<ul class="pagination user-pagination mb-0">
+						<?php $prevPage = max(1, $currentPage - 1); ?>
+						<li class="page-item <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>">
+							<a class="page-link" href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-monitor', $baseQuery + ['page' => $prevPage]), ENT_QUOTES, 'UTF-8'); ?>">Prev</a>
+						</li>
+
+						<?php
+						$startPage = max(1, $currentPage - 2);
+						$endPage = min($totalPages, $currentPage + 2);
+						for ($page = $startPage; $page <= $endPage; $page++):
+						?>
+							<li class="page-item <?php echo $page === $currentPage ? 'active' : ''; ?>">
+								<a class="page-link" href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-monitor', $baseQuery + ['page' => $page]), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $page; ?></a>
+							</li>
+						<?php endfor; ?>
+
+						<?php $nextPage = min($totalPages, $currentPage + 1); ?>
+						<li class="page-item <?php echo $currentPage >= $totalPages ? 'disabled' : ''; ?>">
+							<a class="page-link" href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-monitor', $baseQuery + ['page' => $nextPage]), ENT_QUOTES, 'UTF-8'); ?>">Next</a>
+						</li>
+					</ul>
+				</nav>
 			</div>
 		</div>
 	</div>

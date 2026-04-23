@@ -42,7 +42,6 @@ class WorkflowApiController extends ApiBaseController
         return [
             'workflow_name' => trim((string) ($source['workflow_name'] ?? '')),
             'workflow_description' => $workflowDescription !== '' ? $workflowDescription : null,
-            'budget_category_id' => (int) ($source['budget_category_id'] ?? 0),
             'workflow_type' => $normalizedType,
             'workflow_is_active' => (int) ($source['workflow_is_active'] ?? 1) === 1 ? 1 : 0,
             'workflow_is_default' => (int) ($source['workflow_is_default'] ?? 0) === 1 ? 1 : 0,
@@ -113,14 +112,6 @@ class WorkflowApiController extends ApiBaseController
         if ($workflowData['workflow_name'] === '') {
             $errors['workflow_name'] = 'Workflow name is required.';
         }
-        if ((int) ($workflowData['budget_category_id'] ?? 0) <= 0) {
-            $errors['budget_category_id'] = 'Workflow category is required.';
-        } else {
-            $category = (new BudgetCategoryModel())->getCategoryById((int) $workflowData['budget_category_id']);
-            if ($category === null || (int) ($category['budget_category_is_active'] ?? 0) !== 1) {
-                $errors['budget_category_id'] = 'Selected workflow category is invalid.';
-            }
-        }
         if ($workflowData['workflow_type'] === '') {
             $errors['workflow_type'] = 'Workflow type is required.';
         }
@@ -187,7 +178,6 @@ class WorkflowApiController extends ApiBaseController
             'search' => $this->request->queryString('search'),
             'status' => $this->request->queryString('status'),
             'workflow_type' => $this->request->queryString('workflow_type'),
-            'budget_category_id' => (int) ($this->request->queryString('budget_category_id') ?? 0),
         ];
 
         $pageInfo = $this->pagination();
@@ -201,8 +191,7 @@ class WorkflowApiController extends ApiBaseController
                 'total' => $total,
                 'pages' => max(1, (int) ceil($total / $pageInfo['limit'])),
             ],
-            'workflow_types' => $workflowModel->getAllWorkflowTypes(),
-            'budget_categories' => (new BudgetCategoryModel())->getSelectableCategories(),
+            'workflow_types' => (new LookupModel())->getWorkflowTypes(),
         ]);
     }
 

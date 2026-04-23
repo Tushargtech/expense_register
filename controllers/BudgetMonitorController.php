@@ -168,6 +168,9 @@ class BudgetMonitorController
 			'fiscal_year' => trim((string) ($_GET['fiscal_year'] ?? '')),
 		];
 
+		$perPage = 10;
+		$currentPage = max(1, (int) ($_GET['page'] ?? 1));
+
 		// Finance department users can view all departments
 		// Other users are restricted to their own department
 		$scopeDepartmentId = null;
@@ -220,6 +223,13 @@ class BudgetMonitorController
 		}
 
 		$departmentSummary = $this->summarizeByDepartmentAndCategory($rows);
+		$totalSummaryRows = count($departmentSummary);
+		$totalPages = max(1, (int) ceil($totalSummaryRows / $perPage));
+		if ($currentPage > $totalPages) {
+			$currentPage = $totalPages;
+		}
+		$summaryOffset = ($currentPage - 1) * $perPage;
+		$departmentSummary = array_slice($departmentSummary, $summaryOffset, $perPage);
 		$fiscalYears = array_values($fiscalYears);
 		sort($fiscalYears);
 

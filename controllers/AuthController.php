@@ -37,7 +37,9 @@ class AuthController
             'pageTitle' => 'Login - Expense Register',
             'pageStyles' => ['assets/css/app.css'],
             'bodyClass' => 'bg-light',
-            'includeChrome' => false,
+            'includeChrome' => true,
+            'showNavbarControls' => false,
+            'showSidebar' => false,
         ]);
 
         require ROOT_PATH . '/views/main/login.php';

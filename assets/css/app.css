@@ -400,7 +400,7 @@
 }
 
 .user-create-hero {
-    background: linear-gradient(135deg, darkslategray 0%, steelblue 100%);
+    background: steelblue;
     color: white;
     border-radius: 22px;
     padding: 28px 30px;
@@ -658,6 +658,21 @@
     opacity: 0.75;
     border-color: dodgerblue;
     box-shadow: 0 16px 24px rgba(30, 144, 255, 0.22);
+}
+
+.workflow-step-card.workflow-step-inactive {
+    background: #eceff3;
+    border-color: #c5cbd3;
+}
+
+.workflow-step-card.workflow-step-inactive .workflow-step-drag-handle {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.workflow-step-field-locked {
+    pointer-events: none;
+    opacity: 0.7;
 }
 
 .workflow-step-card-head {
@@ -1167,6 +1182,11 @@
 
 .budget-monitor-hero .card-body {
 	padding: 28px 30px !important;
+}
+
+.dashboard-heading-hero {
+    background-color: steelblue;
+    background-image: none;
 }
 
 /* ===== FILTER CARD ===== */
@@ -1796,3 +1816,73 @@ body.sidebar-collapsed .sidebar-toggle-btn {
 }
 
 /* ===== End: dashboard.css ===== */
+
+/* ===== Shared button colour overrides ===== */
+:root {
+    --app-button-bg: steelblue;
+    --app-button-hover-bg: #36648b;
+}
+
+.btn-primary,
+.btn-success,
+.user-list-page .btn-filter.btn-primary,
+.budget-monitor-page .btn-filter.btn-primary,
+.user-list-page .btn-filter.btn-outline-secondary,
+.budget-monitor-page .btn-filter.btn-outline-secondary,
+.user-list-page .add-btn,
+.user-create-btn-primary,
+.profile-icon {
+    background-color: var(--app-button-bg);
+    background-image: none;
+    border-color: var(--app-button-bg);
+    color: white;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+.btn-success:hover,
+.btn-success:focus,
+.btn-success:active,
+.user-list-page .btn-filter.btn-primary:hover,
+.user-list-page .btn-filter.btn-primary:focus,
+.budget-monitor-page .btn-filter.btn-primary:hover,
+.budget-monitor-page .btn-filter.btn-primary:focus,
+.user-list-page .btn-filter.btn-outline-secondary:hover,
+.user-list-page .btn-filter.btn-outline-secondary:focus,
+.budget-monitor-page .btn-filter.btn-outline-secondary:hover,
+.budget-monitor-page .btn-filter.btn-outline-secondary:focus,
+.user-list-page .add-btn:hover,
+.user-list-page .add-btn:focus,
+.user-create-btn-primary:hover,
+.user-create-btn-primary:focus,
+.profile-icon:hover,
+.profile-icon:focus-visible {
+    background-color: var(--app-button-hover-bg);
+    border-color: var(--app-button-hover-bg);
+    color: white;
+}
+
+.dashboard-heading-hero ~ .kpi-grid ~ .row .btn-outline-primary,
+.btn-outline-primary {
+    border-color: var(--app-button-bg);
+    color: var(--app-button-bg);
+}
+
+.dashboard-heading-hero ~ .kpi-grid ~ .row .btn-outline-primary {
+    background-color: var(--app-button-bg);
+    background-image: none;
+    color: white;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active {
+    background-color: var(--app-button-hover-bg);
+    border-color: var(--app-button-hover-bg);
+    color: white;
+}
+
+.required-toggle:checked + .required-slider {
+    background: var(--app-button-bg);
+}

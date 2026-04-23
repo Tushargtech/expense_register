@@ -84,7 +84,6 @@ class WorkflowController
 		return [
 			'workflow_name' => trim((string) ($source['workflow_name'] ?? '')),
 			'workflow_description' => $workflowDescription !== '' ? $workflowDescription : null,
-			'budget_category_id' => (int) ($source['budget_category_id'] ?? 0),
 			'workflow_type' => $normalizedType,
 			'workflow_is_active' => (int) ($source['workflow_is_active'] ?? 1) === 1 ? 1 : 0,
 			'workflow_is_default' => (int) ($source['workflow_is_default'] ?? 0) === 1 ? 1 : 0,
@@ -103,9 +102,13 @@ class WorkflowController
 		$roleValueCursor = 0;
 		$allowedApproverTypes = ['role', 'manager', 'department_head'];
 
-		foreach ($stepNames as $index => $stepNameValue) {
+		$stepCount = max(count($stepIds), count($stepNames));
+
+		for ($index = 0; $index < $stepCount; $index++) {
+			$stepNameValue = $stepNames[$index] ?? '';
 			$stepName = trim((string) $stepNameValue);
-			if ($stepName === '') {
+			$stepId = (int) ($stepIds[$index] ?? 0);
+			if ($stepName === '' && $stepId <= 0) {
 				continue;
 			}
 
@@ -116,7 +119,8 @@ class WorkflowController
 				$stepName === '' &&
 				$rawTimeoutHours === '' &&
 				trim((string) ($source['step_approver_role'][$index] ?? '')) === '' &&
-				trim((string) ($source['step_approver_type'][$index] ?? '')) === ''
+				trim((string) ($source['step_approver_type'][$index] ?? '')) === '' &&
+				$stepId <= 0
 			) {
 				continue;
 			}
@@ -139,7 +143,7 @@ class WorkflowController
 			$approverUserId = (int) ($source['step_approver_user_id'][$index] ?? 0);
 
 			$steps[] = [
-				'step_id' => (int) ($stepIds[$index] ?? 0),
+				'step_id' => $stepId,
 				'step_order' => $stepOrder > 0 ? $stepOrder : ($index + 1),
 				'step_name' => $stepName,
 				'step_approver_type' => $approverType,
@@ -147,6 +151,37 @@ class WorkflowController
 				'step_approver_user_id' => $approverUserId > 0 ? $approverUserId : 0,
 				'step_is_required' => (int) (($source['step_is_required'][$index] ?? '1') === '1' ? 1 : 0),
 				'step_timeout_hours' => $rawTimeoutHours === '' ? null : max(1, (int) $rawTimeoutHours),
+			];
+		}
+
+		return $steps;
+	}
+
+	private function preserveInactiveStepValues(int $workflowId, array $steps, WorkflowModel $model): array
+	{
+		$existingSteps = [];
+		foreach ($model->getWorkflowStepsByWorkflowId($workflowId) as $step) {
+			$stepId = (int) ($step['step_id'] ?? 0);
+			if ($stepId > 0) {
+				$existingSteps[$stepId] = $this->formatStepForForm($step);
+			}
+		}
+
+		foreach ($steps as $index => $step) {
+			$stepId = (int) ($step['step_id'] ?? 0);
+			if ($stepId <= 0 || (int) ($step['step_is_required'] ?? 1) === 1 || !isset($existingSteps[$stepId])) {
+				continue;
+			}
+
+			$steps[$index] = [
+				'step_id' => $stepId,
+				'step_order' => (int) ($existingSteps[$stepId]['step_order'] ?? ($index + 1)),
+				'step_name' => (string) ($existingSteps[$stepId]['step_name'] ?? ''),
+				'step_approver_type' => (string) ($existingSteps[$stepId]['step_approver_type'] ?? 'role'),
+				'step_approver_role' => (string) ($existingSteps[$stepId]['step_approver_role'] ?? ''),
+				'step_approver_user_id' => (int) ($existingSteps[$stepId]['step_approver_user_id'] ?? 0),
+				'step_timeout_hours' => ($existingSteps[$stepId]['step_timeout_hours'] ?? '') === '' ? null : max(1, (int) $existingSteps[$stepId]['step_timeout_hours']),
+				'step_is_required' => 0,
 			];
 		}
 
@@ -169,13 +204,15 @@ class WorkflowController
 
 	private function isValidWorkflowPayload(array $workflowData, array $steps): bool
 	{
-		if ($workflowData['workflow_name'] === '' || $workflowData['workflow_type'] === '' || (int) ($workflowData['budget_category_id'] ?? 0) <= 0) {
+		if ($workflowData['workflow_name'] === '' || $workflowData['workflow_type'] === '') {
 			return false;
 		}
 
-		$categoryModel = new BudgetCategoryModel();
-		$category = $categoryModel->getCategoryById((int) $workflowData['budget_category_id']);
-		if ($category === null || (int) ($category['budget_category_is_active'] ?? 0) !== 1) {
+		if (trim((string) ($workflowData['workflow_description'] ?? '')) === '') {
+			return false;
+		}
+
+		if ($workflowData['workflow_amount_min'] === null || $workflowData['workflow_amount_max'] === null) {
 			return false;
 		}
 
@@ -195,6 +232,10 @@ class WorkflowController
 
 		foreach ($steps as $step) {
 			if ($step['step_name'] === '') {
+				return false;
+			}
+
+			if (($step['step_timeout_hours'] ?? null) === null || (int) ($step['step_timeout_hours'] ?? 0) <= 0) {
 				return false;
 			}
 
@@ -250,7 +291,6 @@ class WorkflowController
 			'search' => trim((string) ($_GET['search'] ?? '')),
 			'status' => trim((string) ($_GET['status'] ?? '')),
 			'workflow_type' => trim((string) ($_GET['workflow_type'] ?? '')),
-			'budget_category_id' => (int) ($_GET['budget_category_id'] ?? 0),
 		];
 
 		$perPage = 10;
@@ -265,7 +305,6 @@ class WorkflowController
 		$offset = ($currentPage - 1) * $perPage;
 		$workflows = $workflowModel->getAllWorkflows($filters, $perPage, $offset);
 		$workflowTypes = $workflowModel->getAllWorkflowTypes();
-		$budgetCategories = (new BudgetCategoryModel())->getSelectableCategories();
 
 		$pageTitle = 'Workflow List - Expense Register';
 		$pageStyles = ['assets/css/app.css'];
@@ -309,7 +348,7 @@ class WorkflowController
 		$submitLabel = 'Save Workflow';
 		$workflow = [
 			'workflow_name' => '',
-			'budget_category_id' => 0,
+
 			'workflow_type' => '',
 			'workflow_amount_min' => '',
 			'workflow_amount_max' => '',
@@ -472,8 +511,9 @@ class WorkflowController
 			exit;
 		}
 
+		$model = new WorkflowModel();
 		$workflowData = $this->normalizeWorkflowPayload($_POST);
-		$steps = $this->normalizeStepsPayload($_POST);
+		$steps = $this->preserveInactiveStepValues($workflowId, $this->normalizeStepsPayload($_POST), $model);
 
 		if (!$this->isValidWorkflowPayload($workflowData, $steps)) {
 			flash_error('Please fill required fields and ensure workflow amount range is valid.');
@@ -481,7 +521,6 @@ class WorkflowController
 			exit;
 		}
 
-		$model = new WorkflowModel();
 		$success = $model->updateWorkflow($workflowId, $workflowData, $steps);
 
 		if ($success) {

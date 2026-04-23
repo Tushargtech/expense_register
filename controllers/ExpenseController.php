@@ -70,8 +70,8 @@ class ExpenseController
     private function requestTypeOptions(): array
     {
         return [
-            'expense' => 'Reimbursable',
-            'purchase' => 'Company Paid',
+            'expense' => 'Expense',
+            'purchase' => 'Purchase',
         ];
     }
 
@@ -87,61 +87,62 @@ class ExpenseController
     private function normalizeRequestTypeValue(string $value): string
     {
         $normalized = strtolower(trim($value));
+        $normalized = str_replace('_', ' ', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
 
         return match ($normalized) {
-            'reimbursable', 'expense' => 'expense',
-            'company paid', 'company_paid', 'purchase' => 'purchase',
+            'expense' => 'expense',
+            'reimbursable' => 'expense',
+            'purchase' => 'purchase',
+            'company paid' => 'purchase',
             default => $normalized,
         };
     }
 
     private function normalizeCreatePayload(array $source): array
     {
+        $attachmentTypes = [];
+        if (isset($source['attachment_type']) && is_array($source['attachment_type'])) {
+            foreach ($source['attachment_type'] as $type) {
+                $normalized = strtolower(trim((string) $type));
+                if ($normalized !== '') {
+                    $attachmentTypes[] = $normalized;
+                }
+            }
+        }
+
         return [
+            'request_reference_no' => trim((string) ($source['request_reference_no'] ?? '')),
             'request_title' => trim((string) ($source['request_title'] ?? '')),
-            'request_type' => $this->normalizeRequestTypeValue((string) ($source['request_type'] ?? 'reimbursable')),
+            'request_type' => $this->normalizeRequestTypeValue((string) ($source['request_type'] ?? 'expense')),
             'request_amount' => trim((string) ($source['request_amount'] ?? '')),
-            'request_currency' => strtoupper(trim((string) ($source['request_currency'] ?? 'INR'))),
             'department_id' => (int) ($source['department_id'] ?? 0),
             'budget_category_id' => (int) ($source['budget_category_id'] ?? 0),
             'request_priority' => strtolower(trim((string) ($source['request_priority'] ?? 'low'))),
             'request_description' => trim((string) ($source['request_description'] ?? '')),
             'request_notes' => trim((string) ($source['request_notes'] ?? '')),
+            'attachment_types' => $attachmentTypes,
         ];
     }
 
-    private function generateRequestReferenceNo(): string
-    {
-        try {
-            $randomPart = strtoupper(bin2hex(random_bytes(3)));
-        } catch (Throwable $error) {
-            $randomPart = strtoupper(substr(sha1(uniqid((string) mt_rand(), true)), 0, 6));
-        }
-
-        return 'EXP-' . date('Ymd') . '-' . $randomPart;
-    }
-
-    private function resolveWorkflowSelection(int $budgetCategoryId, string $requestType, int $departmentId, int $requesterId): array
+    private function resolveWorkflowSelection(string $requestType, string $requestAmount, int $departmentId, int $requesterId): array
     {
         $workflowModel = $this->workflowModel();
         $requestType = strtolower(trim($requestType));
+        $amount = is_numeric($requestAmount) ? (float) $requestAmount : 0.0;
 
-        $candidates = $workflowModel->getSelectableWorkflows($budgetCategoryId > 0 ? $budgetCategoryId : null, $requestType !== '' ? $requestType : null);
-        if ($candidates === [] && $budgetCategoryId > 0) {
-            $candidates = $workflowModel->getSelectableWorkflows($budgetCategoryId, null);
-        }
-        if ($candidates === [] && $requestType !== '') {
-            $candidates = $workflowModel->getSelectableWorkflows(null, $requestType);
+        if ($requestType === '' || $amount <= 0) {
+            return [null, null, null];
         }
 
-        if ($candidates === []) {
-                return [null, null, null];
+        $workflow = $workflowModel->getWorkflowForRequestCriteria($requestType, $amount);
+        if (!is_array($workflow)) {
+            return [null, null, null];
         }
 
-        $workflow = $candidates[0];
         $workflowId = (int) ($workflow['workflow_id'] ?? 0);
         if ($workflowId <= 0) {
-                return [null, null, null];
+            return [null, null, null];
         }
 
         $steps = $workflowModel->getWorkflowStepsByWorkflowId($workflowId);
@@ -196,7 +197,30 @@ class ExpenseController
         return array_values(array_unique($assigneeIds));
     }
 
-    private function buildAttachmentPayload(array $file): array
+    private function resolveAttachmentFolder(string $attachmentType): string
+    {
+        return match ($attachmentType) {
+            'invoice' => 'uploads/invoices',
+            'receipt' => 'uploads/receipts',
+            default => 'uploads/others',
+        };
+    }
+
+    private function ensureAttachmentFolderExists(string $relativeFolder): void
+    {
+        $absoluteFolder = ROOT_PATH . '/' . ltrim($relativeFolder, '/');
+        if (!is_dir($absoluteFolder) && !mkdir($absoluteFolder, 0775, true) && !is_dir($absoluteFolder)) {
+            throw new RuntimeException('Failed to create attachment upload directory.');
+        }
+
+        @chmod($absoluteFolder, 0775);
+
+        if (!is_writable($absoluteFolder)) {
+            throw new RuntimeException('Upload folder is not writable: ' . $absoluteFolder);
+        }
+    }
+
+    private function buildAttachmentPayload(array $file, string $attachmentType): array
     {
         $originalName = trim((string) ($file['name'] ?? ''));
         $tmpPath = (string) ($file['tmp_name'] ?? '');
@@ -223,19 +247,37 @@ class ExpenseController
             throw new RuntimeException('Invalid attachment content type.');
         }
 
-        $contents = file_get_contents($tmpPath);
-        if ($contents === false) {
-            throw new RuntimeException('Failed to read uploaded attachment.');
+        $storedName = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $extension;
+        $relativeFolder = $this->resolveAttachmentFolder($attachmentType);
+        $this->ensureAttachmentFolderExists($relativeFolder);
+        $relativePath = $relativeFolder . '/' . $storedName;
+        $absolutePath = ROOT_PATH . '/' . ltrim($relativePath, '/');
+
+        // Verify folder exists and is writable
+        $folderPath = dirname($absolutePath);
+        if (!is_dir($folderPath)) {
+            throw new RuntimeException('Upload folder does not exist: ' . $folderPath);
+        }
+
+        if (!is_writable($folderPath)) {
+            throw new RuntimeException('Upload folder is not writable: ' . $folderPath);
+        }
+
+        if (!file_exists($tmpPath)) {
+            throw new RuntimeException('Temporary file does not exist.');
+        }
+
+        if (!move_uploaded_file($tmpPath, $absolutePath)) {
+            throw new RuntimeException('Failed to store uploaded attachment file. Check folder permissions.');
         }
 
         return [
             'attachment_file_name' => basename($originalName),
-            'attachment_stored_name' => date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $extension,
-            'attachment_file_path' => '',
-            'attachment_file_data' => base64_encode($contents),
+            'attachment_stored_name' => $storedName,
+            'attachment_file_path' => $relativePath,
             'attachment_file_size' => $size,
             'attachment_mime_type' => $mimeType,
-            'attachment_type' => 'other',
+            'attachment_type' => $attachmentType,
             'attachment_uploaded_by' => (int) ($_SESSION['auth']['user_id'] ?? 0),
         ];
     }
@@ -280,15 +322,21 @@ class ExpenseController
         return $normalized;
     }
 
-        private function validateCreatePayload(array $payload, array $category, array $workflow, ?int $firstStepId, array $firstStepAssigneeIds): array
+    private function validateCreatePayload(array $payload, array $category, array $workflow, ?int $firstStepId, array $firstStepAssigneeIds): array
     {
         $errors = [];
         $allowedTypes = array_keys($this->requestTypeOptions());
-        $allowedCurrencies = $this->lookup()->getRequestCurrencies();
         $allowedPriorities = array_keys($this->priorityOptions());
+        $allowedAttachmentTypes = ['invoice', 'receipt', 'other'];
 
         if (!in_array($payload['request_type'], $allowedTypes, true)) {
             $errors[] = 'Please select a valid request type.';
+        }
+
+        if ($payload['request_reference_no'] === '') {
+            $errors[] = 'Reference number is required.';
+        } elseif (strlen($payload['request_reference_no']) > 30) {
+            $errors[] = 'Reference number must be 30 characters or less.';
         }
 
         if ($payload['request_title'] === '') {
@@ -299,8 +347,8 @@ class ExpenseController
             $errors[] = 'Amount must be greater than zero.';
         }
 
-        if (!in_array($payload['request_currency'], $allowedCurrencies, true) && $allowedCurrencies !== []) {
-            $errors[] = 'Please select a valid currency.';
+        if ($payload['request_description'] === '') {
+            $errors[] = 'Description is required.';
         }
 
         if ($payload['department_id'] <= 0) {
@@ -315,6 +363,15 @@ class ExpenseController
             $errors[] = 'Please select a valid priority.';
         }
 
+        if (isset($payload['attachment_types']) && is_array($payload['attachment_types'])) {
+            foreach ($payload['attachment_types'] as $attachmentType) {
+                if ($attachmentType !== '' && !in_array($attachmentType, $allowedAttachmentTypes, true)) {
+                    $errors[] = 'Please select a valid attachment type.';
+                    break;
+                }
+            }
+        }
+
         if ($category === [] || (int) ($category['budget_category_id'] ?? 0) <= 0) {
             $errors[] = 'Selected budget category was not found.';
         } elseif ($this->normalizeRequestTypeValue((string) ($category['budget_category_type'] ?? '')) !== $payload['request_type']) {
@@ -322,7 +379,7 @@ class ExpenseController
         }
 
         if ($workflow === [] || (int) ($workflow['workflow_id'] ?? 0) <= 0) {
-            $errors[] = 'No active workflow is available for the selected request type and budget category.';
+            $errors[] = 'No active workflow is available for the selected request type and amount.';
         }
 
         if ($firstStepId === null) {
@@ -447,6 +504,17 @@ class ExpenseController
         ];
 
         $data = $this->model->getExpenses($filters, $page, $perPage);
+        $editableRequestIds = [];
+        if (!empty($data['expenses']) && is_array($data['expenses'])) {
+            $requestIds = [];
+            foreach ($data['expenses'] as $expenseRow) {
+                $requestId = (int) ($expenseRow['request_id'] ?? 0);
+                if ($requestId > 0) {
+                    $requestIds[] = $requestId;
+                }
+            }
+            $editableRequestIds = $this->model->getEditablePendingRequestIdsForOwner((int) ($_SESSION['auth']['user_id'] ?? 0), $requestIds);
+        }
         $departments = $canFilterByDepartment ? $this->departmentModel()->getAllDepartments() : [];
 
         extract(array_merge($data, [
@@ -454,6 +522,7 @@ class ExpenseController
             'currentPage' => $page,
             'perPage' => $perPage,
             'departments' => $departments,
+            'editableRequestIds' => $editableRequestIds,
             'canCreateExpense' => true,
             'defaultRequestScope' => $defaultRequestScope,
             'canFilterByDepartment' => $canFilterByDepartment,
@@ -485,11 +554,6 @@ class ExpenseController
 
         $requestTypes = $this->requestTypeOptions();
         $priorityOptions = $this->priorityOptions();
-        $currencyOptions = $this->lookup()->getRequestCurrencies();
-        if ($currencyOptions === []) {
-            $currencyOptions = ['INR'];
-        }
-
         $departmentId = $this->resolveAuthenticatedDepartmentId();
         if ($departmentId <= 0) {
             flash_error('Your account is not linked to a department. Please contact HR/Admin.');
@@ -518,8 +582,8 @@ class ExpenseController
         $categoryModel = $this->budgetCategoryModel();
         $category = $payload['budget_category_id'] > 0 ? $categoryModel->getCategoryById($payload['budget_category_id']) : null;
         $workflowSelection = $this->resolveWorkflowSelection(
-            $payload['budget_category_id'],
             $payload['request_type'],
+            $payload['request_amount'],
             (int) $payload['department_id'],
             (int) ($_SESSION['auth']['user_id'] ?? 0)
         );
@@ -536,12 +600,12 @@ class ExpenseController
         }
 
         $requestData = [
-            'request_reference_no' => $this->generateRequestReferenceNo(),
+            'request_reference_no' => $payload['request_reference_no'],
             'request_type' => $payload['request_type'],
             'request_title' => $payload['request_title'],
             'request_description' => $payload['request_description'] !== '' ? $payload['request_description'] : null,
             'request_amount' => $payload['request_amount'],
-            'request_currency' => $payload['request_currency'],
+            'request_currency' => 'INR',
             'department_id' => $payload['department_id'],
             'request_category' => (string) ($category['budget_category_name'] ?? ''),
             'budget_category_id' => $payload['budget_category_id'],
@@ -557,10 +621,28 @@ class ExpenseController
         ];
 
         $attachmentPayloads = [];
-        foreach ($this->normalizeUploadedFiles('attachment_file') as $file) {
+        $uploadedFiles = $this->normalizeUploadedFiles('attachment_file');
+        $hasAttachment = false;
+        foreach ($uploadedFiles as $file) {
+            if ((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+                $hasAttachment = true;
+                break;
+            }
+        }
+
+        if (!$hasAttachment) {
+            $_SESSION['expense_create_old_input'] = $payload;
+            flash_error('Please add a attachment to submit a request');
+            header('Location: ' . buildCleanRouteUrl('expenses/create'));
+            exit;
+        }
+		$attachmentTypes = isset($payload['attachment_types']) && is_array($payload['attachment_types']) ? $payload['attachment_types'] : [];
+        $fileIndex = 0;
+        foreach ($uploadedFiles as $file) {
             $uploadError = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
 
             if ($uploadError === UPLOAD_ERR_NO_FILE) {
+                $fileIndex++;
                 continue;
             }
 
@@ -571,14 +653,24 @@ class ExpenseController
                 exit;
             }
 
+            $attachmentType = isset($attachmentTypes[$fileIndex]) ? strtolower(trim((string) $attachmentTypes[$fileIndex])) : '';
+            if ($attachmentType === '') {
+                $_SESSION['expense_create_old_input'] = $payload;
+                flash_error('Please select attachment type for each file.');
+                header('Location: ' . buildCleanRouteUrl('expenses/create'));
+                exit;
+            }
+
             try {
-                $attachmentPayloads[] = $this->buildAttachmentPayload($file);
+                $attachmentPayloads[] = $this->buildAttachmentPayload($file, $attachmentType);
             } catch (Throwable $error) {
                 $_SESSION['expense_create_old_input'] = $payload;
                 flash_error($error->getMessage());
                 header('Location: ' . buildCleanRouteUrl('expenses/create'));
                 exit;
             }
+
+            $fileIndex++;
         }
 
         $requestId = $this->model->createRequest($requestData, $attachmentPayloads);
@@ -596,9 +688,9 @@ class ExpenseController
 
         $requestRecord = $this->model->getRequestReviewDetails($requestId);
         if (is_array($requestRecord)) {
-            $requestTypeLabel = match (strtolower(trim((string) ($requestRecord['request_type'] ?? '')))) {
-                'reimbursable' => 'Reimbursable',
-                'company paid' => 'Company Paid',
+                $requestTypeLabel = match (strtolower(trim((string) ($requestRecord['request_type'] ?? '')))) {
+                    'expense' => 'Expense',
+                    'purchase' => 'Purchase',
                 default => ucfirst((string) ($requestRecord['request_type'] ?? 'Request')),
             };
             $requestNo = (string) ($requestRecord['request_reference_no'] ?? $requestData['request_reference_no']);
@@ -710,7 +802,15 @@ class ExpenseController
             }
 
             if ($requestedAction === 'reassign' && !$this->rbac->isDepartmentHead()) {
-                flash_error('Only the department head can reassign a request.');
+                if (!$this->rbac->isManager()) {
+                    flash_error('Only manager or department head can reassign a request.');
+                    header('Location: ' . buildCleanRouteUrl('expenses/review', ['id' => $requestId]));
+                    exit;
+                }
+            }
+
+            if (($requestedAction === 'reject' || $requestedAction === 'reassign') && $actionComment === '') {
+                flash_error('Provide the reason in the required field');
                 header('Location: ' . buildCleanRouteUrl('expenses/review', ['id' => $requestId]));
                 exit;
             }
@@ -743,8 +843,8 @@ class ExpenseController
                     $updatedRequest = $this->model->getRequestReviewDetails($requestId);
                     if (is_array($updatedRequest) && strtolower(trim((string) ($updatedRequest['request_status'] ?? ''))) === 'pending') {
                         $requestTypeLabel = match (strtolower(trim((string) ($updatedRequest['request_type'] ?? '')))) {
-                            'reimbursable' => 'Reimbursable',
-                            'company paid' => 'Company Paid',
+                            'expense' => 'Expense',
+                            'purchase' => 'Purchase',
                             default => ucfirst((string) ($updatedRequest['request_type'] ?? 'Request')),
                         };
                         $requestNo = (string) ($updatedRequest['request_reference_no'] ?? '');
@@ -789,8 +889,8 @@ class ExpenseController
                         }
                     } elseif (is_array($updatedRequest) && strtolower(trim((string) ($updatedRequest['request_status'] ?? ''))) === 'approved') {
                         $requestTypeLabel = match (strtolower(trim((string) ($updatedRequest['request_type'] ?? '')))) {
-                            'reimbursable' => 'Reimbursable',
-                            'company paid' => 'Company Paid',
+                            'expense' => 'Expense',
+                            'purchase' => 'Purchase',
                             default => ucfirst((string) ($updatedRequest['request_type'] ?? 'Request')),
                         };
                         $requestNo = (string) ($updatedRequest['request_reference_no'] ?? '');
@@ -839,8 +939,8 @@ class ExpenseController
                         }
 
                         $requestTypeLabel = match (strtolower(trim((string) ($updatedRequest['request_type'] ?? '')))) {
-                            'reimbursable' => 'Reimbursable',
-                            'company paid' => 'Company Paid',
+                            'expense' => 'Expense',
+                            'purchase' => 'Purchase',
                             default => ucfirst((string) ($updatedRequest['request_type'] ?? 'Request')),
                         };
                         $requestNo = (string) ($updatedRequest['request_reference_no'] ?? '');
@@ -915,21 +1015,19 @@ class ExpenseController
 
         $isOwnRequest = (int) ($request['request_submitted_by'] ?? 0) === $currentUserId;
         $canTakeAction = is_array($pendingAssignment);
-        $canReassignRequest = $canTakeAction && $this->rbac->isDepartmentHead();
+        $canReassignRequest = $canTakeAction && ($this->rbac->isDepartmentHead() || $this->rbac->isManager());
         $reassignableUsers = $canReassignRequest
-            ? $this->model->getDepartmentUsersForReassignment((int) ($request['department_id'] ?? 0), $currentUserId)
+            ? $this->model->getCompanyUsersForReassignment($currentUserId)
             : [];
         $actionFormUrl = buildCleanRouteUrl('expenses/review', ['id' => $requestId]);
 
         $pageTitle = 'Expense Request Details - Expense Register';
         $activeMenu = 'expense-list';
-        $isPendingApproverOnly = $canTakeAction && !$this->rbac->isDepartmentHead() && !$this->rbac->isManager();
 
         require ROOT_PATH . '/views/templates/app_layout.php';
         renderAppLayoutStart([
             'activeMenu' => $activeMenu,
             'pageTitle' => $pageTitle,
-            'showSidebar' => !$isPendingApproverOnly,
         ]);
         require ROOT_PATH . '/views/ExpenseManagement/expense_review.php';
         renderAppLayoutEnd();
@@ -938,6 +1036,190 @@ class ExpenseController
     public function downloadAttachment(): void
     {
         $this->streamAttachment(false);
+    }
+
+    public function edit(): void
+    {
+        $this->ensureExpenseAccess();
+
+        $requestId = (int) ($_GET['id'] ?? 0);
+        if ($requestId <= 0) {
+            flash_error('Invalid request id.');
+            header('Location: ' . buildCleanRouteUrl('expenses'));
+            exit;
+        }
+
+        $currentUserId = (int) ($_SESSION['auth']['user_id'] ?? 0);
+        $request = $this->model->getRequestById($requestId);
+        if (!is_array($request) || (int) ($request['request_submitted_by'] ?? 0) !== $currentUserId) {
+            header('Location: ' . buildCleanRouteUrl('forbidden'));
+            exit;
+        }
+
+        if (!$this->model->canOwnerEditPendingRequest($requestId, $currentUserId)) {
+            flash_error('The request is under Approval Process');
+            header('Location: ' . buildCleanRouteUrl('expenses/review', ['id' => $requestId]));
+            exit;
+        }
+
+        $oldInput = isset($_SESSION['expense_edit_old_input']) && is_array($_SESSION['expense_edit_old_input'])
+            ? $_SESSION['expense_edit_old_input']
+            : [];
+        unset($_SESSION['expense_edit_old_input']);
+
+        if ($oldInput === []) {
+            $oldInput = [
+                'request_reference_no' => (string) ($request['request_reference_no'] ?? ''),
+                'request_title' => (string) ($request['request_title'] ?? ''),
+                'request_type' => $this->normalizeRequestTypeValue((string) ($request['request_type'] ?? 'expense')),
+                'request_amount' => (string) ($request['request_amount'] ?? ''),
+                'budget_category_id' => (int) ($request['budget_category_id'] ?? 0),
+                'request_priority' => (string) ($request['request_priority'] ?? 'low'),
+                'request_description' => (string) ($request['request_description'] ?? ''),
+                'request_notes' => (string) ($request['request_notes'] ?? ''),
+                'attachment_types' => [],
+            ];
+        }
+
+        $pageTitle = 'Edit Expense Request - Expense Register';
+        $activeMenu = 'expense-list';
+        $formTitle = 'Edit Expense Request';
+        $formAction = buildCleanRouteUrl('expenses/edit', ['id' => $requestId]);
+        $submitLabel = 'Update Request';
+        $formError = trim((string) ($_GET['error'] ?? ''));
+        $attachmentMaxSizeMb = $this->fileUploadMaxSizeMb();
+        $requestTypes = $this->requestTypeOptions();
+        $priorityOptions = $this->priorityOptions();
+        $budgetCategories = $this->budgetCategoryModel()->getSelectableCategories();
+
+        require ROOT_PATH . '/views/templates/app_layout.php';
+        renderAppLayoutStart(['activeMenu' => $activeMenu, 'pageTitle' => $pageTitle]);
+        require ROOT_PATH . '/views/ExpenseManagement/expense_creation.php';
+        renderAppLayoutEnd();
+    }
+
+    public function update(): void
+    {
+        $this->ensureExpenseAccess();
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            header('Location: ' . buildCleanRouteUrl('expenses'));
+            exit;
+        }
+
+        $requestId = (int) ($_GET['id'] ?? 0);
+        if ($requestId <= 0) {
+            flash_error('Invalid request id.');
+            header('Location: ' . buildCleanRouteUrl('expenses'));
+            exit;
+        }
+
+        $currentUserId = (int) ($_SESSION['auth']['user_id'] ?? 0);
+        $existingRequest = $this->model->getRequestById($requestId);
+        if (!is_array($existingRequest) || (int) ($existingRequest['request_submitted_by'] ?? 0) !== $currentUserId) {
+            header('Location: ' . buildCleanRouteUrl('forbidden'));
+            exit;
+        }
+
+        if (!$this->model->canOwnerEditPendingRequest($requestId, $currentUserId)) {
+            flash_error('The request is under Approval Process');
+            header('Location: ' . buildCleanRouteUrl('expenses/review', ['id' => $requestId]));
+            exit;
+        }
+
+        $payload = $this->normalizeCreatePayload($_POST);
+        $payload['department_id'] = (int) ($existingRequest['department_id'] ?? 0);
+
+        $categoryModel = $this->budgetCategoryModel();
+        $category = $payload['budget_category_id'] > 0 ? $categoryModel->getCategoryById($payload['budget_category_id']) : null;
+        $workflowSelection = $this->resolveWorkflowSelection(
+            $payload['request_type'],
+            $payload['request_amount'],
+            (int) $payload['department_id'],
+            $currentUserId
+        );
+        $workflow = is_array($workflowSelection[0] ?? null) ? $workflowSelection[0] : [];
+        $firstStepId = isset($workflowSelection[1]) && is_int($workflowSelection[1]) ? $workflowSelection[1] : null;
+        $firstStepAssigneeIds = isset($workflowSelection[2]) && is_array($workflowSelection[2]) ? $workflowSelection[2] : [];
+        $validationErrors = $this->validateCreatePayload($payload, is_array($category) ? $category : [], $workflow, $firstStepId, $firstStepAssigneeIds);
+
+        if (!empty($validationErrors)) {
+            $_SESSION['expense_edit_old_input'] = $payload;
+            flash_error(implode(' ', $validationErrors));
+            header('Location: ' . buildCleanRouteUrl('expenses/edit', ['id' => $requestId]));
+            exit;
+        }
+
+        $requestData = [
+            'request_reference_no' => $payload['request_reference_no'],
+            'request_type' => $payload['request_type'],
+            'request_title' => $payload['request_title'],
+            'request_description' => $payload['request_description'] !== '' ? $payload['request_description'] : null,
+            'request_amount' => $payload['request_amount'],
+            'request_currency' => 'INR',
+            'department_id' => $payload['department_id'],
+            'request_category' => (string) ($category['budget_category_name'] ?? ''),
+            'budget_category_id' => $payload['budget_category_id'],
+            'workflow_id' => (int) ($workflow['workflow_id'] ?? 0),
+            'request_current_step_id' => $firstStepId,
+            'request_priority' => $payload['request_priority'],
+            'request_notes' => $payload['request_notes'] !== '' ? $payload['request_notes'] : null,
+        ];
+
+        $attachmentPayloads = [];
+        $attachmentTypes = isset($payload['attachment_types']) && is_array($payload['attachment_types']) ? $payload['attachment_types'] : [];
+        $fileIndex = 0;
+        foreach ($this->normalizeUploadedFiles('attachment_file') as $file) {
+            $uploadError = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+            if ($uploadError === UPLOAD_ERR_NO_FILE) {
+                $fileIndex++;
+                continue;
+            }
+
+            if ($uploadError !== UPLOAD_ERR_OK) {
+                $_SESSION['expense_edit_old_input'] = $payload;
+                flash_error('Failed to upload attachment. Please try again.');
+                header('Location: ' . buildCleanRouteUrl('expenses/edit', ['id' => $requestId]));
+                exit;
+            }
+
+            $attachmentType = isset($attachmentTypes[$fileIndex]) ? strtolower(trim((string) $attachmentTypes[$fileIndex])) : '';
+            if ($attachmentType === '') {
+                $_SESSION['expense_edit_old_input'] = $payload;
+                flash_error('Please select attachment type for each file.');
+                header('Location: ' . buildCleanRouteUrl('expenses/edit', ['id' => $requestId]));
+                exit;
+            }
+
+            try {
+                $attachmentPayloads[] = $this->buildAttachmentPayload($file, $attachmentType);
+            } catch (Throwable $error) {
+                $_SESSION['expense_edit_old_input'] = $payload;
+                flash_error($error->getMessage());
+                header('Location: ' . buildCleanRouteUrl('expenses/edit', ['id' => $requestId]));
+                exit;
+            }
+
+            $fileIndex++;
+        }
+
+        $updated = $this->model->updateRequestBeforeFirstApproval(
+            $requestId,
+            $requestData,
+            $firstStepAssigneeIds,
+            $attachmentPayloads
+        );
+
+        if (!$updated) {
+            $_SESSION['expense_edit_old_input'] = $payload;
+            flash_error('Failed to update expense request.');
+            header('Location: ' . buildCleanRouteUrl('expenses/edit', ['id' => $requestId]));
+            exit;
+        }
+
+        flash_success('Expense request updated successfully.');
+        header('Location: ' . buildCleanRouteUrl('expenses/review', ['id' => $requestId]));
+        exit;
     }
 
     public function viewAttachment(): void
@@ -976,16 +1258,33 @@ class ExpenseController
             exit;
         }
 
-        $encodedData = (string) ($attachment['attachment_file_data'] ?? '');
-        $binaryPayload = base64_decode($encodedData, true);
-        if ($binaryPayload === false) {
-            flash_error('Attachment data is not readable.');
+        $filePath = (string) ($attachment['attachment_file_path'] ?? '');
+        if ($filePath === '') {
+            flash_error('Attachment file path not found.');
+            header('Location: ' . buildCleanRouteUrl('expenses/review', ['id' => $requestId]));
+            exit;
+        }
+
+        $absolutePath = $filePath;
+        if (!str_starts_with($filePath, '/')) {
+            $absolutePath = ROOT_PATH . '/' . ltrim($filePath, '/');
+        }
+
+        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+            flash_error('Attachment file is not available on the server.');
+            header('Location: ' . buildCleanRouteUrl('expenses/review', ['id' => $requestId]));
+            exit;
+        }
+
+        $fileContents = file_get_contents($absolutePath);
+        if ($fileContents === false) {
+            flash_error('Failed to read attachment file.');
             header('Location: ' . buildCleanRouteUrl('expenses/review', ['id' => $requestId]));
             exit;
         }
 
         $this->emitAttachmentDownload(
-            $binaryPayload,
+            $fileContents,
             (string) ($attachment['attachment_file_name'] ?? 'attachment.bin'),
             (string) ($attachment['attachment_mime_type'] ?? 'application/octet-stream'),
             $inline

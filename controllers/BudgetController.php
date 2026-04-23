@@ -237,7 +237,7 @@ class BudgetController
 		$intent = strtolower(trim((string) ($_POST['upload_intent'] ?? 'preview')));
 
 		if ($intent === 'cancel') {
-			unset($_SESSION['budget_uploader_staged'], $_SESSION['budget_uploader_preview']);
+			unset($_SESSION['budget_uploader_staged'], $_SESSION['budget_uploader_preview'], $_SESSION['budget_uploader_show_preview_once']);
 			header('Location: ?route=budget-uploader');
 			exit;
 		}
@@ -369,8 +369,7 @@ class BudgetController
 					}
 				}
 
-				$_SESSION['budget_uploader_preview'] = $parsedPreview;
-				unset($_SESSION['budget_uploader_staged']);
+				unset($_SESSION['budget_uploader_staged'], $_SESSION['budget_uploader_preview'], $_SESSION['budget_uploader_show_preview_once']);
 
 				$successMessage = 'Budget upload completed. Inserted: ' . $insertedCount . ', Updated: ' . $updatedCount . '.';
 				if (!empty($warnings)) {
@@ -390,7 +389,7 @@ class BudgetController
 					}
 				}
 
-				$_SESSION['budget_uploader_preview'] = $parsedPreview;
+				unset($_SESSION['budget_uploader_staged'], $_SESSION['budget_uploader_preview'], $_SESSION['budget_uploader_show_preview_once']);
 				$errorMessage = trim($error->getMessage());
 				if ($errorMessage === '') {
 					$errorMessage = 'Database insert failed.';
@@ -434,7 +433,7 @@ class BudgetController
 		$errors = isset($parseResult['errors']) && is_array($parseResult['errors']) ? $parseResult['errors'] : [];
 
 		if (empty($rows)) {
-			unset($_SESSION['budget_uploader_staged'], $_SESSION['budget_uploader_preview']);
+			unset($_SESSION['budget_uploader_staged'], $_SESSION['budget_uploader_preview'], $_SESSION['budget_uploader_show_preview_once']);
 			$errorMessage = !empty($errors) ? (string) $errors[0] : 'No data found in the file. Please ensure the file contains budget rows.';
 			flash_error($errorMessage);
 			header('Location: ?route=budget-uploader');
@@ -496,6 +495,7 @@ class BudgetController
 		}
 
 		$_SESSION['budget_uploader_preview'] = $parsedPreview;
+		$_SESSION['budget_uploader_show_preview_once'] = 1;
 		$hasErrors = !empty($rowErrors);
 		if (!$hasErrors && !empty($validRows)) {
 			$_SESSION['budget_uploader_staged'] = [
@@ -516,20 +516,7 @@ class BudgetController
 			}
 		} else {
 			unset($_SESSION['budget_uploader_staged']);
-			$formattedErrors = [];
-			foreach (array_slice($rowErrors, 0, 5) as $errorSet) {
-				$rowNum = (int) ($errorSet['row'] ?? 0);
-				$issues = isset($errorSet['issues']) && is_array($errorSet['issues']) ? $errorSet['issues'] : [];
-				$formattedErrors[] = 'Row ' . $rowNum . ': ' . implode(', ', $issues);
-			}
-			$errorSummary = 'Preview generated, but rows contain issues. ';
-			if (!empty($formattedErrors)) {
-				$errorSummary .= implode(' | ', $formattedErrors);
-				if (count($rowErrors) > 5) {
-					$errorSummary .= ' (...and ' . (count($rowErrors) - 5) . ' more)';
-				}
-			}
-			flash_error(trim($errorSummary));
+			flash_error('There are some changes needed in the budget upload file so kindly see the preview below.');
 		}
 
 		header('Location: ?route=budget-uploader');

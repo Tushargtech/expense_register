@@ -39,19 +39,7 @@ require_once ROOT_PATH . '/libraries/ApiRequest.php';
 require_once ROOT_PATH . '/libraries/ApiResponse.php';
 require_once ROOT_PATH . '/libraries/MailService.php';
 
-if (!function_exists('runDailyTempFileCleanup')) {
-	function runDailyTempFileCleanup(): void
-	{
-		try {
-			$expenseModel = new ExpenseModel();
-			$expenseModel->runDailyTempFileCleanupCron();
-		} catch (Throwable $error) {
-			error_log('runDailyTempFileCleanup failed: ' . $error->getMessage());
-		}
-	}
-}
-
-runDailyTempFileCleanup();
+// Temp file cleanup feature removed - files are now stored directly in upload folders
 
 if (!function_exists('isApiRequestPath')) {
 	function isApiRequestPath(): bool

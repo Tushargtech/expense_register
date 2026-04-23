@@ -63,13 +63,13 @@ class LookupModel
         $rows = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
 
         $types = $this->normalizeUniqueStringList($rows, static fn(string $value): string => strtolower($value));
-        if ($types !== []) {
-            return $types;
+        $normalizedTypes = array_map(fn(string $value): string => $this->normalizeWorkflowType($value), $types);
+        $filteredTypes = array_values(array_filter(array_unique($normalizedTypes), static fn(string $type): bool => in_array($type, ['expense', 'purchase'], true)));
+        if ($filteredTypes !== []) {
+            return $filteredTypes;
         }
 
-        $requestTypes = $this->getRequestTypes();
-
-        return array_values(array_filter($requestTypes, static fn(string $type): bool => $type !== 'other'));
+        return ['expense', 'purchase'];
     }
 
     public function getWorkflowTypes(): array
@@ -94,16 +94,15 @@ class LookupModel
         $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
 
         $aliases = [
-            'expense' => 'reimbursable',
-            'expnse' => 'reimbursable',
-            'expence' => 'reimbursable',
-            'exponse' => 'reimbursable',
-            'purchase' => 'company paid',
-            'puchase' => 'company paid',
-            'purchse' => 'company paid',
-            'prchase' => 'company paid',
+            'expense' => 'expense',
+            'expnse' => 'expense',
+            'expence' => 'expense',
+            'exponse' => 'expense',
+            'purchase' => 'purchase',
+            'puchase' => 'purchase',
+            'purchse' => 'purchase',
+            'prchase' => 'purchase',
         ];
-
         if (isset($aliases[$normalized])) {
             return $aliases[$normalized];
         }

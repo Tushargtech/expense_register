@@ -17,8 +17,8 @@ $submittedAt = (string) ($request['request_submitted_at'] ?? '');
 $resolvedAt = (string) ($request['request_resolved_at'] ?? '');
 
 $typeLabel = match ($requestType) {
-    'reimbursable' => 'Reimbursable',
-    'company paid' => 'Company Paid',
+    'expense' => 'Expense',
+    'purchase' => 'Purchase',
     default => ucfirst($requestType),
 };
 
@@ -171,14 +171,15 @@ $statusLabel = ucfirst($requestStatus !== '' ? $requestStatus : 'pending');
                                     <div class="review-action-panel" data-review-panel="reassign" hidden>
                                         <label class="user-create-label" for="reassign_to">Reassign To</label>
                                         <select id="reassign_to" name="reassign_to" class="form-select review-action-select">
-                                            <option value="">Select a user from this department</option>
+                                            <option value="">Select employee</option>
                                             <?php foreach ($reassignableUsers as $user): ?>
                                                 <?php $userId = (int) ($user['user_id'] ?? 0); ?>
-                                                <option value="<?php echo $userId; ?>"><?php echo htmlspecialchars((string) ($user['user_name'] ?? 'User'), ENT_QUOTES, 'UTF-8'); ?></option>
+                                                <?php $deptName = trim((string) ($user['department_name'] ?? '')); ?>
+                                                <option value="<?php echo $userId; ?>"><?php echo htmlspecialchars((string) ($user['user_name'] ?? 'User') . ($deptName !== '' ? ' (' . $deptName . ')' : ''), ENT_QUOTES, 'UTF-8'); ?></option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <label class="user-create-label" for="action_comment_reassign">Reassign Note</label>
-                                        <textarea id="action_comment_reassign" name="action_comment" class="user-create-input review-action-textarea" rows="4" placeholder="Optional note for the reassignment."></textarea>
+                                        <label class="user-create-label" for="action_comment_reassign">Reassign Reason</label>
+                                        <textarea id="action_comment_reassign" name="action_comment" class="user-create-input review-action-textarea" rows="4" placeholder="Provide the reason for reassignment."></textarea>
                                         <button type="submit" class="btn btn-secondary review-action-confirm">Confirm Reassign</button>
                                     </div>
                                 <?php endif; ?>
@@ -282,6 +283,11 @@ $statusLabel = ucfirst($requestStatus !== '' ? $requestStatus : 'pending');
         if (reassignSelect) {
             reassignSelect.required = false;
         }
+
+        if (reassignComment) {
+            reassignComment.required = false;
+            reassignComment.value = '';
+        }
     };
 
     triggers.forEach(function (trigger) {
@@ -313,6 +319,9 @@ $statusLabel = ucfirst($requestStatus !== '' ? $requestStatus : 'pending');
 
             if (action === 'reassign' && reassignSelect) {
                 reassignSelect.required = true;
+                if (reassignComment) {
+                    reassignComment.required = true;
+                }
                 reassignSelect.focus();
             }
         });

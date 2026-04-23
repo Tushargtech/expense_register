@@ -3,12 +3,55 @@
 class ExpenseModel
 {
     private $db;
-    private ?bool $requestWorkflowSnapshotAvailable = null;
     private ?bool $maintenanceRunsTableAvailable = null;
+    private array $autoIncrementSupport = [];
 
     public function __construct()
     {
         $this->db = getDB();
+    }
+
+    private function supportsAutoIncrement(string $tableName, string $columnName): bool
+    {
+        $cacheKey = $tableName . '.' . $columnName;
+        if (array_key_exists($cacheKey, $this->autoIncrementSupport)) {
+            return $this->autoIncrementSupport[$cacheKey];
+        }
+
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT EXTRA
+                 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = :table_name
+                   AND COLUMN_NAME = :column_name
+                 LIMIT 1'
+            );
+            $stmt->execute([
+                ':table_name' => $tableName,
+                ':column_name' => $columnName,
+            ]);
+            $extra = strtolower(trim((string) ($stmt->fetchColumn() ?: '')));
+            $this->autoIncrementSupport[$cacheKey] = str_contains($extra, 'auto_increment');
+        } catch (Throwable $error) {
+            $this->autoIncrementSupport[$cacheKey] = false;
+        }
+
+        return $this->autoIncrementSupport[$cacheKey];
+    }
+
+    private function reserveNextId(string $tableName, string $columnName): int
+    {
+        $stmt = $this->db->query(
+            'SELECT `' . $columnName . '`
+             FROM `' . $tableName . '`
+             ORDER BY `' . $columnName . '` DESC
+             LIMIT 1
+             FOR UPDATE'
+        );
+        $currentId = (int) ($stmt->fetchColumn() ?: 0);
+
+        return $currentId + 1;
     }
 
     private function ensureMaintenanceRunsTable(): bool
@@ -63,176 +106,16 @@ class ExpenseModel
         ]);
     }
 
-    private function isTemporaryAttachmentPath(string $path): bool
+    private function getWorkflowStepsByWorkflowId(int $workflowId): array
     {
-        $normalized = str_replace('\\', '/', strtolower(trim($path)));
-        if ($normalized === '') {
-            return false;
-        }
-
-        $tempDir = str_replace('\\', '/', strtolower((string) sys_get_temp_dir()));
-        if ($tempDir !== '' && str_starts_with($normalized, rtrim($tempDir, '/') . '/')) {
-            return true;
-        }
-
-        return str_contains($normalized, '/tmp/')
-            || str_contains($normalized, '/temp/')
-            || str_contains($normalized, '/uploads/tmp/');
-    }
-
-    private function resolveAttachmentPath(string $path): string
-    {
-        if ($path === '') {
-            return '';
-        }
-
-        if (str_starts_with($path, '/')) {
-            return $path;
-        }
-
-        if (preg_match('/^[A-Za-z]:\\\\/', $path) === 1) {
-            return $path;
-        }
-
-        return ROOT_PATH . '/' . ltrim($path, '/');
-    }
-
-    public function runDailyTempFileCleanupCron(): array
-    {
-        $now = new DateTimeImmutable('now');
-        $today = $now->format('Y-m-d');
-        $hour = (int) $now->format('H');
-        $jobName = 'temp_file_cleanup';
-
-        if ($hour < 3) {
-            return ['ran' => false, 'reason' => 'before_schedule'];
-        }
-
-        try {
-            $lockStmt = $this->db->query("SELECT GET_LOCK('expense_register_temp_file_cleanup', 0)");
-            $hasLock = (int) ($lockStmt !== false ? $lockStmt->fetchColumn() : 0) === 1;
-
-            if (!$hasLock) {
-                return ['ran' => false, 'reason' => 'lock_unavailable'];
-            }
-
-            try {
-                if ($this->wasMaintenanceJobRunToday($jobName, $today)) {
-                    return ['ran' => false, 'reason' => 'already_ran_today'];
-                }
-
-                $sql = "SELECT
-                            ra.attachment_id,
-                            ra.attachment_file_path,
-                            r.request_id,
-                            LOWER(TRIM(COALESCE(r.request_status, ''))) AS request_status
-                        FROM request_attachments ra
-                        LEFT JOIN requests r ON r.request_id = ra.request_id
-                        WHERE COALESCE(ra.attachment_file_path, '') <> ''";
-
-                $stmt = $this->db->query($sql);
-                $rows = $stmt !== false ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
-
-                $deletedFiles = 0;
-                foreach ($rows as $row) {
-                    $requestStatus = (string) ($row['request_status'] ?? '');
-                    $isFinalized = in_array($requestStatus, ['approved', 'accepted', 'rejected'], true);
-                    if ($isFinalized) {
-                        continue;
-                    }
-
-                    $rawPath = (string) ($row['attachment_file_path'] ?? '');
-                    if (!$this->isTemporaryAttachmentPath($rawPath)) {
-                        continue;
-                    }
-
-                    $resolvedPath = $this->resolveAttachmentPath($rawPath);
-                    if ($resolvedPath !== '' && is_file($resolvedPath)) {
-                        if (@unlink($resolvedPath)) {
-                            $deletedFiles++;
-                        }
-                    }
-                }
-
-                $this->markMaintenanceJobRun($jobName, $now->format('Y-m-d H:i:s'));
-
-                return [
-                    'ran' => true,
-                    'deleted_files' => $deletedFiles,
-                ];
-            } finally {
-                $this->db->query("SELECT RELEASE_LOCK('expense_register_temp_file_cleanup')");
-            }
-        } catch (Throwable $error) {
-            error_log('ExpenseModel::runDailyTempFileCleanupCron failed: ' . $error->getMessage());
-
-            return ['ran' => false, 'reason' => 'exception'];
-        }
-    }
-
-    private function ensureRequestWorkflowSnapshotTable(): bool
-    {
-        if ($this->requestWorkflowSnapshotAvailable !== null) {
-            return $this->requestWorkflowSnapshotAvailable;
-        }
-
-        try {
-            $tableCheckStmt = $this->db->query("SHOW TABLES LIKE 'request_workflow_steps'");
-            if ($tableCheckStmt !== false && $tableCheckStmt->fetch(PDO::FETCH_NUM) !== false) {
-                $this->requestWorkflowSnapshotAvailable = true;
-                return true;
-            }
-
-            $this->db->exec(
-                "CREATE TABLE IF NOT EXISTS request_workflow_steps (
-                    request_workflow_step_id INT NOT NULL AUTO_INCREMENT,
-                    request_id INT NOT NULL,
-                    workflow_step_id INT NOT NULL,
-                    step_order INT NOT NULL,
-                    step_name VARCHAR(150) DEFAULT NULL,
-                    step_approver_type VARCHAR(50) DEFAULT NULL,
-                    step_approver_role VARCHAR(50) DEFAULT NULL,
-                    step_approver_user_id INT DEFAULT NULL,
-                    step_is_required TINYINT(1) DEFAULT 1,
-                    step_timeout_hours INT DEFAULT NULL,
-                    step_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (request_workflow_step_id),
-                    KEY idx_request_workflow_steps_request_id (request_id),
-                    KEY idx_request_workflow_steps_step_id (workflow_step_id),
-                    CONSTRAINT request_workflow_steps_ibfk_1 FOREIGN KEY (request_id) REFERENCES requests (request_id) ON DELETE CASCADE
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
-            );
-
-            $tableCheckStmt = $this->db->query("SHOW TABLES LIKE 'request_workflow_steps'");
-            $this->requestWorkflowSnapshotAvailable = $tableCheckStmt !== false && $tableCheckStmt->fetch(PDO::FETCH_NUM) !== false;
-
-            return $this->requestWorkflowSnapshotAvailable;
-        } catch (Throwable $error) {
-            $this->requestWorkflowSnapshotAvailable = false;
-            error_log('ExpenseModel::ensureRequestWorkflowSnapshotTable failed: ' . $error->getMessage());
-
-            return false;
-        }
-    }
-
-    private function snapshotWorkflowStepsForRequest(int $requestId, int $workflowId): array
-    {
-        if ($requestId <= 0 || $workflowId <= 0) {
+        if ($workflowId <= 0) {
             return [];
         }
 
-        if (!$this->ensureRequestWorkflowSnapshotTable()) {
-            return [];
-        }
-
-        $existing = $this->getRequestWorkflowSteps($requestId);
-        if ($existing !== []) {
-            return $existing;
-        }
-
-        $stepsStmt = $this->db->prepare(
+        $stmt = $this->db->prepare(
             "SELECT
                 step_id,
+                workflow_id,
                 step_order,
                 step_name,
                 step_approver_type,
@@ -244,98 +127,36 @@ class ExpenseModel
              WHERE workflow_id = :workflow_id
              ORDER BY step_order ASC, step_id ASC"
         );
-        $stepsStmt->execute([':workflow_id' => $workflowId]);
-        $steps = $stepsStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if ($steps === []) {
-            return [];
-        }
-
-        $insertStmt = $this->db->prepare(
-            "INSERT INTO request_workflow_steps (
-                request_id,
-                workflow_step_id,
-                step_order,
-                step_name,
-                step_approver_type,
-                step_approver_role,
-                step_approver_user_id,
-                step_is_required,
-                step_timeout_hours
-            ) VALUES (
-                :request_id,
-                :workflow_step_id,
-                :step_order,
-                :step_name,
-                :step_approver_type,
-                :step_approver_role,
-                :step_approver_user_id,
-                :step_is_required,
-                :step_timeout_hours
-            )"
-        );
-
-        foreach ($steps as $step) {
-            $insertStmt->execute([
-                ':request_id' => $requestId,
-                ':workflow_step_id' => (int) ($step['step_id'] ?? 0),
-                ':step_order' => (int) ($step['step_order'] ?? 0),
-                ':step_name' => $step['step_name'] ?? null,
-                ':step_approver_type' => $step['step_approver_type'] ?? null,
-                ':step_approver_role' => $step['step_approver_role'] ?? null,
-                ':step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0) > 0 ? (int) $step['step_approver_user_id'] : null,
-                ':step_is_required' => (int) ($step['step_is_required'] ?? 1),
-                ':step_timeout_hours' => $step['step_timeout_hours'] !== null && $step['step_timeout_hours'] !== '' ? (int) $step['step_timeout_hours'] : null,
-            ]);
-        }
-
-        return $this->getRequestWorkflowSteps($requestId);
-    }
-
-    private function getRequestWorkflowSteps(int $requestId): array
-    {
-        if ($requestId <= 0 || !$this->ensureRequestWorkflowSnapshotTable()) {
-            return [];
-        }
-
-        $stmt = $this->db->prepare(
-            "SELECT
-                workflow_step_id AS step_id,
-                step_order,
-                step_name,
-                step_approver_type,
-                step_approver_role,
-                step_approver_user_id,
-                step_is_required,
-                step_timeout_hours
-             FROM request_workflow_steps
-             WHERE request_id = :request_id
-             ORDER BY step_order ASC, workflow_step_id ASC"
-        );
-        $stmt->execute([':request_id' => $requestId]);
+        $stmt->execute([':workflow_id' => $workflowId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function getRequestWorkflowStepById(int $requestId, int $workflowStepId): ?array
+    private function getWorkflowStepAssignmentByWorkflowStep(int $requestId, int $workflowStepId): ?array
     {
-        if ($requestId <= 0 || $workflowStepId <= 0 || !$this->ensureRequestWorkflowSnapshotTable()) {
+        if ($requestId <= 0 || $workflowStepId <= 0) {
             return null;
         }
 
         $stmt = $this->db->prepare(
             "SELECT
-                workflow_step_id AS step_id,
-                step_order,
-                step_name,
+                request_step_id,
+                request_id,
+                workflow_step_id,
+                request_step_assigned_to,
+                request_step_status,
+                is_auto_approved,
+                approved_by,
+                request_step_assigned_at,
+                request_step_acted_at,
+                request_step_comment,
                 step_approver_type,
                 step_approver_role,
-                step_approver_user_id,
-                step_is_required,
-                step_timeout_hours
-             FROM request_workflow_steps
+                step_approver_user_id
+             FROM request_step_assignments
              WHERE request_id = :request_id
                AND workflow_step_id = :workflow_step_id
+             ORDER BY request_step_id DESC
              LIMIT 1"
         );
         $stmt->execute([
@@ -348,46 +169,212 @@ class ExpenseModel
         return $row !== false ? $row : null;
     }
 
-    private function getNextRequestWorkflowStep(int $requestId, int $currentStepId): ?array
-    {
-        if ($requestId <= 0 || $currentStepId <= 0 || !$this->ensureRequestWorkflowSnapshotTable()) {
-            return null;
+    private function insertRequestStepAssignmentRecord(
+        int $requestId,
+        array $step,
+        int $assigneeId,
+        string $status,
+        ?int $approvedBy,
+        ?string $comment,
+        ?string $actedAt,
+        int $isAutoApproved = 0
+    ): bool {
+        $workflowStepId = (int) ($step['step_id'] ?? 0);
+        if ($requestId <= 0 || $workflowStepId <= 0 || $assigneeId <= 0) {
+            return false;
         }
 
-        $currentStep = $this->getRequestWorkflowStepById($requestId, $currentStepId);
-        if (!is_array($currentStep)) {
-            return null;
+        if ($this->getWorkflowStepAssignmentByWorkflowStep($requestId, $workflowStepId) !== null) {
+            return true;
         }
 
-        $currentStepOrder = (int) ($currentStep['step_order'] ?? 0);
-        if ($currentStepOrder <= 0) {
-            return null;
+        $assignmentUsesAutoIncrement = $this->supportsAutoIncrement('request_step_assignments', 'request_step_id');
+        if ($assignmentUsesAutoIncrement) {
+            $assignmentSql = "INSERT INTO request_step_assignments (
+                    request_id,
+                    workflow_step_id,
+                    request_step_assigned_to,
+                    request_step_status,
+                    is_auto_approved,
+                    approved_by,
+                    request_step_acted_at,
+                    request_step_comment,
+                    step_approver_type,
+                    step_approver_role,
+                    step_approver_user_id
+                ) VALUES (
+                    :request_id,
+                    :workflow_step_id,
+                    :request_step_assigned_to,
+                    :request_step_status,
+                    :is_auto_approved,
+                    :approved_by,
+                    :request_step_acted_at,
+                    :request_step_comment,
+                    :step_approver_type,
+                    :step_approver_role,
+                    :step_approver_user_id
+                )";
+        } else {
+            $assignmentSql = "INSERT INTO request_step_assignments (
+                    request_step_id,
+                    request_id,
+                    workflow_step_id,
+                    request_step_assigned_to,
+                    request_step_status,
+                    is_auto_approved,
+                    approved_by,
+                    request_step_acted_at,
+                    request_step_comment,
+                    step_approver_type,
+                    step_approver_role,
+                    step_approver_user_id
+                ) VALUES (
+                    :request_step_id,
+                    :request_id,
+                    :workflow_step_id,
+                    :request_step_assigned_to,
+                    :request_step_status,
+                    :is_auto_approved,
+                    :approved_by,
+                    :request_step_acted_at,
+                    :request_step_comment,
+                    :step_approver_type,
+                    :step_approver_role,
+                    :step_approver_user_id
+                )";
         }
 
-        $stmt = $this->db->prepare(
-            "SELECT
-                workflow_step_id AS step_id,
-                step_order,
-                step_name,
-                step_approver_type,
-                step_approver_role,
-                step_approver_user_id,
-                step_is_required,
-                step_timeout_hours
-             FROM request_workflow_steps
-             WHERE request_id = :request_id
-               AND step_order > :current_step_order
-             ORDER BY step_order ASC, workflow_step_id ASC
-             LIMIT 1"
-        );
-        $stmt->execute([
+        $assignmentStmt = $this->db->prepare($assignmentSql);
+        $assignmentParams = [
             ':request_id' => $requestId,
-            ':current_step_order' => $currentStepOrder,
-        ]);
+            ':workflow_step_id' => $workflowStepId,
+            ':request_step_assigned_to' => $assigneeId,
+            ':request_step_status' => $status,
+            ':is_auto_approved' => $isAutoApproved,
+            ':approved_by' => $approvedBy,
+            ':request_step_acted_at' => $actedAt,
+            ':request_step_comment' => $comment,
+            ':step_approver_type' => $step['step_approver_type'] ?? null,
+            ':step_approver_role' => $step['step_approver_role'] ?? null,
+            ':step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0) > 0 ? (int) $step['step_approver_user_id'] : null,
+        ];
+        if (!$assignmentUsesAutoIncrement) {
+            $assignmentParams[':request_step_id'] = $this->reserveNextId('request_step_assignments', 'request_step_id');
+        }
+        $assignmentStmt->execute($assignmentParams);
 
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $assignmentStmt->rowCount() > 0;
+    }
 
-        return $row !== false ? $row : null;
+    private function advanceRequestWorkflow(
+        int $requestId,
+        int $workflowId,
+        int $currentStepOrder,
+        int $departmentId,
+        int $requesterId,
+        int $creatorUserId,
+        string $actedAt
+    ): array {
+        if ($requestId <= 0 || $workflowId <= 0) {
+            return [
+                'status' => 'approved',
+                'current_step_id' => null,
+                'step' => null,
+            ];
+        }
+
+        $nextStepOrder = $currentStepOrder;
+
+        while (true) {
+            $nextStep = $this->getNextWorkflowStep($workflowId, $nextStepOrder);
+            if (!is_array($nextStep)) {
+                $request = $this->getRequestById($requestId);
+                if (is_array($request)) {
+                    $this->adjustBudgetForFinalApproval($request);
+                }
+
+                $requestUpdateStmt = $this->db->prepare(
+                    "UPDATE requests
+                     SET request_status = 'approved',
+                         request_current_step_id = NULL,
+                         request_resolved_at = :request_resolved_at
+                     WHERE request_id = :request_id"
+                );
+                $requestUpdateStmt->execute([
+                    ':request_id' => $requestId,
+                    ':request_resolved_at' => $actedAt,
+                ]);
+
+                return [
+                    'status' => 'approved',
+                    'current_step_id' => null,
+                    'step' => null,
+                ];
+            }
+
+            $assigneeIds = $this->resolveStepAssigneeIdsForRequestStep($nextStep, $departmentId, $requesterId);
+            if ($assigneeIds === []) {
+                throw new RuntimeException('The workflow step does not have a valid approver.');
+            }
+
+            $assigneeId = (int) $assigneeIds[0];
+            if ($assigneeId <= 0) {
+                throw new RuntimeException('The workflow step does not have a valid approver.');
+            }
+
+            if ($assigneeId === $creatorUserId) {
+                $inserted = $this->insertRequestStepAssignmentRecord(
+                    $requestId,
+                    $nextStep,
+                    $assigneeId,
+                    'auto_approved',
+                    $creatorUserId,
+                    'Auto-approved (self approval skipped)',
+                    $actedAt,
+                    1
+                );
+
+                if (!$inserted) {
+                    throw new RuntimeException('Unable to auto-approve the workflow step.');
+                }
+
+                $nextStepOrder = (int) ($nextStep['step_order'] ?? 0);
+                continue;
+            }
+
+            $inserted = $this->insertRequestStepAssignmentRecord(
+                $requestId,
+                $nextStep,
+                $assigneeId,
+                'pending',
+                null,
+                null,
+                null,
+                0
+            );
+
+            if (!$inserted) {
+                throw new RuntimeException('Unable to assign the next workflow step.');
+            }
+
+            $requestUpdateStmt = $this->db->prepare(
+                "UPDATE requests
+                 SET request_current_step_id = :request_current_step_id,
+                     request_status = 'pending'
+                 WHERE request_id = :request_id"
+            );
+            $requestUpdateStmt->execute([
+                ':request_id' => $requestId,
+                ':request_current_step_id' => (int) ($nextStep['step_id'] ?? 0),
+            ]);
+
+            return [
+                'status' => 'pending',
+                'current_step_id' => (int) ($nextStep['step_id'] ?? 0),
+                'step' => $nextStep,
+            ];
+        }
     }
 
     public function getCurrentRequestStepDefinition(int $requestId, int $currentStepId, int $workflowId): ?array
@@ -396,16 +383,9 @@ class ExpenseModel
             return null;
         }
 
-        $snapshotStep = $this->getRequestWorkflowStepById($requestId, $currentStepId);
-        if (is_array($snapshotStep)) {
-            return $snapshotStep;
-        }
+        $step = $this->getWorkflowStepById($currentStepId);
 
-        if ($workflowId <= 0) {
-            return $this->getWorkflowStepById($currentStepId);
-        }
-
-        return $this->getWorkflowStepById($currentStepId);
+        return is_array($step) ? $step : null;
     }
 
     public function getExpenses(array $filters = [], int $page = 1, int $perPage = 15): array
@@ -734,8 +714,8 @@ class ExpenseModel
         $normalized = strtolower(trim($requestType));
 
         return match ($normalized) {
-            'expense', 'reimbursable' => 'expense',
-            'purchase', 'company paid', 'company_paid' => 'purchase',
+            'expense' => 'expense',
+            'purchase' => 'purchase',
             'other' => 'other',
             default => 'expense',
         };
@@ -747,45 +727,92 @@ class ExpenseModel
 
         try {
             $normalizedRequestType = $this->normalizeRequestTypeForStorage((string) ($requestData['request_type'] ?? ''));
+            $requesterId = (int) ($requestData['request_submitted_by'] ?? 0);
+            $departmentId = (int) ($requestData['department_id'] ?? 0);
+            $workflowId = (int) ($requestData['workflow_id'] ?? 0);
+            $actedAt = $this->getCurrentIstDateTime();
 
-            $requestSql = "INSERT INTO requests (
-                    request_reference_no,
-                    request_type,
-                    request_title,
-                    request_description,
-                    request_amount,
-                    request_currency,
-                    department_id,
-                    request_category,
-                    budget_category_id,
-                    workflow_id,
-                    request_current_step_id,
-                    request_submitted_by,
-                    request_status,
-                    request_priority,
-                    request_notes,
-                    request_submitted_at
-                ) VALUES (
-                    :request_reference_no,
-                    :request_type,
-                    :request_title,
-                    :request_description,
-                    :request_amount,
-                    :request_currency,
-                    :department_id,
-                    :request_category,
-                    :budget_category_id,
-                    :workflow_id,
-                    :request_current_step_id,
-                    :request_submitted_by,
-                    :request_status,
-                    :request_priority,
-                    :request_notes,
-                    :request_submitted_at
-                )";
+            $requestUsesAutoIncrement = $this->supportsAutoIncrement('requests', 'request_id');
+            $requestId = null;
+            if ($requestUsesAutoIncrement) {
+                $requestSql = "INSERT INTO requests (
+                        request_reference_no,
+                        request_type,
+                        request_title,
+                        request_description,
+                        request_amount,
+                        request_currency,
+                        department_id,
+                        request_category,
+                        budget_category_id,
+                        workflow_id,
+                        request_current_step_id,
+                        request_submitted_by,
+                        request_status,
+                        request_priority,
+                        request_notes,
+                        request_submitted_at
+                    ) VALUES (
+                        :request_reference_no,
+                        :request_type,
+                        :request_title,
+                        :request_description,
+                        :request_amount,
+                        :request_currency,
+                        :department_id,
+                        :request_category,
+                        :budget_category_id,
+                        :workflow_id,
+                        :request_current_step_id,
+                        :request_submitted_by,
+                        :request_status,
+                        :request_priority,
+                        :request_notes,
+                        :request_submitted_at
+                    )";
+            } else {
+                $requestId = $this->reserveNextId('requests', 'request_id');
+                $requestSql = "INSERT INTO requests (
+                        request_id,
+                        request_reference_no,
+                        request_type,
+                        request_title,
+                        request_description,
+                        request_amount,
+                        request_currency,
+                        department_id,
+                        request_category,
+                        budget_category_id,
+                        workflow_id,
+                        request_current_step_id,
+                        request_submitted_by,
+                        request_status,
+                        request_priority,
+                        request_notes,
+                        request_submitted_at
+                    ) VALUES (
+                        :request_id,
+                        :request_reference_no,
+                        :request_type,
+                        :request_title,
+                        :request_description,
+                        :request_amount,
+                        :request_currency,
+                        :department_id,
+                        :request_category,
+                        :budget_category_id,
+                        :workflow_id,
+                        :request_current_step_id,
+                        :request_submitted_by,
+                        :request_status,
+                        :request_priority,
+                        :request_notes,
+                        :request_submitted_at
+                    )";
+            }
 
             $requestStmt = $this->db->prepare($requestSql);
-            $requestStmt->execute([
+            $requestParams = [
                 ':request_reference_no' => (string) ($requestData['request_reference_no'] ?? ''),
                 ':request_type' => $normalizedRequestType,
                 ':request_title' => (string) ($requestData['request_title'] ?? ''),
@@ -795,70 +822,32 @@ class ExpenseModel
                 ':department_id' => (int) ($requestData['department_id'] ?? 0),
                 ':request_category' => (string) ($requestData['request_category'] ?? ''),
                 ':budget_category_id' => (int) ($requestData['budget_category_id'] ?? 0),
-                ':workflow_id' => (int) ($requestData['workflow_id'] ?? 0),
-                ':request_current_step_id' => $requestData['request_current_step_id'] !== null
-                    ? (int) $requestData['request_current_step_id']
-                    : null,
-                ':request_submitted_by' => (int) ($requestData['request_submitted_by'] ?? 0),
+                ':workflow_id' => $workflowId,
+                ':request_current_step_id' => null,
+                ':request_submitted_by' => $requesterId,
                 ':request_status' => (string) ($requestData['request_status'] ?? 'pending'),
                 ':request_priority' => (string) ($requestData['request_priority'] ?? 'low'),
                 ':request_notes' => $requestData['request_notes'] ?? null,
                 ':request_submitted_at' => (string) ($requestData['request_submitted_at'] ?? $this->getCurrentIstDateTime()),
-            ]);
+            ];
+            if (!$requestUsesAutoIncrement) {
+                $requestParams[':request_id'] = $requestId;
+            }
+            $requestStmt->execute($requestParams);
 
-            $requestId = (int) $this->db->lastInsertId();
+            if ($requestUsesAutoIncrement) {
+                $requestId = (int) $this->db->lastInsertId();
+            }
 
-            $this->snapshotWorkflowStepsForRequest($requestId, (int) ($requestData['workflow_id'] ?? 0));
-
-                $currentStepId = (int) ($requestData['request_current_step_id'] ?? 0);
-                $assignedToUserIds = [];
-                if (isset($requestData['request_step_assigned_to_ids']) && is_array($requestData['request_step_assigned_to_ids'])) {
-                    foreach ($requestData['request_step_assigned_to_ids'] as $candidateUserId) {
-                        $normalizedUserId = (int) $candidateUserId;
-                        if ($normalizedUserId > 0) {
-                            $assignedToUserIds[] = $normalizedUserId;
-                        }
-                    }
-                }
-
-                if ($assignedToUserIds === []) {
-                    $singleAssignedToUserId = (int) ($requestData['request_step_assigned_to'] ?? 0);
-                    if ($singleAssignedToUserId > 0) {
-                        $assignedToUserIds[] = $singleAssignedToUserId;
-                    }
-                }
-
-                $assignedToUserIds = array_values(array_unique($assignedToUserIds));
-
-                if ($requestId > 0 && $currentStepId > 0 && $assignedToUserIds !== []) {
-                    $assignmentSql = "INSERT INTO request_step_assignments (
-                            request_id,
-                            workflow_step_id,
-                            request_step_assigned_to,
-                            request_step_status,
-                            request_step_acted_at,
-                            request_step_comment
-                        ) VALUES (
-                            :request_id,
-                            :workflow_step_id,
-                            :request_step_assigned_to,
-                            :request_step_status,
-                            :request_step_acted_at,
-                            :request_step_comment
-                        )";
-
-                    $assignmentStmt = $this->db->prepare($assignmentSql);
-                    foreach ($assignedToUserIds as $assignedToUserId) {
-                        $assignmentStmt->execute([
-                            ':request_id' => $requestId,
-                            ':workflow_step_id' => $currentStepId,
-                            ':request_step_assigned_to' => $assignedToUserId,
-                            ':request_step_status' => 'pending',
-                            ':request_step_acted_at' => null,
-                            ':request_step_comment' => null,
-                        ]);
-                    }
-                }
+            $this->advanceRequestWorkflow(
+                $requestId,
+                $workflowId,
+                0,
+                $departmentId,
+                $requesterId,
+                $requesterId,
+                $actedAt
+            );
 
             $attachmentRows = [];
             if (is_array($attachmentData) && !empty($attachmentData)) {
@@ -874,41 +863,67 @@ class ExpenseModel
             }
 
             if ($requestId > 0 && $attachmentRows !== []) {
-                $attachmentSql = "INSERT INTO request_attachments (
-                        request_id,
-                        attachment_file_name,
-                        attachment_stored_name,
-                        attachment_file_path,
-                        attachment_file_data,
-                        attachment_file_size,
-                        attachment_mime_type,
-                        attachment_type,
-                        attachment_uploaded_by
-                    ) VALUES (
-                        :request_id,
-                        :attachment_file_name,
-                        :attachment_stored_name,
-                        :attachment_file_path,
-                        :attachment_file_data,
-                        :attachment_file_size,
-                        :attachment_mime_type,
-                        :attachment_type,
-                        :attachment_uploaded_by
-                    )";
+                $attachmentUsesAutoIncrement = $this->supportsAutoIncrement('request_attachments', 'attachment_id');
+                if ($attachmentUsesAutoIncrement) {
+                    $attachmentSql = "INSERT INTO request_attachments (
+                            request_id,
+                            attachment_file_name,
+                            attachment_stored_name,
+                            attachment_file_path,
+                            attachment_file_size,
+                            attachment_mime_type,
+                            attachment_type,
+                            attachment_uploaded_by
+                        ) VALUES (
+                            :request_id,
+                            :attachment_file_name,
+                            :attachment_stored_name,
+                            :attachment_file_path,
+                            :attachment_file_size,
+                            :attachment_mime_type,
+                            :attachment_type,
+                            :attachment_uploaded_by
+                        )";
+                } else {
+                    $attachmentSql = "INSERT INTO request_attachments (
+                            attachment_id,
+                            request_id,
+                            attachment_file_name,
+                            attachment_stored_name,
+                            attachment_file_path,
+                            attachment_file_size,
+                            attachment_mime_type,
+                            attachment_type,
+                            attachment_uploaded_by
+                        ) VALUES (
+                            :attachment_id,
+                            :request_id,
+                            :attachment_file_name,
+                            :attachment_stored_name,
+                            :attachment_file_path,
+                            :attachment_file_size,
+                            :attachment_mime_type,
+                            :attachment_type,
+                            :attachment_uploaded_by
+                        )";
+                }
 
                 $attachmentStmt = $this->db->prepare($attachmentSql);
                 foreach ($attachmentRows as $attachmentRow) {
-                    $attachmentStmt->execute([
+                    $attachmentParams = [
                         ':request_id' => $requestId,
                         ':attachment_file_name' => (string) ($attachmentRow['attachment_file_name'] ?? ''),
                         ':attachment_stored_name' => (string) ($attachmentRow['attachment_stored_name'] ?? ''),
                         ':attachment_file_path' => (string) ($attachmentRow['attachment_file_path'] ?? ''),
-                        ':attachment_file_data' => (string) ($attachmentRow['attachment_file_data'] ?? ''),
                         ':attachment_file_size' => (int) ($attachmentRow['attachment_file_size'] ?? 0),
                         ':attachment_mime_type' => (string) ($attachmentRow['attachment_mime_type'] ?? ''),
                         ':attachment_type' => (string) ($attachmentRow['attachment_type'] ?? 'other'),
                         ':attachment_uploaded_by' => (int) ($attachmentRow['attachment_uploaded_by'] ?? 0),
-                    ]);
+                    ];
+                    if (!$attachmentUsesAutoIncrement) {
+                        $attachmentParams[':attachment_id'] = $this->reserveNextId('request_attachments', 'attachment_id');
+                    }
+                    $attachmentStmt->execute($attachmentParams);
                 }
             }
 
@@ -973,7 +988,6 @@ class ExpenseModel
                     attachment_file_name,
                     attachment_stored_name,
                     attachment_file_path,
-                    attachment_file_data,
                     attachment_file_size,
                     attachment_mime_type,
                     attachment_type,
@@ -1032,14 +1046,11 @@ class ExpenseModel
                     ra.action_actor_id,
                     ra.action_reassigned_to,
                     ra.action_comment,
-                    COALESCE(rsw.step_order, ws.step_order) AS step_order,
-                    COALESCE(rsw.step_name, ws.step_name) AS step_name,
+                    ws.step_order AS step_order,
+                    ws.step_name AS step_name,
                     actor.user_name AS actor_name,
                     reassigned.user_name AS reassigned_to_name
                 FROM request_actions ra
-                LEFT JOIN request_workflow_steps rsw
-                    ON rsw.request_id = ra.request_id
-                   AND rsw.workflow_step_id = ra.workflow_step_id
                 LEFT JOIN workflow_steps ws ON ws.step_id = ra.workflow_step_id
                 LEFT JOIN users actor ON actor.user_id = ra.action_actor_id
                 LEFT JOIN users reassigned ON reassigned.user_id = ra.action_reassigned_to
@@ -1054,62 +1065,6 @@ class ExpenseModel
 
     public function getWorkflowProgressForRequest(int $requestId, int $workflowId): array
     {
-        $snapshotSteps = $this->getRequestWorkflowSteps($requestId);
-        if ($snapshotSteps !== []) {
-            $sql = "SELECT
-                    rsw.workflow_step_id AS step_id,
-                        rsw.step_order,
-                        rsw.step_name,
-                        rsw.step_approver_type,
-                        rsw.step_approver_role,
-                        rsw.step_is_required,
-                        rsw.step_timeout_hours,
-                        rsa.request_step_status,
-                        rsa.request_step_acted_at,
-                        rsa.request_step_comment,
-                        assignee.user_name AS assigned_to_name,
-                        la.action AS latest_action,
-                        la.acted_at AS latest_action_at,
-                        la.action_comment AS latest_action_comment,
-                        actor.user_name AS latest_action_actor_name
-                    FROM request_workflow_steps rsw
-                    LEFT JOIN (
-                        SELECT rsa1.*
-                        FROM request_step_assignments rsa1
-                        INNER JOIN (
-                            SELECT workflow_step_id, MAX(request_step_id) AS latest_step_assignment_id
-                            FROM request_step_assignments
-                            WHERE request_id = :request_id_for_assignment
-                            GROUP BY workflow_step_id
-                        ) latest_rsa
-                            ON latest_rsa.latest_step_assignment_id = rsa1.request_step_id
-                    ) rsa ON rsa.workflow_step_id = rsw.workflow_step_id
-                    LEFT JOIN users assignee ON assignee.user_id = rsa.request_step_assigned_to
-                    LEFT JOIN (
-                        SELECT ra1.*
-                        FROM request_actions ra1
-                        INNER JOIN (
-                            SELECT workflow_step_id, MAX(action_id) AS latest_action_id
-                            FROM request_actions
-                            WHERE request_id = :request_id_for_actions
-                            GROUP BY workflow_step_id
-                        ) latest_ra
-                            ON latest_ra.latest_action_id = ra1.action_id
-                    ) la ON la.workflow_step_id = rsw.workflow_step_id
-                    LEFT JOIN users actor ON actor.user_id = la.action_actor_id
-                    WHERE rsw.request_id = :request_id
-                    ORDER BY rsw.step_order ASC, rsw.workflow_step_id ASC";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                ':request_id_for_assignment' => $requestId,
-                ':request_id_for_actions' => $requestId,
-                ':request_id' => $requestId,
-            ]);
-
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        }
-
         $sql = "SELECT
                     ws.step_id,
                     ws.step_order,
@@ -1152,6 +1107,7 @@ class ExpenseModel
                 ) la ON la.workflow_step_id = ws.step_id
                 LEFT JOIN users actor ON actor.user_id = la.action_actor_id
                 WHERE ws.workflow_id = :workflow_id
+                                    AND ws.step_is_required = 1
                 ORDER BY ws.step_order ASC, ws.step_id ASC";
 
         $stmt = $this->db->prepare($sql);
@@ -1240,7 +1196,7 @@ class ExpenseModel
                     u.user_id AS approver_id,
                     u.user_name AS approver_name,
                     u.user_email AS approver_email,
-                    MAX(COALESCE(rsw.step_timeout_hours, ws.step_timeout_hours, 24)) AS approval_timeout
+                    MAX(COALESCE(ws.step_timeout_hours, 24)) AS approval_timeout
                 FROM requests r
                 INNER JOIN request_step_assignments rsa
                     ON rsa.request_id = r.request_id
@@ -1248,14 +1204,11 @@ class ExpenseModel
                    AND rsa.request_step_status = 'pending'
                 INNER JOIN users u
                     ON u.user_id = rsa.request_step_assigned_to
-                LEFT JOIN request_workflow_steps rsw
-                    ON rsw.request_id = r.request_id
-                   AND rsw.workflow_step_id = r.request_current_step_id
                 LEFT JOIN workflow_steps ws
                     ON ws.step_id = r.request_current_step_id
                 WHERE r.request_id = :request_id
                   AND r.request_status = 'pending'
-                                GROUP BY u.user_id, u.user_name, u.user_email
+                GROUP BY u.user_id, u.user_name, u.user_email
                 ORDER BY u.user_name ASC, u.user_id ASC";
 
         $stmt = $this->db->prepare($sql);
@@ -1294,11 +1247,8 @@ class ExpenseModel
             return null;
         }
 
-        $sql = "SELECT COALESCE(NULLIF(TRIM(rsw.step_name), ''), NULLIF(TRIM(ws.step_name), '')) AS step_title
+        $sql = "SELECT NULLIF(TRIM(ws.step_name), '') AS step_title
                 FROM request_actions ra
-                LEFT JOIN request_workflow_steps rsw
-                    ON rsw.request_id = ra.request_id
-                   AND rsw.workflow_step_id = ra.workflow_step_id
                 LEFT JOIN workflow_steps ws ON ws.step_id = ra.workflow_step_id
                 WHERE ra.request_id = :request_id";
 
@@ -1348,6 +1298,275 @@ class ExpenseModel
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function getCompanyUsersForReassignment(int $excludeUserId = 0): array
+    {
+        $sql = "SELECT u.user_id, u.user_name, u.user_email, u.user_role, u.department_id, d.department_name
+                FROM users u
+                LEFT JOIN departments d ON d.id = u.department_id
+                WHERE u.user_is_active = 1";
+
+        $params = [];
+        if ($excludeUserId > 0) {
+            $sql .= ' AND u.user_id <> :exclude_user_id';
+            $params[':exclude_user_id'] = $excludeUserId;
+        }
+
+        $sql .= ' ORDER BY u.user_name ASC';
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function hasAnyRequestAction(int $requestId): bool
+    {
+        if ($requestId <= 0) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare('SELECT 1 FROM request_actions WHERE request_id = :request_id LIMIT 1');
+        $stmt->execute([':request_id' => $requestId]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
+    public function canOwnerEditPendingRequest(int $requestId, int $ownerUserId): bool
+    {
+        if ($requestId <= 0 || $ownerUserId <= 0) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare(
+            "SELECT request_id
+             FROM requests
+             WHERE request_id = :request_id
+               AND request_submitted_by = :owner_user_id
+               AND request_status = 'pending'
+             LIMIT 1"
+        );
+        $stmt->execute([
+            ':request_id' => $requestId,
+            ':owner_user_id' => $ownerUserId,
+        ]);
+
+        if ($stmt->fetchColumn() === false) {
+            return false;
+        }
+
+        return !$this->hasAnyRequestAction($requestId);
+    }
+
+    public function getEditablePendingRequestIdsForOwner(int $ownerUserId, array $requestIds): array
+    {
+        $ownerUserId = (int) $ownerUserId;
+        if ($ownerUserId <= 0 || $requestIds === []) {
+            return [];
+        }
+
+        $normalizedRequestIds = [];
+        foreach ($requestIds as $requestId) {
+            $requestId = (int) $requestId;
+            if ($requestId > 0) {
+                $normalizedRequestIds[] = $requestId;
+            }
+        }
+
+        $normalizedRequestIds = array_values(array_unique($normalizedRequestIds));
+        if ($normalizedRequestIds === []) {
+            return [];
+        }
+
+        $placeholders = [];
+        $params = [':owner_user_id' => $ownerUserId];
+        foreach ($normalizedRequestIds as $index => $requestId) {
+            $placeholder = ':request_id_' . $index;
+            $placeholders[] = $placeholder;
+            $params[$placeholder] = $requestId;
+        }
+
+        $sql = "SELECT r.request_id
+                FROM requests r
+                WHERE r.request_submitted_by = :owner_user_id
+                  AND r.request_status = 'pending'
+                  AND r.request_id IN (" . implode(', ', $placeholders) . ")
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM request_actions ra
+                      WHERE ra.request_id = r.request_id
+                  )";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $result = [];
+        foreach ($rows as $row) {
+            $requestId = (int) ($row['request_id'] ?? 0);
+            if ($requestId > 0) {
+                $result[] = $requestId;
+            }
+        }
+
+        return $result;
+    }
+
+    public function updateRequestBeforeFirstApproval(
+        int $requestId,
+        array $requestData,
+        array $assignedToUserIds,
+        ?array $attachmentData = null
+    ): bool {
+        if ($requestId <= 0) {
+            return false;
+        }
+
+        $this->db->beginTransaction();
+
+        try {
+            $normalizedRequestType = $this->normalizeRequestTypeForStorage((string) ($requestData['request_type'] ?? ''));
+            $requesterId = (int) ($requestData['request_submitted_by'] ?? 0);
+            $departmentId = (int) ($requestData['department_id'] ?? 0);
+            $workflowId = (int) ($requestData['workflow_id'] ?? 0);
+            $actedAt = $this->getCurrentIstDateTime();
+
+            $requestSql = "UPDATE requests
+                           SET request_reference_no = :request_reference_no,
+                               request_type = :request_type,
+                               request_title = :request_title,
+                               request_description = :request_description,
+                               request_amount = :request_amount,
+                               request_currency = :request_currency,
+                               department_id = :department_id,
+                               request_category = :request_category,
+                               budget_category_id = :budget_category_id,
+                               workflow_id = :workflow_id,
+                               request_current_step_id = :request_current_step_id,
+                               request_priority = :request_priority,
+                               request_notes = :request_notes
+                           WHERE request_id = :request_id";
+
+            $requestStmt = $this->db->prepare($requestSql);
+            $requestStmt->execute([
+                ':request_reference_no' => (string) ($requestData['request_reference_no'] ?? ''),
+                ':request_type' => $normalizedRequestType,
+                ':request_title' => (string) ($requestData['request_title'] ?? ''),
+                ':request_description' => $requestData['request_description'] ?? null,
+                ':request_amount' => (float) ($requestData['request_amount'] ?? 0),
+                ':request_currency' => (string) ($requestData['request_currency'] ?? 'INR'),
+                ':department_id' => (int) ($requestData['department_id'] ?? 0),
+                ':request_category' => (string) ($requestData['request_category'] ?? ''),
+                ':budget_category_id' => (int) ($requestData['budget_category_id'] ?? 0),
+                ':workflow_id' => $workflowId,
+                ':request_current_step_id' => null,
+                ':request_priority' => (string) ($requestData['request_priority'] ?? 'low'),
+                ':request_notes' => $requestData['request_notes'] ?? null,
+                ':request_id' => $requestId,
+            ]);
+
+            $this->db->prepare('DELETE FROM request_step_assignments WHERE request_id = :request_id')
+                ->execute([':request_id' => $requestId]);
+
+            $this->advanceRequestWorkflow(
+                $requestId,
+                $workflowId,
+                0,
+                $departmentId,
+                $requesterId,
+                $requesterId,
+                $actedAt
+            );
+
+            $attachmentRows = [];
+            if (is_array($attachmentData) && !empty($attachmentData)) {
+                if (array_keys($attachmentData) === range(0, count($attachmentData) - 1)) {
+                    foreach ($attachmentData as $attachmentRow) {
+                        if (is_array($attachmentRow) && !empty($attachmentRow)) {
+                            $attachmentRows[] = $attachmentRow;
+                        }
+                    }
+                } else {
+                    $attachmentRows[] = $attachmentData;
+                }
+            }
+
+            if ($attachmentRows !== []) {
+                $attachmentUsesAutoIncrement = $this->supportsAutoIncrement('request_attachments', 'attachment_id');
+                if ($attachmentUsesAutoIncrement) {
+                    $attachmentSql = "INSERT INTO request_attachments (
+                            request_id,
+                            attachment_file_name,
+                            attachment_stored_name,
+                            attachment_file_path,
+                            attachment_file_size,
+                            attachment_mime_type,
+                            attachment_type,
+                            attachment_uploaded_by
+                        ) VALUES (
+                            :request_id,
+                            :attachment_file_name,
+                            :attachment_stored_name,
+                            :attachment_file_path,
+                            :attachment_file_size,
+                            :attachment_mime_type,
+                            :attachment_type,
+                            :attachment_uploaded_by
+                        )";
+                } else {
+                    $attachmentSql = "INSERT INTO request_attachments (
+                            attachment_id,
+                            request_id,
+                            attachment_file_name,
+                            attachment_stored_name,
+                            attachment_file_path,
+                            attachment_file_size,
+                            attachment_mime_type,
+                            attachment_type,
+                            attachment_uploaded_by
+                        ) VALUES (
+                            :attachment_id,
+                            :request_id,
+                            :attachment_file_name,
+                            :attachment_stored_name,
+                            :attachment_file_path,
+                            :attachment_file_size,
+                            :attachment_mime_type,
+                            :attachment_type,
+                            :attachment_uploaded_by
+                        )";
+                }
+
+                $attachmentStmt = $this->db->prepare($attachmentSql);
+                foreach ($attachmentRows as $attachmentRow) {
+                    $attachmentParams = [
+                        ':request_id' => $requestId,
+                        ':attachment_file_name' => (string) ($attachmentRow['attachment_file_name'] ?? ''),
+                        ':attachment_stored_name' => (string) ($attachmentRow['attachment_stored_name'] ?? ''),
+                        ':attachment_file_path' => (string) ($attachmentRow['attachment_file_path'] ?? ''),
+                        ':attachment_file_size' => (int) ($attachmentRow['attachment_file_size'] ?? 0),
+                        ':attachment_mime_type' => (string) ($attachmentRow['attachment_mime_type'] ?? ''),
+                        ':attachment_type' => (string) ($attachmentRow['attachment_type'] ?? 'other'),
+                        ':attachment_uploaded_by' => (int) ($attachmentRow['attachment_uploaded_by'] ?? 0),
+                    ];
+                    if (!$attachmentUsesAutoIncrement) {
+                        $attachmentParams[':attachment_id'] = $this->reserveNextId('request_attachments', 'attachment_id');
+                    }
+                    $attachmentStmt->execute($attachmentParams);
+                }
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (Throwable $error) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
+            error_log('ExpenseModel::updateRequestBeforeFirstApproval failed: ' . $error->getMessage());
+            return false;
+        }
+    }
+
     public function processRequestAction(int $requestId, int $actorUserId, string $action, ?string $comment = null, ?int $reassignTo = null): array
     {
         if ($requestId <= 0 || $actorUserId <= 0) {
@@ -1394,7 +1613,11 @@ class ExpenseModel
                     throw new RuntimeException('Please select a user to reassign to.');
                 }
 
-                $reassignableUsers = $this->getDepartmentUsersForReassignment($departmentId, $actorUserId);
+                if ($commentValue === '') {
+                    throw new RuntimeException('Provide the reason in the required field');
+                }
+
+                $reassignableUsers = $this->getCompanyUsersForReassignment($actorUserId);
                 $isAllowedTarget = false;
                 foreach ($reassignableUsers as $candidate) {
                     if ((int) ($candidate['user_id'] ?? 0) === $reassignTo) {
@@ -1436,6 +1659,8 @@ class ExpenseModel
 
             $updateStepSql = "UPDATE request_step_assignments
                               SET request_step_status = :request_step_status,
+                                  approved_by = :approved_by,
+                                  is_auto_approved = 0,
                                   request_step_acted_at = :request_step_acted_at,
                                   request_step_comment = :request_step_comment
                               WHERE request_id = :request_id
@@ -1446,11 +1671,12 @@ class ExpenseModel
 
             if ($action === 'reject') {
                 if ($commentValue === '') {
-                    throw new RuntimeException('A description is required when rejecting a request.');
+                    throw new RuntimeException('Provide the reason in the required field');
                 }
 
                 $updateStepStmt->execute([
                     ':request_step_status' => 'rejected',
+                    ':approved_by' => null,
                     ':request_step_acted_at' => $actedAt,
                     ':request_step_comment' => $commentValue,
                     ':request_id' => $requestId,
@@ -1482,6 +1708,7 @@ class ExpenseModel
 
             $updateStepStmt->execute([
                 ':request_step_status' => 'approved',
+                ':approved_by' => $actorUserId,
                 ':request_step_acted_at' => $actedAt,
                 ':request_step_comment' => $commentValue !== '' ? $commentValue : null,
                 ':request_id' => $requestId,
@@ -1493,72 +1720,21 @@ class ExpenseModel
                 throw new RuntimeException('Unable to approve the current workflow step.');
             }
 
-            $nextStep = $this->getNextRequestWorkflowStep($requestId, $currentStepId);
-            if (!is_array($nextStep)) {
-                $nextStep = $this->getNextWorkflowStep((int) $workflowId, (int) ($currentStep['step_order'] ?? 0));
-            }
-            if (is_array($nextStep)) {
-                $nextAssigneeIds = $this->resolveStepAssigneeIdsForRequestStep($nextStep, $departmentId, $requesterId);
-                if ($nextAssigneeIds === []) {
-                    throw new RuntimeException('The next workflow step does not have an approver user.');
-                }
-
-                $insertNextAssignmentSql = "INSERT INTO request_step_assignments (
-                        request_id,
-                        workflow_step_id,
-                        request_step_assigned_to,
-                        request_step_status,
-                        request_step_acted_at,
-                        request_step_comment
-                    ) VALUES (
-                        :request_id,
-                        :workflow_step_id,
-                        :request_step_assigned_to,
-                        'pending',
-                        NULL,
-                        NULL
-                    )";
-                $insertNextAssignmentStmt = $this->db->prepare($insertNextAssignmentSql);
-                $createdAssignments = 0;
-                foreach ($nextAssigneeIds as $nextAssigneeId) {
-                    $insertNextAssignmentStmt->execute([
-                        ':request_id' => $requestId,
-                        ':workflow_step_id' => (int) ($nextStep['step_id'] ?? 0),
-                        ':request_step_assigned_to' => $nextAssigneeId,
-                    ]);
-                    $createdAssignments += $insertNextAssignmentStmt->rowCount();
-                }
-
-                if ($createdAssignments <= 0) {
-                    throw new RuntimeException('Unable to move the request to the next approval step.');
-                }
-
-                $requestUpdateStmt = $this->db->prepare("UPDATE requests
-                                                         SET request_current_step_id = :request_current_step_id
-                                                         WHERE request_id = :request_id");
-                $requestUpdateStmt->execute([
-                    ':request_id' => $requestId,
-                    ':request_current_step_id' => (int) ($nextStep['step_id'] ?? 0),
-                ]);
-            } else {
-                $this->adjustBudgetForFinalApproval($request);
-
-                $requestUpdateStmt = $this->db->prepare("UPDATE requests
-                                                         SET request_status = 'approved',
-                                                             request_current_step_id = NULL,
-                                                             request_resolved_at = :request_resolved_at
-                                                         WHERE request_id = :request_id");
-                $requestUpdateStmt->execute([
-                    ':request_id' => $requestId,
-                    ':request_resolved_at' => $actedAt,
-                ]);
-            }
+            $workflowAdvance = $this->advanceRequestWorkflow(
+                $requestId,
+                $workflowId,
+                (int) ($currentStep['step_order'] ?? 0),
+                $departmentId,
+                $requesterId,
+                $requesterId,
+                $actedAt
+            );
 
             $this->insertRequestAction($requestId, $currentStepId, 'approve', $actorUserId, null, $commentValue !== '' ? $commentValue : null, $actedAt);
             $this->db->commit();
 
             return [
-                'message' => $nextStep !== null ? 'Request approved and moved to the next step.' : 'Request approved successfully.',
+                'message' => ($workflowAdvance['status'] ?? '') === 'pending' ? 'Request approved and moved to the next step.' : 'Request approved successfully.',
                 'action' => 'approve',
             ];
         } catch (Throwable $error) {
@@ -1572,26 +1748,49 @@ class ExpenseModel
 
     private function insertRequestAction(int $requestId, int $workflowStepId, string $action, int $actorUserId, ?int $reassignTo, ?string $comment, string $actedAt): void
     {
-        $sql = "INSERT INTO request_actions (
-                    request_id,
-                    workflow_step_id,
-                    action,
-                    acted_at,
-                    action_actor_id,
-                    action_reassigned_to,
-                    action_comment
-                ) VALUES (
-                    :request_id,
-                    :workflow_step_id,
-                    :action,
-                    :acted_at,
-                    :action_actor_id,
-                    :action_reassigned_to,
-                    :action_comment
-                )";
+        $actionUsesAutoIncrement = $this->supportsAutoIncrement('request_actions', 'action_id');
+        if ($actionUsesAutoIncrement) {
+            $sql = "INSERT INTO request_actions (
+                        request_id,
+                        workflow_step_id,
+                        action,
+                        acted_at,
+                        action_actor_id,
+                        action_reassigned_to,
+                        action_comment
+                    ) VALUES (
+                        :request_id,
+                        :workflow_step_id,
+                        :action,
+                        :acted_at,
+                        :action_actor_id,
+                        :action_reassigned_to,
+                        :action_comment
+                    )";
+        } else {
+            $sql = "INSERT INTO request_actions (
+                        action_id,
+                        request_id,
+                        workflow_step_id,
+                        action,
+                        acted_at,
+                        action_actor_id,
+                        action_reassigned_to,
+                        action_comment
+                    ) VALUES (
+                        :action_id,
+                        :request_id,
+                        :workflow_step_id,
+                        :action,
+                        :acted_at,
+                        :action_actor_id,
+                        :action_reassigned_to,
+                        :action_comment
+                    )";
+        }
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([
+        $params = [
             ':request_id' => $requestId,
             ':workflow_step_id' => $workflowStepId > 0 ? $workflowStepId : null,
             ':action' => $action,
@@ -1599,7 +1798,11 @@ class ExpenseModel
             ':action_actor_id' => $actorUserId,
             ':action_reassigned_to' => $reassignTo,
             ':action_comment' => $comment,
-        ]);
+        ];
+        if (!$actionUsesAutoIncrement) {
+            $params[':action_id'] = $this->reserveNextId('request_actions', 'action_id');
+        }
+        $stmt->execute($params);
     }
 
     private function getWorkflowStepById(int $stepId): ?array
@@ -1609,7 +1812,7 @@ class ExpenseModel
         }
 
         $stmt = $this->db->prepare(
-            "SELECT step_id, workflow_id, step_order, step_name, step_approver_type, step_approver_role, step_approver_user_id
+            "SELECT step_id, workflow_id, step_order, step_name, step_approver_type, step_approver_role, step_approver_user_id, step_is_required, step_timeout_hours
              FROM workflow_steps
              WHERE step_id = :step_id
              LIMIT 1"
@@ -1622,14 +1825,15 @@ class ExpenseModel
 
     private function getNextWorkflowStep(int $workflowId, int $currentStepOrder): ?array
     {
-        if ($workflowId <= 0 || $currentStepOrder <= 0) {
+        if ($workflowId <= 0 || $currentStepOrder < 0) {
             return null;
         }
 
         $stmt = $this->db->prepare(
-            "SELECT step_id, workflow_id, step_order, step_name, step_approver_type, step_approver_role, step_approver_user_id
+            "SELECT step_id, workflow_id, step_order, step_name, step_approver_type, step_approver_role, step_approver_user_id, step_is_required, step_timeout_hours
              FROM workflow_steps
              WHERE workflow_id = :workflow_id
+               AND step_is_required = 1
                AND step_order > :current_step_order
              ORDER BY step_order ASC, step_id ASC
              LIMIT 1"
@@ -1685,7 +1889,9 @@ class ExpenseModel
             }
         }
 
-        return array_values(array_unique($assigneeIds));
+        $assigneeIds = array_values(array_unique($assigneeIds));
+
+        return $assigneeIds !== [] ? [$assigneeIds[0]] : [];
     }
 
     private function deriveFiscalScope(?string $referenceDate = null): array

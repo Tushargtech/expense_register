@@ -283,7 +283,7 @@ class RbacService
         }
 
         return (int) ($this->auth['id'] ?? 0);
-    }
+    } 
 
     public function departmentId(): int
     {
