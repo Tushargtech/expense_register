@@ -367,27 +367,7 @@ class WorkflowModel
 		$this->db->beginTransaction();
 
 		try {
-<<<<<<< Updated upstream
-			$workflowSql = "INSERT INTO " . $this->workflowTable . " (
-				workflow_name,
-				workflow_description,
-				workflow_type,
-				workflow_is_active,
-				workflow_is_default,
-				workflow_amount_min,
-				workflow_amount_max,
-				workflow_created_by
-			) VALUES (
-				:workflow_name,
-				:workflow_description,
-				:workflow_type,
-				:workflow_is_active,
-				:workflow_is_default,
-				:workflow_amount_min,
-				:workflow_amount_max,
-				:workflow_created_by
-			)";
-=======
+
 			$workflowUsesAutoIncrement = $this->supportsAutoIncrement($this->workflowTable, 'workflow_id');
 			$workflowId = null;
 
@@ -435,7 +415,7 @@ class WorkflowModel
 					:workflow_created_by
 				)";
 			}
->>>>>>> Stashed changes
+
 
 			$workflowStmt = $this->db->prepare($workflowSql);
 			$workflowParams = [
