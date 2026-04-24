@@ -498,12 +498,14 @@ class ExpenseModel
     {
         $sql = "UPDATE requests
                 SET request_current_step_id = :request_current_step_id,
-                    request_status = :request_status";
+                    request_status = :request_status,
+                    request_updated_at = :request_updated_at";
 
         $params = [
             ':request_id' => $requestId,
             ':request_current_step_id' => $currentStepId,
             ':request_status' => $status,
+            ':request_updated_at' => $this->getCurrentIstDateTime(),
         ];
 
         if ($resolvedAt !== null) {
@@ -915,7 +917,8 @@ class ExpenseModel
                         request_status,
                         request_priority,
                         request_notes,
-                        request_submitted_at
+                        request_submitted_at,
+                        request_updated_at
                     ) VALUES (
                         :request_reference_no,
                         :request_type,
@@ -932,7 +935,8 @@ class ExpenseModel
                         :request_status,
                         :request_priority,
                         :request_notes,
-                        :request_submitted_at
+                        :request_submitted_at,
+                        :request_updated_at
                     )";
             } else {
                 $requestId = $this->reserveNextId('requests', 'request_id');
@@ -953,7 +957,8 @@ class ExpenseModel
                         request_status,
                         request_priority,
                         request_notes,
-                        request_submitted_at
+                        request_submitted_at,
+                        request_updated_at
                     ) VALUES (
                         :request_id,
                         :request_reference_no,
@@ -971,11 +976,13 @@ class ExpenseModel
                         :request_status,
                         :request_priority,
                         :request_notes,
-                        :request_submitted_at
+                        :request_submitted_at,
+                        :request_updated_at
                     )";
             }
 
             $requestStmt = $this->db->prepare($requestSql);
+            $requestSubmittedAt = (string) ($requestData['request_submitted_at'] ?? $this->getCurrentIstDateTime());
             $requestParams = [
                 ':request_reference_no' => (string) ($requestData['request_reference_no'] ?? ''),
                 ':request_type' => $normalizedRequestType,
@@ -992,7 +999,8 @@ class ExpenseModel
                 ':request_status' => (string) ($requestData['request_status'] ?? 'pending'),
                 ':request_priority' => (string) ($requestData['request_priority'] ?? 'low'),
                 ':request_notes' => $requestData['request_notes'] ?? null,
-                ':request_submitted_at' => (string) ($requestData['request_submitted_at'] ?? $this->getCurrentIstDateTime()),
+                ':request_submitted_at' => $requestSubmittedAt,
+                ':request_updated_at' => $requestSubmittedAt,
             ];
             if (!$requestUsesAutoIncrement) {
                 $requestParams[':request_id'] = $requestId;
@@ -1590,7 +1598,8 @@ class ExpenseModel
                                request_category = :request_category,
                                budget_category_id = :budget_category_id,
                                request_priority = :request_priority,
-                               request_notes = :request_notes
+                               request_notes = :request_notes,
+                               request_updated_at = :request_updated_at
                            WHERE request_id = :request_id";
 
             $requestStmt = $this->db->prepare($requestSql);
@@ -1606,6 +1615,7 @@ class ExpenseModel
                 ':budget_category_id' => (int) ($requestData['budget_category_id'] ?? 0),
                 ':request_priority' => (string) ($requestData['request_priority'] ?? 'low'),
                 ':request_notes' => $requestData['request_notes'] ?? null,
+                ':request_updated_at' => $this->getCurrentIstDateTime(),
                 ':request_id' => $requestId,
             ]);
 
@@ -1819,11 +1829,13 @@ class ExpenseModel
 
                 $requestUpdateStmt = $this->db->prepare("UPDATE requests
                                                          SET request_status = 'rejected',
-                                                             request_resolved_at = :request_resolved_at
+                                                             request_resolved_at = :request_resolved_at,
+                                                             request_updated_at = :request_updated_at
                                                          WHERE request_id = :request_id");
                 $requestUpdateStmt->execute([
                     ':request_id' => $requestId,
                     ':request_resolved_at' => $actedAt,
+                    ':request_updated_at' => $actedAt,
                 ]);
 
                 $this->insertRequestAction($requestId, $currentStepId, 'reject', $actorUserId, null, $commentValue, $actedAt);
