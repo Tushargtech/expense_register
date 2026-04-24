@@ -225,8 +225,8 @@ $buildExpenseUrl = static function (array $params = []) use ($expenseListUrl) : 
                 <?php $downloadQuery = array_merge($filters, ['download' => 1]); ?>
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                     <div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $total; ?></div>
-                    <a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses', $downloadQuery), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-filter list-download-btn">
-                        <i class="bi bi-download me-1"></i>Download Excel
+                    <a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses', $downloadQuery), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-filter list-download-btn" title="Download Excel">
+                        <i class="bi bi-download"></i>
                     </a>
                 </div>
                 <ul class="pagination user-pagination mb-0">
