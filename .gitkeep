@@ -1,0 +1,5 @@
+touch uploads/.gitkeep
+touch uploads/receipts/.gitkeep
+touch uploads/invoices/.gitkeep
+touch uploads/others/.gitkeep
+touch uploads/budget_uploads/.gitkeep
