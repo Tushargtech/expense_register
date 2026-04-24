@@ -171,6 +171,124 @@ class ExpenseModel
         return $row !== false ? $row : null;
     }
 
+    private function getCurrentRequestSnapshotStep(int $requestId): ?array
+    {
+        if ($requestId <= 0) {
+            return null;
+        }
+
+        $stmt = $this->db->prepare(
+            "SELECT
+                request_step_id,
+                request_id,
+                workflow_step_id,
+                request_step_assigned_to,
+                request_step_status,
+                is_auto_approved,
+                approved_by,
+                request_step_assigned_at,
+                request_step_acted_at,
+                request_step_comment,
+                step_approver_type,
+                step_approver_role,
+                step_approver_user_id
+             FROM request_step_assignments
+             WHERE request_id = :request_id
+               AND request_step_status = 'pending'
+             ORDER BY request_step_id ASC
+             LIMIT 1"
+        );
+        $stmt->execute([':request_id' => $requestId]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row !== false ? $row : null;
+    }
+
+    private function getNextPendingSnapshotStep(int $requestId, int $currentRequestStepId): ?array
+    {
+        if ($requestId <= 0 || $currentRequestStepId <= 0) {
+            return null;
+        }
+
+        $stmt = $this->db->prepare(
+            "SELECT
+                request_step_id,
+                request_id,
+                workflow_step_id,
+                request_step_assigned_to,
+                request_step_status,
+                is_auto_approved,
+                approved_by,
+                request_step_assigned_at,
+                request_step_acted_at,
+                request_step_comment,
+                step_approver_type,
+                step_approver_role,
+                step_approver_user_id
+             FROM request_step_assignments
+             WHERE request_id = :request_id
+               AND request_step_status = 'pending'
+               AND request_step_id > :current_request_step_id
+             ORDER BY request_step_id ASC
+             LIMIT 1"
+        );
+        $stmt->execute([
+            ':request_id' => $requestId,
+            ':current_request_step_id' => $currentRequestStepId,
+        ]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row !== false ? $row : null;
+    }
+
+    private function resolveSnapshotStepAssigneeId(array $step, int $departmentId, int $requesterId): ?int
+    {
+        $explicitUserId = (int) ($step['step_approver_user_id'] ?? 0);
+        if ($explicitUserId > 0) {
+            return $explicitUserId;
+        }
+
+        $approverType = strtolower(trim((string) ($step['step_approver_type'] ?? '')));
+        $approverRole = strtolower(trim((string) ($step['step_approver_role'] ?? '')));
+
+        if ($approverType === 'manager') {
+            return $this->findManagerAssigneeForDepartment($requesterId, $departmentId);
+        }
+
+        if ($approverType === 'department_head') {
+            return $this->findDepartmentHeadUserId($departmentId);
+        }
+
+        if ($approverRole === '') {
+            if ($approverType === 'manager') {
+                $approverRole = 'manager';
+            } elseif ($approverType === 'department_head') {
+                $approverRole = 'department_head';
+            }
+        }
+
+        if ($approverRole === '') {
+            return null;
+        }
+
+        $workflowModel = new WorkflowModel();
+        $assigneeIds = [];
+        foreach ($workflowModel->getActiveUsers() as $user) {
+            if (strtolower(trim((string) ($user['approver_role'] ?? ''))) === $approverRole) {
+                $userId = (int) ($user['user_id'] ?? 0);
+                if ($userId > 0) {
+                    $assigneeIds[] = $userId;
+                }
+            }
+        }
+
+        $assigneeIds = array_values(array_unique($assigneeIds));
+
+        return $assigneeIds !== [] ? (int) $assigneeIds[0] : null;
+    }
+
     private function insertRequestStepAssignmentRecord(
         int $requestId,
         array $step,
@@ -190,7 +308,6 @@ class ExpenseModel
             return true;
         }
 
-
         $assignmentUsesAutoIncrement = $this->supportsAutoIncrement('request_step_assignments', 'request_step_id');
         if ($assignmentUsesAutoIncrement) {
             $assignmentSql = "INSERT INTO request_step_assignments (
@@ -200,6 +317,7 @@ class ExpenseModel
                     request_step_status,
                     is_auto_approved,
                     approved_by,
+                    request_step_assigned_at,
                     request_step_acted_at,
                     request_step_comment,
                     step_approver_type,
@@ -212,6 +330,7 @@ class ExpenseModel
                     :request_step_status,
                     :is_auto_approved,
                     :approved_by,
+                    :request_step_assigned_at,
                     :request_step_acted_at,
                     :request_step_comment,
                     :step_approver_type,
@@ -227,6 +346,7 @@ class ExpenseModel
                     request_step_status,
                     is_auto_approved,
                     approved_by,
+                    request_step_assigned_at,
                     request_step_acted_at,
                     request_step_comment,
                     step_approver_type,
@@ -240,6 +360,7 @@ class ExpenseModel
                     :request_step_status,
                     :is_auto_approved,
                     :approved_by,
+                    :request_step_assigned_at,
                     :request_step_acted_at,
                     :request_step_comment,
                     :step_approver_type,
@@ -250,137 +371,88 @@ class ExpenseModel
 
         $assignmentStmt = $this->db->prepare($assignmentSql);
         $assignmentParams = [
-
             ':request_id' => $requestId,
             ':workflow_step_id' => $workflowStepId,
             ':request_step_assigned_to' => $assigneeId,
             ':request_step_status' => $status,
             ':is_auto_approved' => $isAutoApproved,
             ':approved_by' => $approvedBy,
-            ':request_step_acted_at' => $actedAt,
+            ':request_step_assigned_at' => $actedAt ?? $this->getCurrentIstDateTime(),
+            ':request_step_acted_at' => $status === 'pending' && $isAutoApproved === 0 ? null : $actedAt,
             ':request_step_comment' => $comment,
             ':step_approver_type' => $step['step_approver_type'] ?? null,
             ':step_approver_role' => $step['step_approver_role'] ?? null,
             ':step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0) > 0 ? (int) $step['step_approver_user_id'] : null,
-
         ];
         if (!$assignmentUsesAutoIncrement) {
             $assignmentParams[':request_step_id'] = $this->reserveNextId('request_step_assignments', 'request_step_id');
         }
         $assignmentStmt->execute($assignmentParams);
 
-
         return $assignmentStmt->rowCount() > 0;
     }
 
-    private function advanceRequestWorkflow(
-        int $requestId,
-        int $workflowId,
-        int $currentStepOrder,
-        int $departmentId,
-        int $requesterId,
-        int $creatorUserId,
-        string $actedAt
-    ): array {
-        if ($requestId <= 0 || $workflowId <= 0) {
-            return [
-                'status' => 'approved',
-                'current_step_id' => null,
-                'step' => null,
-            ];
+    private function createRequestSnapshotAssignments(int $requestId, int $workflowId, int $departmentId, int $requesterId, string $assignedAt): array
+    {
+        $steps = $this->getWorkflowStepsByWorkflowId($workflowId);
+        if ($steps === []) {
+            throw new RuntimeException('Selected workflow has no approval steps.');
         }
 
-        $nextStepOrder = $currentStepOrder;
-
-        while (true) {
-            $nextStep = $this->getNextWorkflowStep($workflowId, $nextStepOrder);
-            if (!is_array($nextStep)) {
-                $request = $this->getRequestById($requestId);
-                if (is_array($request)) {
-                    $this->adjustBudgetForFinalApproval($request);
-                }
-
-                $requestUpdateStmt = $this->db->prepare(
-                    "UPDATE requests
-                     SET request_status = 'approved',
-                         request_current_step_id = NULL,
-                         request_resolved_at = :request_resolved_at
-                     WHERE request_id = :request_id"
-                );
-                $requestUpdateStmt->execute([
-                    ':request_id' => $requestId,
-                    ':request_resolved_at' => $actedAt,
-                ]);
-
-                return [
-                    'status' => 'approved',
-                    'current_step_id' => null,
-                    'step' => null,
-                ];
-            }
-
-            $assigneeIds = $this->resolveStepAssigneeIdsForRequestStep($nextStep, $departmentId, $requesterId);
-            if ($assigneeIds === []) {
+        $firstStepId = null;
+        foreach ($steps as $step) {
+            $assigneeId = $this->resolveSnapshotStepAssigneeId($step, $departmentId, $requesterId);
+            if ($assigneeId === null || $assigneeId <= 0) {
                 throw new RuntimeException('The workflow step does not have a valid approver.');
             }
 
-            $assigneeId = (int) $assigneeIds[0];
-            if ($assigneeId <= 0) {
-                throw new RuntimeException('The workflow step does not have a valid approver.');
-            }
-
-            if ($assigneeId === $creatorUserId) {
-                $inserted = $this->insertRequestStepAssignmentRecord(
-                    $requestId,
-                    $nextStep,
-                    $assigneeId,
-                    'auto_approved',
-                    $creatorUserId,
-                    'Auto-approved (self approval skipped)',
-                    $actedAt,
-                    1
-                );
-
-                if (!$inserted) {
-                    throw new RuntimeException('Unable to auto-approve the workflow step.');
-                }
-
-                $nextStepOrder = (int) ($nextStep['step_order'] ?? 0);
-                continue;
+            if ($firstStepId === null) {
+                $firstStepId = (int) ($step['step_id'] ?? 0);
             }
 
             $inserted = $this->insertRequestStepAssignmentRecord(
                 $requestId,
-                $nextStep,
+                $step,
                 $assigneeId,
                 'pending',
                 null,
                 null,
-                null,
+                $assignedAt,
                 0
             );
 
             if (!$inserted) {
-                throw new RuntimeException('Unable to assign the next workflow step.');
+                throw new RuntimeException('Unable to snapshot the workflow steps for this request.');
             }
-
-            $requestUpdateStmt = $this->db->prepare(
-                "UPDATE requests
-                 SET request_current_step_id = :request_current_step_id,
-                     request_status = 'pending'
-                 WHERE request_id = :request_id"
-            );
-            $requestUpdateStmt->execute([
-                ':request_id' => $requestId,
-                ':request_current_step_id' => (int) ($nextStep['step_id'] ?? 0),
-            ]);
-
-            return [
-                'status' => 'pending',
-                'current_step_id' => (int) ($nextStep['step_id'] ?? 0),
-                'step' => $nextStep,
-            ];
         }
+
+        return [
+            'first_step_id' => $firstStepId !== null ? $firstStepId : null,
+            'step_count' => count($steps),
+        ];
+    }
+
+    private function updateRequestApprovalPointer(int $requestId, ?int $currentStepId, string $status, ?string $resolvedAt = null): void
+    {
+        $sql = "UPDATE requests
+                SET request_current_step_id = :request_current_step_id,
+                    request_status = :request_status";
+
+        $params = [
+            ':request_id' => $requestId,
+            ':request_current_step_id' => $currentStepId,
+            ':request_status' => $status,
+        ];
+
+        if ($resolvedAt !== null) {
+            $sql .= ', request_resolved_at = :request_resolved_at';
+            $params[':request_resolved_at'] = $resolvedAt;
+        }
+
+        $sql .= ' WHERE request_id = :request_id';
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
     }
 
     public function getCurrentRequestStepDefinition(int $requestId, int $currentStepId, int $workflowId): ?array
@@ -389,7 +461,33 @@ class ExpenseModel
             return null;
         }
 
-        $step = $this->getWorkflowStepById($currentStepId);
+        $stmt = $this->db->prepare(
+            "SELECT
+                request_step_id,
+                request_id,
+                workflow_step_id,
+                request_step_assigned_to,
+                request_step_status,
+                is_auto_approved,
+                approved_by,
+                request_step_assigned_at,
+                request_step_acted_at,
+                request_step_comment,
+                step_approver_type,
+                step_approver_role,
+                step_approver_user_id
+             FROM request_step_assignments
+             WHERE request_id = :request_id
+               AND workflow_step_id = :workflow_step_id
+             ORDER BY request_step_id ASC
+             LIMIT 1"
+        );
+        $stmt->execute([
+            ':request_id' => $requestId,
+            ':workflow_step_id' => $currentStepId,
+        ]);
+
+        $step = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return is_array($step) ? $step : null;
     }
@@ -732,7 +830,6 @@ class ExpenseModel
         $this->db->beginTransaction();
 
         try {
-            $existingRequest = $this->getRequestById($requestId);
             $normalizedRequestType = $this->normalizeRequestTypeForStorage((string) ($requestData['request_type'] ?? ''));
             $requesterId = (int) ($requestData['request_submitted_by'] ?? 0);
             $departmentId = (int) ($requestData['department_id'] ?? 0);
@@ -846,15 +943,13 @@ class ExpenseModel
                 $requestId = (int) $this->db->lastInsertId();
             }
 
-            $this->advanceRequestWorkflow(
-                $requestId,
-                $workflowId,
-                0,
-                $departmentId,
-                $requesterId,
-                $requesterId,
-                $actedAt
-            );
+            $snapshot = $this->createRequestSnapshotAssignments($requestId, $workflowId, $departmentId, $requesterId, $actedAt);
+            $firstStepId = (int) ($snapshot['first_step_id'] ?? 0);
+            if ($firstStepId <= 0) {
+                throw new RuntimeException('Selected workflow has no approval steps.');
+            }
+
+            $this->updateRequestApprovalPointer($requestId, $firstStepId, 'pending');
 
             $attachmentRows = [];
             if (is_array($attachmentData) && !empty($attachmentData)) {
@@ -1075,7 +1170,7 @@ class ExpenseModel
     public function getWorkflowProgressForRequest(int $requestId, int $workflowId): array
     {
         $sql = "SELECT
-                    ws.step_id,
+                    rsa.workflow_step_id AS step_id,
                     ws.step_order,
                     ws.step_name,
                     ws.step_approver_type,
@@ -1090,18 +1185,8 @@ class ExpenseModel
                     la.acted_at AS latest_action_at,
                     la.action_comment AS latest_action_comment,
                     actor.user_name AS latest_action_actor_name
-                FROM workflow_steps ws
-                LEFT JOIN (
-                    SELECT rsa1.*
-                    FROM request_step_assignments rsa1
-                    INNER JOIN (
-                        SELECT workflow_step_id, MAX(request_step_id) AS latest_step_assignment_id
-                        FROM request_step_assignments
-                        WHERE request_id = :request_id_for_assignment
-                        GROUP BY workflow_step_id
-                    ) latest_rsa
-                        ON latest_rsa.latest_step_assignment_id = rsa1.request_step_id
-                ) rsa ON rsa.workflow_step_id = ws.step_id
+                FROM request_step_assignments rsa
+                LEFT JOIN workflow_steps ws ON ws.step_id = rsa.workflow_step_id
                 LEFT JOIN users assignee ON assignee.user_id = rsa.request_step_assigned_to
                 LEFT JOIN (
                     SELECT ra1.*
@@ -1113,17 +1198,15 @@ class ExpenseModel
                         GROUP BY workflow_step_id
                     ) latest_ra
                         ON latest_ra.latest_action_id = ra1.action_id
-                ) la ON la.workflow_step_id = ws.step_id
+                ) la ON la.workflow_step_id = rsa.workflow_step_id
                 LEFT JOIN users actor ON actor.user_id = la.action_actor_id
-                WHERE ws.workflow_id = :workflow_id
-                                    AND ws.step_is_required = 1
-                ORDER BY ws.step_order ASC, ws.step_id ASC";
+                WHERE rsa.request_id = :request_id_for_assignment
+                ORDER BY rsa.request_step_id ASC";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             ':request_id_for_assignment' => $requestId,
             ':request_id_for_actions' => $requestId,
-            ':workflow_id' => $workflowId,
         ]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1181,7 +1264,7 @@ class ExpenseModel
                     AND rsa.request_step_status = 'pending'
                 WHERE r.request_id = :request_id
                   AND r.request_status = 'pending'
-                ORDER BY rsa.request_step_id DESC
+                    ORDER BY rsa.request_step_id ASC
                 LIMIT 1";
 
         $stmt = $this->db->prepare($sql);
@@ -1205,7 +1288,7 @@ class ExpenseModel
                     u.user_id AS approver_id,
                     u.user_name AS approver_name,
                     u.user_email AS approver_email,
-                    MAX(COALESCE(ws.step_timeout_hours, 24)) AS approval_timeout
+                    24 AS approval_timeout
                 FROM requests r
                 INNER JOIN request_step_assignments rsa
                     ON rsa.request_id = r.request_id
@@ -1213,8 +1296,6 @@ class ExpenseModel
                    AND rsa.request_step_status = 'pending'
                 INNER JOIN users u
                     ON u.user_id = rsa.request_step_assigned_to
-                LEFT JOIN workflow_steps ws
-                    ON ws.step_id = r.request_current_step_id
                 WHERE r.request_id = :request_id
                   AND r.request_status = 'pending'
                 GROUP BY u.user_id, u.user_name, u.user_email
@@ -1434,10 +1515,6 @@ class ExpenseModel
 
         try {
             $normalizedRequestType = $this->normalizeRequestTypeForStorage((string) ($requestData['request_type'] ?? ''));
-            $requesterId = (int) ($requestData['request_submitted_by'] ?? 0);
-            $departmentId = (int) ($requestData['department_id'] ?? 0);
-            $workflowId = (int) ($requestData['workflow_id'] ?? 0);
-            $actedAt = $this->getCurrentIstDateTime();
 
             $requestSql = "UPDATE requests
                            SET request_reference_no = :request_reference_no,
@@ -1449,8 +1526,6 @@ class ExpenseModel
                                department_id = :department_id,
                                request_category = :request_category,
                                budget_category_id = :budget_category_id,
-                               workflow_id = :workflow_id,
-                               request_current_step_id = :request_current_step_id,
                                request_priority = :request_priority,
                                request_notes = :request_notes
                            WHERE request_id = :request_id";
@@ -1466,25 +1541,10 @@ class ExpenseModel
                 ':department_id' => (int) ($requestData['department_id'] ?? 0),
                 ':request_category' => (string) ($requestData['request_category'] ?? ''),
                 ':budget_category_id' => (int) ($requestData['budget_category_id'] ?? 0),
-                ':workflow_id' => $workflowId,
-                ':request_current_step_id' => null,
                 ':request_priority' => (string) ($requestData['request_priority'] ?? 'low'),
                 ':request_notes' => $requestData['request_notes'] ?? null,
                 ':request_id' => $requestId,
             ]);
-
-            $this->db->prepare('DELETE FROM request_step_assignments WHERE request_id = :request_id')
-                ->execute([':request_id' => $requestId]);
-
-            $this->advanceRequestWorkflow(
-                $requestId,
-                $workflowId,
-                0,
-                $departmentId,
-                $requesterId,
-                $requesterId,
-                $actedAt
-            );
 
             $attachmentRows = [];
             if (is_array($attachmentData) && !empty($attachmentData)) {
@@ -1601,16 +1661,11 @@ class ExpenseModel
             throw new RuntimeException('You are not assigned to this request step.');
         }
 
-        $workflowId = (int) ($request['workflow_id'] ?? 0);
-        $currentStepId = (int) ($request['request_current_step_id'] ?? 0);
+        $currentStepId = (int) ($pendingAssignment['workflow_step_id'] ?? 0);
+        $currentRequestStepId = (int) ($pendingAssignment['request_step_id'] ?? 0);
         $requestStatus = strtolower(trim((string) ($request['request_status'] ?? 'pending')));
-        if ($workflowId <= 0 || $currentStepId <= 0 || $requestStatus !== 'pending') {
+        if ($currentStepId <= 0 || $currentRequestStepId <= 0 || $requestStatus !== 'pending') {
             throw new RuntimeException('This request is no longer available for action.');
-        }
-
-            $currentStep = $this->getCurrentRequestStepDefinition($requestId, $currentStepId, $workflowId);
-        if (!is_array($currentStep)) {
-            throw new RuntimeException('Current workflow step was not found.');
         }
 
         $this->db->beginTransaction();
@@ -1645,15 +1700,15 @@ class ExpenseModel
 
                 $updateAssignmentSql = "UPDATE request_step_assignments
                                         SET request_step_assigned_to = :request_step_assigned_to
-                                        WHERE request_id = :request_id
-                                          AND workflow_step_id = :workflow_step_id
+                                                                                WHERE request_id = :request_id
+                                                                                    AND request_step_id = :request_step_id
                                           AND request_step_assigned_to = :current_assignee
                                           AND request_step_status = 'pending'";
                 $updateAssignmentStmt = $this->db->prepare($updateAssignmentSql);
                 $updateAssignmentStmt->execute([
                     ':request_step_assigned_to' => $reassignTo,
                     ':request_id' => $requestId,
-                    ':workflow_step_id' => $currentStepId,
+                                        ':request_step_id' => $currentRequestStepId,
                     ':current_assignee' => $actorUserId,
                 ]);
 
@@ -1674,11 +1729,12 @@ class ExpenseModel
                               SET request_step_status = :request_step_status,
                                   approved_by = :approved_by,
                                   is_auto_approved = 0,
+                                                                    request_step_assigned_to = :request_step_assigned_to,
                                   request_step_acted_at = :request_step_acted_at,
                                   request_step_comment = :request_step_comment
-                              WHERE request_id = :request_id
-                                AND workflow_step_id = :workflow_step_id
-                                AND request_step_assigned_to = :request_step_assigned_to
+                                                            WHERE request_id = :request_id
+                                                                AND request_step_id = :request_step_id
+                                                                AND request_step_assigned_to = :request_step_assigned_to
                                 AND request_step_status = 'pending'";
             $updateStepStmt = $this->db->prepare($updateStepSql);
 
@@ -1693,7 +1749,7 @@ class ExpenseModel
                     ':request_step_acted_at' => $actedAt,
                     ':request_step_comment' => $commentValue,
                     ':request_id' => $requestId,
-                    ':workflow_step_id' => $currentStepId,
+                    ':request_step_id' => $currentRequestStepId,
                     ':request_step_assigned_to' => $actorUserId,
                 ]);
 
@@ -1725,7 +1781,7 @@ class ExpenseModel
                 ':request_step_acted_at' => $actedAt,
                 ':request_step_comment' => $commentValue !== '' ? $commentValue : null,
                 ':request_id' => $requestId,
-                ':workflow_step_id' => $currentStepId,
+                ':request_step_id' => $currentRequestStepId,
                 ':request_step_assigned_to' => $actorUserId,
             ]);
 
@@ -1733,21 +1789,19 @@ class ExpenseModel
                 throw new RuntimeException('Unable to approve the current workflow step.');
             }
 
-            $workflowAdvance = $this->advanceRequestWorkflow(
-                $requestId,
-                $workflowId,
-                (int) ($currentStep['step_order'] ?? 0),
-                $departmentId,
-                $requesterId,
-                $requesterId,
-                $actedAt
-            );
+            $nextStep = $this->getNextPendingSnapshotStep($requestId, $currentRequestStepId);
+            if (is_array($nextStep)) {
+                $this->updateRequestApprovalPointer($requestId, (int) ($nextStep['workflow_step_id'] ?? 0), 'pending');
+            } else {
+                $this->adjustBudgetForFinalApproval($request);
+                $this->updateRequestApprovalPointer($requestId, null, 'approved', $actedAt);
+            }
 
             $this->insertRequestAction($requestId, $currentStepId, 'approve', $actorUserId, null, $commentValue !== '' ? $commentValue : null, $actedAt);
             $this->db->commit();
 
             return [
-                'message' => ($workflowAdvance['status'] ?? '') === 'pending' ? 'Request approved and moved to the next step.' : 'Request approved successfully.',
+                'message' => is_array($nextStep) ? 'Request approved and moved to the next step.' : 'Request approved successfully.',
                 'action' => 'approve',
             ];
         } catch (Throwable $error) {

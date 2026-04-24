@@ -210,20 +210,20 @@ class ExpenseController
     }
 
 
-   private function ensureAttachmentFolderExists(string $relativeFolder): void
-{
-    $absoluteFolder = $_SERVER['DOCUMENT_ROOT'] . '/expense_register/' . ltrim($relativeFolder, '/');
+    private function ensureAttachmentFolderExists(string $relativeFolder): void
+    {
+        $absoluteFolder = ROOT_PATH . '/' . ltrim($relativeFolder, '/');
 
-    if (!is_dir($absoluteFolder) && !mkdir($absoluteFolder, 0775, true) && !is_dir($absoluteFolder)) {
-        throw new RuntimeException('Failed to create attachment upload directory.');
+        if (!is_dir($absoluteFolder) && !mkdir($absoluteFolder, 0775, true) && !is_dir($absoluteFolder)) {
+            throw new RuntimeException('Failed to create attachment upload directory.');
+        }
+
+        @chmod($absoluteFolder, 0775);
+
+        if (!is_writable($absoluteFolder)) {
+            throw new RuntimeException('Upload folder is not writable: ' . $absoluteFolder);
+        }
     }
-
-    @chmod($absoluteFolder, 0775);
-
-    if (!is_writable($absoluteFolder)) {
-        throw new RuntimeException('Upload folder is not writable: ' . $absoluteFolder);
-    }
-}
 
     private function buildAttachmentPayload(array $file, string $attachmentType): array
     {
@@ -257,7 +257,7 @@ class ExpenseController
         $this->ensureAttachmentFolderExists($relativeFolder);
         $relativePath = $relativeFolder . '/' . $storedName;
 
-        $absolutePath = $_SERVER['DOCUMENT_ROOT'] . '/expense_register/' . ltrim($relativePath, '/');
+        $absolutePath = ROOT_PATH . '/' . ltrim($relativePath, '/');
 
 
         // Verify folder exists and is writable

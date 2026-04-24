@@ -233,11 +233,10 @@ class ExpenseApiController extends ApiBaseController
     private function ensureAttachmentFolderExists(string $relativeFolder): void
     {
         $absoluteFolder = ROOT_PATH . '/' . ltrim($relativeFolder, '/');
-        if (!is_dir($absoluteFolder) && !mkdir($absoluteFolder, 0775, true) && !is_dir($absoluteFolder)) {
+            if (!is_dir($absoluteFolder) && !mkdir($absoluteFolder, 0775, true) && !is_dir($absoluteFolder)) {
             throw new RuntimeException('Failed to create attachment upload directory.');
         }
-
-
+        
         @chmod($absoluteFolder, 0775);
 
         if (!is_writable($absoluteFolder)) {
@@ -426,7 +425,7 @@ class ExpenseApiController extends ApiBaseController
         if ($request === null) {
             $this->jsonError('Expense request not found.', 404);
         }
-
+                $absolutePath = ROOT_PATH . '/' . ltrim($relativePath, '/');
         $this->ensureCanAccessRequestRecord($request);
         $attachments = $expenseModel->getAttachmentsByRequestId($requestId);
 
