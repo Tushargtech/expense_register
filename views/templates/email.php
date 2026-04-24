@@ -77,35 +77,7 @@ if (!function_exists('renderEmailTemplate')) {
 	{
 		$template = strtolower(trim($template));
 
-		if ($template === 'request_submission') {
-			$employeeName = mailTemplateEscape((string) ($data['employee_name'] ?? 'User'));
-			$requestTypeLabel = mailTemplateEscape((string) ($data['request_type_label'] ?? 'Request'));
-			$requestNo = mailTemplateEscape((string) ($data['request_no'] ?? ''));
-			$currency = mailTemplateEscape((string) ($data['currency'] ?? ''));
-			$amount = mailTemplateEscape((string) ($data['amount'] ?? '0.00'));
-			$budgetHead = mailTemplateEscape((string) ($data['budget_head'] ?? ''));
-			$description = nl2br(mailTemplateEscape((string) ($data['description'] ?? '')));
-			$requestLink = mailTemplateEscape((string) ($data['request_link'] ?? ''));
-			$bodyHtml = '<p>Hello <strong>' . $employeeName . '</strong>,</p>'
-				. '<p>Your ' . $requestTypeLabel . ' request has been submitted successfully and is now in the approval flow.</p>'
-				. '<table class="details" role="presentation">'
-				. '<tr><td>Request No</td><td>' . $requestNo . '</td></tr>'
-				. '<tr><td>Amount</td><td>' . $currency . ' ' . $amount . '</td></tr>'
-				. '<tr><td>Category</td><td>' . $budgetHead . '</td></tr>'
-				. '<tr><td>Description</td><td>' . ($description !== '' ? $description : '—') . '</td></tr>'
-				. '</table>'
-				. '<div class="notice">You will be notified once there is an update on your request status.</div>'
-				. '<p>You can track the progress anytime from your expense page:</p>'
-				. '<p><a href="' . $requestLink . '" class="button">View Request</a></p>'
-				. '<p>Or copy and paste this link into your browser:</p>'
-				. '<div class="link-box">' . $requestLink . '</div>'
-				. '<p>Regards,</p>';
-
-			return mailTemplateRenderShell('Request Submitted Successfully', 'Request Submitted Successfully', $bodyHtml, [
-				'header_color' => '#1f3c5b',
-				'accent_color' => '#2563eb',
-			]);
-		}
+		// request_submission template removed
 
 		if ($template === 'request_action_required') {
 			$approverName = mailTemplateEscape((string) ($data['approver_name'] ?? 'Approver'));
@@ -265,77 +237,8 @@ if (!function_exists('renderEmailTemplate')) {
 			);
 		}
 
-		if ($template === 'budget_threshold_alert') {
-			$departmentName = mailTemplateEscape((string) ($data['department_name'] ?? 'Department'));
-			$budgetHead = mailTemplateEscape((string) ($data['budget_head'] ?? 'Budget'));
-			$usagePercent = mailTemplateEscape((string) ($data['usage_percent'] ?? '0'));
-			$currency = mailTemplateEscape((string) ($data['currency'] ?? ''));
-			$totalLimit = mailTemplateEscape((string) ($data['total_limit'] ?? '0.00'));
-			$usedAmount = mailTemplateEscape((string) ($data['used_amount'] ?? '0.00'));
-
-			$bodyHtml = '<p>Dear Team,</p>'
-				. '<p>This is to notify you that the budget utilization for the following category has reached a critical threshold:</p>'
-				. '<table class="details" role="presentation">'
-				. '<tr><td>Department</td><td>' . $departmentName . '</td></tr>'
-				. '<tr><td>Budget Head</td><td>' . $budgetHead . '</td></tr>'
-				. '<tr><td>Utilization</td><td>' . $usagePercent . '%</td></tr>'
-				. '<tr><td>Total Allocated Budget</td><td>' . $currency . ' ' . $totalLimit . '</td></tr>'
-				. '<tr><td>Amount Spent to Date</td><td>' . $currency . ' ' . $usedAmount . '</td></tr>'
-				. '</table>'
-				. '<div class="warning">As the utilization has exceeded 90%, further expense requests under this budget head may be restricted once the limit is fully consumed.</div>'
-				. '<p>We recommend reviewing the current spending and reallocating the budget if necessary to avoid disruptions.</p>'
-				. '<p>Regards,</p>';
-
-			return mailTemplateRenderShell(
-				'URGENT: Budget Utilization Alert – ' . $departmentName,
-				'Budget Utilization Alert',
-				$bodyHtml,
-				[
-					'header_color' => '#7c2d12',
-					'accent_color' => '#dc2626',
-				]
-			);
-		}
-
-		if ($template === 'budget_update_notification') {
-			$departmentHeadName = mailTemplateEscape((string) ($data['department_head_name'] ?? 'Department Head'));
-			$departmentName = mailTemplateEscape((string) ($data['department_name'] ?? 'Department'));
-			$budgetHead = mailTemplateEscape((string) ($data['budget_head'] ?? 'Budget'));
-			$fiscalYear = mailTemplateEscape((string) ($data['fiscal_year'] ?? ''));
-			$fiscalPeriod = mailTemplateEscape((string) ($data['fiscal_period'] ?? ''));
-			$currency = mailTemplateEscape((string) ($data['currency'] ?? ''));
-			$totalLimit = mailTemplateEscape((string) ($data['total_limit'] ?? '0.00'));
-			$previousLimit = mailTemplateEscape((string) ($data['previous_limit'] ?? '0.00'));
-			$differenceAmount = mailTemplateEscape((string) ($data['difference_amount'] ?? '0.00'));
-			$effectiveDate = mailTemplateEscape((string) ($data['effective_date'] ?? ''));
-			$actionType = mailTemplateEscape((string) ($data['action_type'] ?? 'updated'));
-
-			$bodyHtml = '<p>Hello <strong>' . $departmentHeadName . '</strong>,</p>'
-				. '<p>This is to inform you that the budget for your department has been <strong>' . $actionType . '</strong> by the Finance team.</p>'
-				. '<table class="details" role="presentation">'
-				. '<tr><td>Department</td><td>' . $departmentName . '</td></tr>'
-				. '<tr><td>Budget Head</td><td>' . $budgetHead . '</td></tr>'
-				. '<tr><td>Fiscal Year</td><td>' . $fiscalYear . '</td></tr>'
-				. '<tr><td>Fiscal Period</td><td>' . $fiscalPeriod . '</td></tr>'
-				. '<tr><td>Current Budget Allocation</td><td>' . $currency . ' ' . $totalLimit . '</td></tr>'
-				. '<tr><td>Previous Budget Allocation</td><td>' . $currency . ' ' . $previousLimit . '</td></tr>'
-				. '<tr><td>Budget Change Amount</td><td>' . $currency . ' ' . $differenceAmount . '</td></tr>'
-				. '<tr><td>Effective Date</td><td>' . $effectiveDate . '</td></tr>'
-				. '</table>'
-				. '<p>Please review the budget details and plan your department expenses accordingly.</p>'
-				. '<p>For any questions or clarifications, please contact the Finance team.</p>'
-				. '<p>Regards,</p>';
-
-			return mailTemplateRenderShell(
-				'Budget ' . ucfirst($actionType) . ' Notification – ' . $departmentName . ' (FY ' . $fiscalYear . ')',
-				'Budget ' . ucfirst($actionType) . ' Notification',
-				$bodyHtml,
-				[
-					'header_color' => '#1f3c5b',
-					'accent_color' => '#2563eb',
-				]
-			);
-		}
+		// budget_threshold_alert template removed
+		// budget_update_notification template removed
 
 		if ($template === 'password_reset') {
 			$employeeName = mailTemplateEscape((string) ($data['employee_name'] ?? 'User'));

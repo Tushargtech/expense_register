@@ -87,10 +87,18 @@ class ExpenseController
     private function normalizeRequestTypeValue(string $value): string
     {
         $normalized = strtolower(trim($value));
+        $normalized = str_replace('_', ' ', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
 
         return match ($normalized) {
             'expense' => 'expense',
+<<<<<<< Updated upstream
             'purchase' => 'purchase',
+=======
+            'reimbursable' => 'expense',
+            'purchase' => 'purchase',
+            'company paid' => 'purchase',
+>>>>>>> Stashed changes
             default => $normalized,
         };
     }
@@ -121,27 +129,28 @@ class ExpenseController
         ];
     }
 
+<<<<<<< Updated upstream
     private function resolveWorkflowSelection(int $budgetCategoryId, string $requestType, int $departmentId, int $requesterId): array
+=======
+    private function resolveWorkflowSelection(string $requestType, string $requestAmount, int $departmentId, int $requesterId): array
+>>>>>>> Stashed changes
     {
         $workflowModel = $this->workflowModel();
         $requestType = strtolower(trim($requestType));
+        $amount = is_numeric($requestAmount) ? (float) $requestAmount : 0.0;
 
-        $candidates = $workflowModel->getSelectableWorkflows($budgetCategoryId > 0 ? $budgetCategoryId : null, $requestType !== '' ? $requestType : null);
-        if ($candidates === [] && $budgetCategoryId > 0) {
-            $candidates = $workflowModel->getSelectableWorkflows($budgetCategoryId, null);
-        }
-        if ($candidates === [] && $requestType !== '') {
-            $candidates = $workflowModel->getSelectableWorkflows(null, $requestType);
+        if ($requestType === '' || $amount <= 0) {
+            return [null, null, null];
         }
 
-        if ($candidates === []) {
-                return [null, null, null];
+        $workflow = $workflowModel->getWorkflowForRequestCriteria($requestType, $amount);
+        if (!is_array($workflow)) {
+            return [null, null, null];
         }
 
-        $workflow = $candidates[0];
         $workflowId = (int) ($workflow['workflow_id'] ?? 0);
         if ($workflowId <= 0) {
-                return [null, null, null];
+            return [null, null, null];
         }
 
         $steps = $workflowModel->getWorkflowStepsByWorkflowId($workflowId);
@@ -205,6 +214,7 @@ class ExpenseController
         };
     }
 
+<<<<<<< Updated upstream
     private function ensureAttachmentFolderExists(string $relativeFolder): void
     {
         $absoluteFolder = ROOT_PATH . '/' . ltrim($relativeFolder, '/');
@@ -213,6 +223,23 @@ class ExpenseController
         }
     }
 
+=======
+   private function ensureAttachmentFolderExists(string $relativeFolder): void
+{
+    $absoluteFolder = $_SERVER['DOCUMENT_ROOT'] . '/expense_register/' . ltrim($relativeFolder, '/');
+
+    if (!is_dir($absoluteFolder) && !mkdir($absoluteFolder, 0775, true) && !is_dir($absoluteFolder)) {
+        throw new RuntimeException('Failed to create attachment upload directory.');
+    }
+
+    @chmod($absoluteFolder, 0775);
+
+    if (!is_writable($absoluteFolder)) {
+        throw new RuntimeException('Upload folder is not writable: ' . $absoluteFolder);
+    }
+}
+
+>>>>>>> Stashed changes
     private function buildAttachmentPayload(array $file, string $attachmentType): array
     {
         $originalName = trim((string) ($file['name'] ?? ''));
@@ -244,7 +271,11 @@ class ExpenseController
         $relativeFolder = $this->resolveAttachmentFolder($attachmentType);
         $this->ensureAttachmentFolderExists($relativeFolder);
         $relativePath = $relativeFolder . '/' . $storedName;
+<<<<<<< Updated upstream
         $absolutePath = ROOT_PATH . '/' . ltrim($relativePath, '/');
+=======
+        $absolutePath = $_SERVER['DOCUMENT_ROOT'] . '/expense_register/' . ltrim($relativePath, '/');
+>>>>>>> Stashed changes
 
         // Verify folder exists and is writable
         $folderPath = dirname($absolutePath);
@@ -315,7 +346,11 @@ class ExpenseController
         return $normalized;
     }
 
+<<<<<<< Updated upstream
         private function validateCreatePayload(array $payload, array $category, array $workflow, ?int $firstStepId, array $firstStepAssigneeIds): array
+=======
+    private function validateCreatePayload(array $payload, array $category, array $workflow, ?int $firstStepId, array $firstStepAssigneeIds): array
+>>>>>>> Stashed changes
     {
         $errors = [];
         $allowedTypes = array_keys($this->requestTypeOptions());
@@ -372,7 +407,7 @@ class ExpenseController
         }
 
         if ($workflow === [] || (int) ($workflow['workflow_id'] ?? 0) <= 0) {
-            $errors[] = 'No active workflow is available for the selected request type and budget category.';
+            $errors[] = 'No active workflow is available for the selected request type and amount.';
         }
 
         if ($firstStepId === null) {
@@ -575,8 +610,8 @@ class ExpenseController
         $categoryModel = $this->budgetCategoryModel();
         $category = $payload['budget_category_id'] > 0 ? $categoryModel->getCategoryById($payload['budget_category_id']) : null;
         $workflowSelection = $this->resolveWorkflowSelection(
-            $payload['budget_category_id'],
             $payload['request_type'],
+            $payload['request_amount'],
             (int) $payload['department_id'],
             (int) ($_SESSION['auth']['user_id'] ?? 0)
         );
@@ -699,23 +734,7 @@ class ExpenseController
             $requestLink = buildCleanRouteUrl('expenses/review', ['id' => $requestId]);
             $mailService = new MailService();
 
-            if ($requesterEmail !== '') {
-                $sent = $mailService->sendRequestSubmittedEmail(
-                    $requesterEmail,
-                    $requesterName !== '' ? $requesterName : 'User',
-                    $requestTypeLabel,
-                    $requestNo,
-                    $requestCurrency,
-                    $requestAmount,
-                    $requestBudgetHead !== '' ? $requestBudgetHead : '—',
-                    $requestDescription,
-                    $requestLink
-                );
-
-                if (!$sent) {
-                    error_log('Failed to send request submission email for request ' . $requestId);
-                }
-            }
+            // Request submission email to requester removed - now requester gets CC on approver email
 
             $approverNotifications = $this->model->getCurrentStepApproverNotifications($requestId);
             foreach ($approverNotifications as $approverNotification) {
@@ -737,7 +756,8 @@ class ExpenseController
                     $requestDescription,
                     $requestLink,
                     (int) ($approverNotification['approval_timeout'] ?? 24),
-                    true
+                    true,
+                    $requesterEmail // CC to requester
                 );
 
                 if (!$sent) {
@@ -1126,8 +1146,13 @@ class ExpenseController
         $categoryModel = $this->budgetCategoryModel();
         $category = $payload['budget_category_id'] > 0 ? $categoryModel->getCategoryById($payload['budget_category_id']) : null;
         $workflowSelection = $this->resolveWorkflowSelection(
+<<<<<<< Updated upstream
             $payload['budget_category_id'],
             $payload['request_type'],
+=======
+            $payload['request_type'],
+            $payload['request_amount'],
+>>>>>>> Stashed changes
             (int) $payload['department_id'],
             $currentUserId
         );

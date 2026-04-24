@@ -4,10 +4,84 @@ class ExpenseModel
 {
     private $db;
     private ?bool $maintenanceRunsTableAvailable = null;
+<<<<<<< Updated upstream
+=======
+    private array $autoIncrementSupport = [];
+>>>>>>> Stashed changes
 
     public function __construct()
     {
         $this->db = getDB();
+    }
+
+<<<<<<< Updated upstream
+    private function ensureMaintenanceRunsTable(): bool
+    {
+        if ($this->maintenanceRunsTableAvailable !== null) {
+            return $this->maintenanceRunsTableAvailable;
+        }
+
+        try {
+            $this->db->exec(
+                "CREATE TABLE IF NOT EXISTS system_maintenance_runs (
+                    job_name VARCHAR(100) NOT NULL PRIMARY KEY,
+                    last_run_at DATETIME NOT NULL,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+            $this->maintenanceRunsTableAvailable = true;
+        } catch (Throwable $error) {
+            $this->maintenanceRunsTableAvailable = false;
+            error_log('ExpenseModel::ensureMaintenanceRunsTable failed: ' . $error->getMessage());
+        }
+
+        return $this->maintenanceRunsTableAvailable;
+    }
+
+    private function wasMaintenanceJobRunToday(string $jobName, string $todayDate): bool
+    {
+=======
+    private function supportsAutoIncrement(string $tableName, string $columnName): bool
+    {
+        $cacheKey = $tableName . '.' . $columnName;
+        if (array_key_exists($cacheKey, $this->autoIncrementSupport)) {
+            return $this->autoIncrementSupport[$cacheKey];
+        }
+
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT EXTRA
+                 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = :table_name
+                   AND COLUMN_NAME = :column_name
+                 LIMIT 1'
+            );
+            $stmt->execute([
+                ':table_name' => $tableName,
+                ':column_name' => $columnName,
+            ]);
+            $extra = strtolower(trim((string) ($stmt->fetchColumn() ?: '')));
+            $this->autoIncrementSupport[$cacheKey] = str_contains($extra, 'auto_increment');
+        } catch (Throwable $error) {
+            $this->autoIncrementSupport[$cacheKey] = false;
+        }
+
+        return $this->autoIncrementSupport[$cacheKey];
+    }
+
+    private function reserveNextId(string $tableName, string $columnName): int
+    {
+        $stmt = $this->db->query(
+            'SELECT `' . $columnName . '`
+             FROM `' . $tableName . '`
+             ORDER BY `' . $columnName . '` DESC
+             LIMIT 1
+             FOR UPDATE'
+        );
+        $currentId = (int) ($stmt->fetchColumn() ?: 0);
+
+        return $currentId + 1;
     }
 
     private function ensureMaintenanceRunsTable(): bool
@@ -35,6 +109,7 @@ class ExpenseModel
 
     private function wasMaintenanceJobRunToday(string $jobName, string $todayDate): bool
     {
+>>>>>>> Stashed changes
         if (!$this->ensureMaintenanceRunsTable()) {
             return false;
         }
@@ -144,6 +219,7 @@ class ExpenseModel
             return true;
         }
 
+<<<<<<< Updated upstream
         $assignmentSql = "INSERT INTO request_step_assignments (
                 request_id,
                 workflow_step_id,
@@ -172,6 +248,67 @@ class ExpenseModel
 
         $assignmentStmt = $this->db->prepare($assignmentSql);
         $assignmentStmt->execute([
+=======
+        $assignmentUsesAutoIncrement = $this->supportsAutoIncrement('request_step_assignments', 'request_step_id');
+        if ($assignmentUsesAutoIncrement) {
+            $assignmentSql = "INSERT INTO request_step_assignments (
+                    request_id,
+                    workflow_step_id,
+                    request_step_assigned_to,
+                    request_step_status,
+                    is_auto_approved,
+                    approved_by,
+                    request_step_acted_at,
+                    request_step_comment,
+                    step_approver_type,
+                    step_approver_role,
+                    step_approver_user_id
+                ) VALUES (
+                    :request_id,
+                    :workflow_step_id,
+                    :request_step_assigned_to,
+                    :request_step_status,
+                    :is_auto_approved,
+                    :approved_by,
+                    :request_step_acted_at,
+                    :request_step_comment,
+                    :step_approver_type,
+                    :step_approver_role,
+                    :step_approver_user_id
+                )";
+        } else {
+            $assignmentSql = "INSERT INTO request_step_assignments (
+                    request_step_id,
+                    request_id,
+                    workflow_step_id,
+                    request_step_assigned_to,
+                    request_step_status,
+                    is_auto_approved,
+                    approved_by,
+                    request_step_acted_at,
+                    request_step_comment,
+                    step_approver_type,
+                    step_approver_role,
+                    step_approver_user_id
+                ) VALUES (
+                    :request_step_id,
+                    :request_id,
+                    :workflow_step_id,
+                    :request_step_assigned_to,
+                    :request_step_status,
+                    :is_auto_approved,
+                    :approved_by,
+                    :request_step_acted_at,
+                    :request_step_comment,
+                    :step_approver_type,
+                    :step_approver_role,
+                    :step_approver_user_id
+                )";
+        }
+
+        $assignmentStmt = $this->db->prepare($assignmentSql);
+        $assignmentParams = [
+>>>>>>> Stashed changes
             ':request_id' => $requestId,
             ':workflow_step_id' => $workflowStepId,
             ':request_step_assigned_to' => $assigneeId,
@@ -183,7 +320,15 @@ class ExpenseModel
             ':step_approver_type' => $step['step_approver_type'] ?? null,
             ':step_approver_role' => $step['step_approver_role'] ?? null,
             ':step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0) > 0 ? (int) $step['step_approver_user_id'] : null,
+<<<<<<< Updated upstream
         ]);
+=======
+        ];
+        if (!$assignmentUsesAutoIncrement) {
+            $assignmentParams[':request_step_id'] = $this->reserveNextId('request_step_assignments', 'request_step_id');
+        }
+        $assignmentStmt->execute($assignmentParams);
+>>>>>>> Stashed changes
 
         return $assignmentStmt->rowCount() > 0;
     }
@@ -649,49 +794,97 @@ class ExpenseModel
         try {
             $existingRequest = $this->getRequestById($requestId);
             $normalizedRequestType = $this->normalizeRequestTypeForStorage((string) ($requestData['request_type'] ?? ''));
+<<<<<<< Updated upstream
             $requesterId = (int) ($requestData['request_submitted_by'] ?? ($existingRequest['request_submitted_by'] ?? 0));
             $departmentId = (int) ($requestData['department_id'] ?? ($existingRequest['department_id'] ?? 0));
+=======
+            $requesterId = (int) ($requestData['request_submitted_by'] ?? 0);
+            $departmentId = (int) ($requestData['department_id'] ?? 0);
+>>>>>>> Stashed changes
             $workflowId = (int) ($requestData['workflow_id'] ?? 0);
             $actedAt = $this->getCurrentIstDateTime();
 
-            $requestSql = "INSERT INTO requests (
-                    request_reference_no,
-                    request_type,
-                    request_title,
-                    request_description,
-                    request_amount,
-                    request_currency,
-                    department_id,
-                    request_category,
-                    budget_category_id,
-                    workflow_id,
-                    request_current_step_id,
-                    request_submitted_by,
-                    request_status,
-                    request_priority,
-                    request_notes,
-                    request_submitted_at
-                ) VALUES (
-                    :request_reference_no,
-                    :request_type,
-                    :request_title,
-                    :request_description,
-                    :request_amount,
-                    :request_currency,
-                    :department_id,
-                    :request_category,
-                    :budget_category_id,
-                    :workflow_id,
-                    :request_current_step_id,
-                    :request_submitted_by,
-                    :request_status,
-                    :request_priority,
-                    :request_notes,
-                    :request_submitted_at
-                )";
+            $requestUsesAutoIncrement = $this->supportsAutoIncrement('requests', 'request_id');
+            $requestId = null;
+            if ($requestUsesAutoIncrement) {
+                $requestSql = "INSERT INTO requests (
+                        request_reference_no,
+                        request_type,
+                        request_title,
+                        request_description,
+                        request_amount,
+                        request_currency,
+                        department_id,
+                        request_category,
+                        budget_category_id,
+                        workflow_id,
+                        request_current_step_id,
+                        request_submitted_by,
+                        request_status,
+                        request_priority,
+                        request_notes,
+                        request_submitted_at
+                    ) VALUES (
+                        :request_reference_no,
+                        :request_type,
+                        :request_title,
+                        :request_description,
+                        :request_amount,
+                        :request_currency,
+                        :department_id,
+                        :request_category,
+                        :budget_category_id,
+                        :workflow_id,
+                        :request_current_step_id,
+                        :request_submitted_by,
+                        :request_status,
+                        :request_priority,
+                        :request_notes,
+                        :request_submitted_at
+                    )";
+            } else {
+                $requestId = $this->reserveNextId('requests', 'request_id');
+                $requestSql = "INSERT INTO requests (
+                        request_id,
+                        request_reference_no,
+                        request_type,
+                        request_title,
+                        request_description,
+                        request_amount,
+                        request_currency,
+                        department_id,
+                        request_category,
+                        budget_category_id,
+                        workflow_id,
+                        request_current_step_id,
+                        request_submitted_by,
+                        request_status,
+                        request_priority,
+                        request_notes,
+                        request_submitted_at
+                    ) VALUES (
+                        :request_id,
+                        :request_reference_no,
+                        :request_type,
+                        :request_title,
+                        :request_description,
+                        :request_amount,
+                        :request_currency,
+                        :department_id,
+                        :request_category,
+                        :budget_category_id,
+                        :workflow_id,
+                        :request_current_step_id,
+                        :request_submitted_by,
+                        :request_status,
+                        :request_priority,
+                        :request_notes,
+                        :request_submitted_at
+                    )";
+            }
 
             $requestStmt = $this->db->prepare($requestSql);
-            $requestStmt->execute([
+            $requestParams = [
                 ':request_reference_no' => (string) ($requestData['request_reference_no'] ?? ''),
                 ':request_type' => $normalizedRequestType,
                 ':request_title' => (string) ($requestData['request_title'] ?? ''),
@@ -708,9 +901,15 @@ class ExpenseModel
                 ':request_priority' => (string) ($requestData['request_priority'] ?? 'low'),
                 ':request_notes' => $requestData['request_notes'] ?? null,
                 ':request_submitted_at' => (string) ($requestData['request_submitted_at'] ?? $this->getCurrentIstDateTime()),
-            ]);
+            ];
+            if (!$requestUsesAutoIncrement) {
+                $requestParams[':request_id'] = $requestId;
+            }
+            $requestStmt->execute($requestParams);
 
-            $requestId = (int) $this->db->lastInsertId();
+            if ($requestUsesAutoIncrement) {
+                $requestId = (int) $this->db->lastInsertId();
+            }
 
             $this->advanceRequestWorkflow(
                 $requestId,
@@ -736,6 +935,7 @@ class ExpenseModel
             }
 
             if ($requestId > 0 && $attachmentRows !== []) {
+<<<<<<< Updated upstream
                 $attachmentSql = "INSERT INTO request_attachments (
                         request_id,
                         attachment_file_name,
@@ -759,6 +959,56 @@ class ExpenseModel
                 $attachmentStmt = $this->db->prepare($attachmentSql);
                 foreach ($attachmentRows as $attachmentRow) {
                     $attachmentStmt->execute([
+=======
+                $attachmentUsesAutoIncrement = $this->supportsAutoIncrement('request_attachments', 'attachment_id');
+                if ($attachmentUsesAutoIncrement) {
+                    $attachmentSql = "INSERT INTO request_attachments (
+                            request_id,
+                            attachment_file_name,
+                            attachment_stored_name,
+                            attachment_file_path,
+                            attachment_file_size,
+                            attachment_mime_type,
+                            attachment_type,
+                            attachment_uploaded_by
+                        ) VALUES (
+                            :request_id,
+                            :attachment_file_name,
+                            :attachment_stored_name,
+                            :attachment_file_path,
+                            :attachment_file_size,
+                            :attachment_mime_type,
+                            :attachment_type,
+                            :attachment_uploaded_by
+                        )";
+                } else {
+                    $attachmentSql = "INSERT INTO request_attachments (
+                            attachment_id,
+                            request_id,
+                            attachment_file_name,
+                            attachment_stored_name,
+                            attachment_file_path,
+                            attachment_file_size,
+                            attachment_mime_type,
+                            attachment_type,
+                            attachment_uploaded_by
+                        ) VALUES (
+                            :attachment_id,
+                            :request_id,
+                            :attachment_file_name,
+                            :attachment_stored_name,
+                            :attachment_file_path,
+                            :attachment_file_size,
+                            :attachment_mime_type,
+                            :attachment_type,
+                            :attachment_uploaded_by
+                        )";
+                }
+
+                $attachmentStmt = $this->db->prepare($attachmentSql);
+                foreach ($attachmentRows as $attachmentRow) {
+                    $attachmentParams = [
+>>>>>>> Stashed changes
                         ':request_id' => $requestId,
                         ':attachment_file_name' => (string) ($attachmentRow['attachment_file_name'] ?? ''),
                         ':attachment_stored_name' => (string) ($attachmentRow['attachment_stored_name'] ?? ''),
@@ -767,7 +1017,15 @@ class ExpenseModel
                         ':attachment_mime_type' => (string) ($attachmentRow['attachment_mime_type'] ?? ''),
                         ':attachment_type' => (string) ($attachmentRow['attachment_type'] ?? 'other'),
                         ':attachment_uploaded_by' => (int) ($attachmentRow['attachment_uploaded_by'] ?? 0),
+<<<<<<< Updated upstream
                     ]);
+=======
+                    ];
+                    if (!$attachmentUsesAutoIncrement) {
+                        $attachmentParams[':attachment_id'] = $this->reserveNextId('request_attachments', 'attachment_id');
+                    }
+                    $attachmentStmt->execute($attachmentParams);
+>>>>>>> Stashed changes
                 }
             }
 
@@ -1335,6 +1593,7 @@ class ExpenseModel
             }
 
             if ($attachmentRows !== []) {
+<<<<<<< Updated upstream
                 $attachmentSql = "INSERT INTO request_attachments (
                         request_id,
                         attachment_file_name,
@@ -1358,6 +1617,56 @@ class ExpenseModel
                 $attachmentStmt = $this->db->prepare($attachmentSql);
                 foreach ($attachmentRows as $attachmentRow) {
                     $attachmentStmt->execute([
+=======
+                $attachmentUsesAutoIncrement = $this->supportsAutoIncrement('request_attachments', 'attachment_id');
+                if ($attachmentUsesAutoIncrement) {
+                    $attachmentSql = "INSERT INTO request_attachments (
+                            request_id,
+                            attachment_file_name,
+                            attachment_stored_name,
+                            attachment_file_path,
+                            attachment_file_size,
+                            attachment_mime_type,
+                            attachment_type,
+                            attachment_uploaded_by
+                        ) VALUES (
+                            :request_id,
+                            :attachment_file_name,
+                            :attachment_stored_name,
+                            :attachment_file_path,
+                            :attachment_file_size,
+                            :attachment_mime_type,
+                            :attachment_type,
+                            :attachment_uploaded_by
+                        )";
+                } else {
+                    $attachmentSql = "INSERT INTO request_attachments (
+                            attachment_id,
+                            request_id,
+                            attachment_file_name,
+                            attachment_stored_name,
+                            attachment_file_path,
+                            attachment_file_size,
+                            attachment_mime_type,
+                            attachment_type,
+                            attachment_uploaded_by
+                        ) VALUES (
+                            :attachment_id,
+                            :request_id,
+                            :attachment_file_name,
+                            :attachment_stored_name,
+                            :attachment_file_path,
+                            :attachment_file_size,
+                            :attachment_mime_type,
+                            :attachment_type,
+                            :attachment_uploaded_by
+                        )";
+                }
+
+                $attachmentStmt = $this->db->prepare($attachmentSql);
+                foreach ($attachmentRows as $attachmentRow) {
+                    $attachmentParams = [
+>>>>>>> Stashed changes
                         ':request_id' => $requestId,
                         ':attachment_file_name' => (string) ($attachmentRow['attachment_file_name'] ?? ''),
                         ':attachment_stored_name' => (string) ($attachmentRow['attachment_stored_name'] ?? ''),
@@ -1366,7 +1675,15 @@ class ExpenseModel
                         ':attachment_mime_type' => (string) ($attachmentRow['attachment_mime_type'] ?? ''),
                         ':attachment_type' => (string) ($attachmentRow['attachment_type'] ?? 'other'),
                         ':attachment_uploaded_by' => (int) ($attachmentRow['attachment_uploaded_by'] ?? 0),
+<<<<<<< Updated upstream
                     ]);
+=======
+                    ];
+                    if (!$attachmentUsesAutoIncrement) {
+                        $attachmentParams[':attachment_id'] = $this->reserveNextId('request_attachments', 'attachment_id');
+                    }
+                    $attachmentStmt->execute($attachmentParams);
+>>>>>>> Stashed changes
                 }
             }
 
@@ -1563,26 +1880,49 @@ class ExpenseModel
 
     private function insertRequestAction(int $requestId, int $workflowStepId, string $action, int $actorUserId, ?int $reassignTo, ?string $comment, string $actedAt): void
     {
-        $sql = "INSERT INTO request_actions (
-                    request_id,
-                    workflow_step_id,
-                    action,
-                    acted_at,
-                    action_actor_id,
-                    action_reassigned_to,
-                    action_comment
-                ) VALUES (
-                    :request_id,
-                    :workflow_step_id,
-                    :action,
-                    :acted_at,
-                    :action_actor_id,
-                    :action_reassigned_to,
-                    :action_comment
-                )";
+        $actionUsesAutoIncrement = $this->supportsAutoIncrement('request_actions', 'action_id');
+        if ($actionUsesAutoIncrement) {
+            $sql = "INSERT INTO request_actions (
+                        request_id,
+                        workflow_step_id,
+                        action,
+                        acted_at,
+                        action_actor_id,
+                        action_reassigned_to,
+                        action_comment
+                    ) VALUES (
+                        :request_id,
+                        :workflow_step_id,
+                        :action,
+                        :acted_at,
+                        :action_actor_id,
+                        :action_reassigned_to,
+                        :action_comment
+                    )";
+        } else {
+            $sql = "INSERT INTO request_actions (
+                        action_id,
+                        request_id,
+                        workflow_step_id,
+                        action,
+                        acted_at,
+                        action_actor_id,
+                        action_reassigned_to,
+                        action_comment
+                    ) VALUES (
+                        :action_id,
+                        :request_id,
+                        :workflow_step_id,
+                        :action,
+                        :acted_at,
+                        :action_actor_id,
+                        :action_reassigned_to,
+                        :action_comment
+                    )";
+        }
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([
+        $params = [
             ':request_id' => $requestId,
             ':workflow_step_id' => $workflowStepId > 0 ? $workflowStepId : null,
             ':action' => $action,
@@ -1590,7 +1930,11 @@ class ExpenseModel
             ':action_actor_id' => $actorUserId,
             ':action_reassigned_to' => $reassignTo,
             ':action_comment' => $comment,
-        ]);
+        ];
+        if (!$actionUsesAutoIncrement) {
+            $params[':action_id'] = $this->reserveNextId('request_actions', 'action_id');
+        }
+        $stmt->execute($params);
     }
 
     private function getWorkflowStepById(int $stepId): ?array

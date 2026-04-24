@@ -24,13 +24,26 @@ class ExpenseApiController extends ApiBaseController
         $this->ensurePermission($this->rbac()->canAccessFinancialRequests(), 'Forbidden');
     }
 
+    private function departmentLocked(): bool
+    {
+        return (int) ($this->authenticatedUser()['department_id'] ?? 0) > 0;
+    }
+
     private function normalizeRequestTypeValue(string $value): string
     {
         $normalized = strtolower(trim($value));
+        $normalized = str_replace('_', ' ', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
 
         return match ($normalized) {
             'expense' => 'expense',
+<<<<<<< Updated upstream
             'purchase' => 'purchase',
+=======
+            'reimbursable' => 'expense',
+            'purchase' => 'purchase',
+            'company paid' => 'purchase',
+>>>>>>> Stashed changes
             default => $normalized,
         };
     }
@@ -53,10 +66,37 @@ class ExpenseApiController extends ApiBaseController
             'request_currency' => strtoupper(trim((string) ($source['request_currency'] ?? $defaultCurrency))),
             'department_id' => (int) ($source['department_id'] ?? 0),
             'budget_category_id' => (int) ($source['budget_category_id'] ?? 0),
-            'workflow_id' => (int) ($source['workflow_id'] ?? 0),
             'request_priority' => strtolower(trim((string) ($source['request_priority'] ?? $defaultPriority))),
             'request_notes' => trim((string) ($source['request_notes'] ?? '')),
         ];
+    }
+
+    private function resolveWorkflowSelection(string $requestType, string $requestAmount, int $departmentId, int $requesterId): array
+    {
+        $workflowModel = new WorkflowModel();
+        $normalizedType = strtolower(trim($requestType));
+        $amount = is_numeric($requestAmount) ? (float) $requestAmount : 0.0;
+
+        if ($normalizedType === '' || $amount <= 0) {
+            return [null, null, []];
+        }
+
+        $workflow = $workflowModel->getWorkflowForRequestCriteria($normalizedType, $amount);
+        if (!is_array($workflow)) {
+            return [null, null, []];
+        }
+
+        $workflowId = (int) ($workflow['workflow_id'] ?? 0);
+        if ($workflowId <= 0) {
+            return [null, null, []];
+        }
+
+        $steps = $workflowModel->getWorkflowStepsByWorkflowId($workflowId);
+        $firstStep = is_array($steps[0] ?? null) ? $steps[0] : [];
+        $firstStepId = (int) ($firstStep['step_id'] ?? 0);
+        $firstStepAssigneeIds = $this->resolveStepAssigneeIds($firstStep, $departmentId, $requesterId, $workflowModel);
+
+        return [$workflow, $firstStepId > 0 ? $firstStepId : null, $firstStepAssigneeIds];
     }
 
     private function generateRequestReferenceNo(): string
@@ -114,7 +154,7 @@ class ExpenseApiController extends ApiBaseController
         return array_values(array_unique($assigneeIds));
     }
 
-    private function buildAttachmentPayload(array $file): array
+    private function buildAttachmentPayload(array $file, string $attachmentType): array
     {
         $originalName = (string) ($file['name'] ?? '');
         $tmpPath = (string) ($file['tmp_name'] ?? '');
@@ -141,8 +181,17 @@ class ExpenseApiController extends ApiBaseController
             throw new RuntimeException('Invalid attachment content type.');
         }
 
+        $normalizedAttachmentType = strtolower(trim($attachmentType));
+        if (!in_array($normalizedAttachmentType, ['invoice', 'receipt', 'other'], true)) {
+            $normalizedAttachmentType = 'other';
+        }
+
         $storedName = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $extension;
+<<<<<<< Updated upstream
         $relativeFolder = $this->resolveAttachmentFolder('other');
+=======
+        $relativeFolder = $this->resolveAttachmentFolder($normalizedAttachmentType);
+>>>>>>> Stashed changes
         $this->ensureAttachmentFolderExists($relativeFolder);
         $relativePath = $relativeFolder . '/' . $storedName;
         $absolutePath = ROOT_PATH . '/' . ltrim($relativePath, '/');
@@ -171,7 +220,8 @@ class ExpenseApiController extends ApiBaseController
             'attachment_file_path' => $relativePath,
             'attachment_file_size' => $size,
             'attachment_mime_type' => $mimeType,
-            'attachment_type' => 'other',
+            'attachment_type' => $normalizedAttachmentType,
+            'attachment_uploaded_by' => (int) ($this->authenticatedUser()['user_id'] ?? 0),
         ];
     }
 
@@ -190,6 +240,15 @@ class ExpenseApiController extends ApiBaseController
         if (!is_dir($absoluteFolder) && !mkdir($absoluteFolder, 0775, true) && !is_dir($absoluteFolder)) {
             throw new RuntimeException('Failed to create attachment upload directory.');
         }
+<<<<<<< Updated upstream
+=======
+
+        @chmod($absoluteFolder, 0775);
+
+        if (!is_writable($absoluteFolder)) {
+            throw new RuntimeException('Upload folder is not writable: ' . $absoluteFolder);
+        }
+>>>>>>> Stashed changes
     }
 
     private function fileUploadMaxSizeMb(): int
@@ -304,8 +363,8 @@ class ExpenseApiController extends ApiBaseController
         if ($expenseData['budget_category_id'] <= 0 || empty($selectedCategory)) {
             $errors['budget_category_id'] = 'Budget category is required.';
         }
-        if ($expenseData['workflow_id'] <= 0 || empty($selectedWorkflow)) {
-            $errors['workflow_id'] = 'Workflow is required.';
+        if (empty($selectedWorkflow)) {
+            $errors['workflow'] = 'No active workflow is available for the selected request type and amount.';
         }
         if (!in_array($expenseData['request_priority'], $allowedPriorities, true)) {
             $errors['request_priority'] = 'Invalid priority.';
@@ -317,18 +376,13 @@ class ExpenseApiController extends ApiBaseController
             $errors['workflow_id'] = 'Selected workflow is inactive.';
         }
 
-        $categoryType = strtolower(trim((string) ($selectedCategory['budget_category_type'] ?? '')));
-        $workflowType = strtolower(trim((string) ($selectedWorkflow['workflow_type'] ?? '')));
-        $workflowBudgetCategoryId = (int) ($selectedWorkflow['budget_category_id'] ?? 0);
-        $selectedCategoryId = (int) ($selectedCategory['budget_category_id'] ?? 0);
+        $categoryType = $this->normalizeRequestTypeValue((string) ($selectedCategory['budget_category_type'] ?? ''));
+        $workflowType = $this->normalizeRequestTypeValue((string) ($selectedWorkflow['workflow_type'] ?? ''));
         if (
             $categoryType !== $expenseData['request_type'] ||
-            $workflowType !== $expenseData['request_type'] ||
-            $workflowBudgetCategoryId <= 0 ||
-            $workflowBudgetCategoryId !== $selectedCategoryId ||
-            $workflowBudgetCategoryId !== (int) $expenseData['budget_category_id']
+            $workflowType !== $expenseData['request_type']
         ) {
-            $errors['request_type'] = 'Category and workflow must match request type.';
+            $errors['request_type'] = 'Budget category and workflow must match request type.';
         }
 
         if ($departmentLocked && (int) ($this->authenticatedUser()['department_id'] ?? 0) <= 0) {
@@ -398,24 +452,38 @@ class ExpenseApiController extends ApiBaseController
         $this->ensureAccess();
         $input = $this->input();
         $expenseData = $this->normalizeExpensePayload($input);
+<<<<<<< Updated upstream
         $selectedCategory = [];
         $selectedWorkflow = [];
         $departmentLocked = false;
         $budget = null;
 
         $departmentLocked = $this->departmentLocked();
+=======
+        $departmentLocked = false;
+
+        $departmentLocked = $this->departmentLocked();
+        if ($departmentLocked && $expenseData['department_id'] <= 0) {
+            $expenseData['department_id'] = (int) ($this->authenticatedUser()['department_id'] ?? 0);
+        }
+>>>>>>> Stashed changes
         if ($expenseData['department_id'] <= 0) {
             $this->jsonError('Department is required.');
             return;
         }
 
         $expenseModel = new ExpenseModel();
+<<<<<<< Updated upstream
         $categoryData = $expenseModel->getBudgetCategoryById((int) $expenseData['budget_category_id']);
+=======
+        $categoryData = (new BudgetCategoryModel())->getCategoryById((int) $expenseData['budget_category_id']);
+>>>>>>> Stashed changes
         if ($categoryData === null || empty($categoryData)) {
             $this->jsonError('Budget category not found.');
             return;
         }
 
+<<<<<<< Updated upstream
         $selectedCategory = $categoryData;
         $workflowData = $expenseModel->getWorkflowById((int) $expenseData['workflow_id']);
         if ($workflowData === null || empty($workflowData)) {
@@ -425,12 +493,40 @@ class ExpenseApiController extends ApiBaseController
 
         $selectedWorkflow = $workflowData;
         $payloadErrors = $this->validateExpensePayload($expenseData, $selectedCategory, $selectedWorkflow, $departmentLocked);
+=======
+        [$workflowData, $firstStepId, $firstStepAssigneeIds] = $this->resolveWorkflowSelection(
+            $expenseData['request_type'],
+            $expenseData['request_amount'],
+            (int) $expenseData['department_id'],
+            (int) ($this->authenticatedUser()['user_id'] ?? 0)
+        );
+        if ($workflowData === null || empty($workflowData)) {
+            $this->jsonError('No workflow matched the selected request type and amount.');
+            return;
+        }
+
+        $payloadErrors = $this->validateExpensePayload($expenseData, $categoryData, $workflowData, $departmentLocked);
+>>>>>>> Stashed changes
         if (!empty($payloadErrors)) {
             $this->jsonError('Validation failed', 400, ['errors' => $payloadErrors]);
             return;
         }
+<<<<<<< Updated upstream
 
         try {
+=======
+        if ($firstStepId === null) {
+            $this->jsonError('Selected workflow has no approval steps.');
+            return;
+        }
+        if ($firstStepAssigneeIds === []) {
+            $this->jsonError('The first workflow step does not have an approver user.');
+            return;
+        }
+
+        try {
+            $attachmentPayloads = [];
+>>>>>>> Stashed changes
             $attachmentFiles = $this->normalizeUploadedFiles('attachment_file');
             $attachmentTypes = [];
             if (isset($_POST['attachment_type'])) {
@@ -442,20 +538,55 @@ class ExpenseApiController extends ApiBaseController
                 }
             }
 
+<<<<<<< Updated upstream
             $requestPayload = [
+=======
+            foreach ($attachmentFiles as $index => $file) {
+                $uploadError = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+                if ($uploadError === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                if ($uploadError !== UPLOAD_ERR_OK) {
+                    $this->jsonError('Failed to upload attachment.');
+                    return;
+                }
+
+                $attachmentType = strtolower(trim((string) ($attachmentTypes[$index] ?? 'other')));
+                $attachmentPayloads[] = $this->buildAttachmentPayload($file, $attachmentType);
+            }
+
+            $requestPayload = [
+                'request_reference_no' => $this->generateRequestReferenceNo(),
+>>>>>>> Stashed changes
                 'request_type' => $expenseData['request_type'],
                 'request_title' => $expenseData['request_title'],
                 'request_description' => $expenseData['request_description'] !== '' ? $expenseData['request_description'] : null,
                 'request_amount' => (float) $expenseData['request_amount'],
                 'request_currency' => $expenseData['request_currency'],
                 'department_id' => $expenseData['department_id'],
+<<<<<<< Updated upstream
                 'budget_category_id' => $expenseData['budget_category_id'],
                 'workflow_id' => $expenseData['workflow_id'],
+=======
+                'request_category' => (string) ($selectedCategory['budget_category_name'] ?? ''),
+                'budget_category_id' => $expenseData['budget_category_id'],
+                'workflow_id' => (int) ($selectedWorkflow['workflow_id'] ?? 0),
+                'request_current_step_id' => $firstStepId,
+                'request_step_assigned_to_ids' => $firstStepAssigneeIds,
+                'request_step_assigned_to' => (int) ($firstStepAssigneeIds[0] ?? 0),
+                'request_submitted_by' => (int) ($this->authenticatedUser()['user_id'] ?? 0),
+                'request_status' => 'pending',
+                'request_submitted_at' => date('Y-m-d H:i:s'),
+>>>>>>> Stashed changes
                 'request_priority' => $expenseData['request_priority'],
                 'request_notes' => $expenseData['request_notes'] !== '' ? $expenseData['request_notes'] : null,
             ];
 
+<<<<<<< Updated upstream
             $requestId = $expenseModel->createRequest($requestPayload, $attachmentFiles, $attachmentTypes);
+=======
+            $requestId = $expenseModel->createRequest($requestPayload, $attachmentPayloads);
+>>>>>>> Stashed changes
             if ($requestId <= 0) {
                 $this->jsonError('Failed to create request.');
                 return;
@@ -484,15 +615,30 @@ class ExpenseApiController extends ApiBaseController
 
         $this->ensureCanAccessRequestRecord($request);
         $expenseData = $this->normalizeExpensePayload($input);
+<<<<<<< Updated upstream
         $categoryData = $expenseModel->getBudgetCategoryById((int) $expenseData['budget_category_id']);
+=======
+        $categoryData = (new BudgetCategoryModel())->getCategoryById((int) $expenseData['budget_category_id']);
+>>>>>>> Stashed changes
         if ($categoryData === null || empty($categoryData)) {
             $this->jsonError('Budget category not found.');
             return;
         }
 
+<<<<<<< Updated upstream
         $workflowData = $expenseModel->getWorkflowById((int) $expenseData['workflow_id']);
         if ($workflowData === null || empty($workflowData)) {
             $this->jsonError('Workflow not found.');
+=======
+        [$workflowData, $firstStepId, $firstStepAssigneeIds] = $this->resolveWorkflowSelection(
+            $expenseData['request_type'],
+            $expenseData['request_amount'],
+            (int) ($request['department_id'] ?? 0),
+            (int) ($request['request_submitted_by'] ?? 0)
+        );
+        if ($workflowData === null || empty($workflowData)) {
+            $this->jsonError('No workflow matched the selected request type and amount.');
+>>>>>>> Stashed changes
             return;
         }
 
@@ -501,8 +647,22 @@ class ExpenseApiController extends ApiBaseController
             $this->jsonError('Validation failed', 400, ['errors' => $payloadErrors]);
             return;
         }
+<<<<<<< Updated upstream
 
         try {
+=======
+        if ($firstStepId === null) {
+            $this->jsonError('Selected workflow has no approval steps.');
+            return;
+        }
+        if ($firstStepAssigneeIds === []) {
+            $this->jsonError('The first workflow step does not have an approver user.');
+            return;
+        }
+
+        try {
+            $attachmentPayloads = [];
+>>>>>>> Stashed changes
             $attachmentFiles = $this->normalizeUploadedFiles('attachment_file');
             $attachmentTypes = [];
             if (isset($_POST['attachment_type'])) {
@@ -514,17 +674,54 @@ class ExpenseApiController extends ApiBaseController
                 }
             }
 
+<<<<<<< Updated upstream
             $updatePayload = [
+=======
+            foreach ($attachmentFiles as $index => $file) {
+                $uploadError = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+                if ($uploadError === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                if ($uploadError !== UPLOAD_ERR_OK) {
+                    $this->jsonError('Failed to upload attachment.');
+                    return;
+                }
+
+                $attachmentType = strtolower(trim((string) ($attachmentTypes[$index] ?? 'other')));
+                $attachmentPayloads[] = $this->buildAttachmentPayload($file, $attachmentType);
+            }
+
+            $updatePayload = [
+                'request_reference_no' => (string) ($request['request_reference_no'] ?? ''),
+>>>>>>> Stashed changes
                 'request_type' => $expenseData['request_type'],
                 'request_title' => $expenseData['request_title'],
                 'request_description' => $expenseData['request_description'] !== '' ? $expenseData['request_description'] : null,
                 'request_amount' => (float) $expenseData['request_amount'],
                 'request_currency' => $expenseData['request_currency'],
+<<<<<<< Updated upstream
+=======
+                'department_id' => (int) ($request['department_id'] ?? 0),
+                'request_category' => (string) ($categoryData['budget_category_name'] ?? ''),
+                'budget_category_id' => (int) ($categoryData['budget_category_id'] ?? 0),
+                'workflow_id' => (int) ($workflowData['workflow_id'] ?? 0),
+                'request_current_step_id' => $firstStepId,
+                'request_submitted_by' => (int) ($request['request_submitted_by'] ?? 0),
+>>>>>>> Stashed changes
                 'request_priority' => $expenseData['request_priority'],
                 'request_notes' => $expenseData['request_notes'] !== '' ? $expenseData['request_notes'] : null,
             ];
 
+<<<<<<< Updated upstream
             $success = $expenseModel->updateRequestBeforeFirstApproval($requestId, $updatePayload, $attachmentFiles, $attachmentTypes);
+=======
+            $success = $expenseModel->updateRequestBeforeFirstApproval(
+                $requestId,
+                $updatePayload,
+                $firstStepAssigneeIds,
+                $attachmentPayloads
+            );
+>>>>>>> Stashed changes
             if (!$success) {
                 $this->jsonError('Failed to update request.');
                 return;
