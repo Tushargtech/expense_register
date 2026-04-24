@@ -453,7 +453,7 @@ class ExpenseController
             return 'rejected';
         }
 
-        if ($latestAction === 'approve' || $assignmentStatus === 'approved') {
+        if ($latestAction === 'approve' || in_array($assignmentStatus, ['approved', 'auto_approved'], true)) {
             return 'approved';
         }
 

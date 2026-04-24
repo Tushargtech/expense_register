@@ -128,7 +128,7 @@ $statusLabel = ucfirst($requestStatus !== '' ? $requestStatus : 'pending');
                                         <span><?php echo ucfirst(str_replace('_', ' ', $progressStatus)); ?></span>
                                     </div>
                                     <div class="review-progress-meta">
-                                        <span>Step <?php echo (int) ($step['step_order'] ?? 0); ?></span>
+                                        <span>Step <?php echo (int) ($step['workflow_step_id'] ?? $step['step_id'] ?? 0); ?></span>
                                         <?php if ($actorName !== ''): ?>
                                             <span><?php echo htmlspecialchars($actorName, ENT_QUOTES, 'UTF-8'); ?></span>
                                         <?php endif; ?>

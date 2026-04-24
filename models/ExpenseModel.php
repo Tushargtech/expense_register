@@ -147,8 +147,6 @@ class ExpenseModel
                 workflow_step_id,
                 request_step_assigned_to,
                 request_step_status,
-                is_auto_approved,
-                approved_by,
                 request_step_assigned_at,
                 request_step_acted_at,
                 request_step_comment,
@@ -184,8 +182,6 @@ class ExpenseModel
                 workflow_step_id,
                 request_step_assigned_to,
                 request_step_status,
-                is_auto_approved,
-                approved_by,
                 request_step_assigned_at,
                 request_step_acted_at,
                 request_step_comment,
@@ -218,8 +214,6 @@ class ExpenseModel
                 workflow_step_id,
                 request_step_assigned_to,
                 request_step_status,
-                is_auto_approved,
-                approved_by,
                 request_step_assigned_at,
                 request_step_acted_at,
                 request_step_comment,
@@ -241,6 +235,76 @@ class ExpenseModel
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row !== false ? $row : null;
+    }
+
+    private function markSnapshotStepAutoApproved(int $requestId, int $requestStepId, int $requesterId, string $actedAt): bool
+    {
+        if ($requestId <= 0 || $requestStepId <= 0 || $requesterId <= 0) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare(
+            "UPDATE request_step_assignments
+             SET request_step_status = 'auto_approved',
+                 request_step_acted_at = :request_step_acted_at
+             WHERE request_id = :request_id
+               AND request_step_id = :request_step_id
+               AND request_step_assigned_to = :request_step_assigned_to
+               AND request_step_status = 'pending'"
+        );
+        $stmt->execute([
+            ':request_id' => $requestId,
+            ':request_step_id' => $requestStepId,
+            ':request_step_assigned_to' => $requesterId,
+            ':request_step_acted_at' => $actedAt,
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    private function advanceSnapshotWorkflowAfterApproval(int $requestId, int $requesterId, int $currentRequestStepId, string $actedAt): array
+    {
+        $nextRequestStepId = $currentRequestStepId;
+
+        while (true) {
+            $nextStep = $this->getNextPendingSnapshotStep($requestId, $nextRequestStepId);
+            if (!is_array($nextStep)) {
+                $request = $this->getRequestById($requestId);
+                if (is_array($request)) {
+                    $this->adjustBudgetForFinalApproval($request);
+                }
+
+                $this->updateRequestApprovalPointer($requestId, null, 'approved', $actedAt);
+
+                return [
+                    'status' => 'approved',
+                    'current_step_id' => null,
+                    'step' => null,
+                ];
+            }
+
+            $nextWorkflowStepId = (int) ($nextStep['workflow_step_id'] ?? 0);
+            $nextStepRequestStepId = (int) ($nextStep['request_step_id'] ?? 0);
+            $nextAssignedUserId = (int) ($nextStep['request_step_assigned_to'] ?? 0);
+
+            if ($nextAssignedUserId > 0 && $nextAssignedUserId === $requesterId) {
+                $autoApproved = $this->markSnapshotStepAutoApproved($requestId, $nextStepRequestStepId, $requesterId, $actedAt);
+                if (!$autoApproved) {
+                    throw new RuntimeException('Unable to auto-approve the next workflow step.');
+                }
+
+                $nextRequestStepId = $nextStepRequestStepId;
+                continue;
+            }
+
+            $this->updateRequestApprovalPointer($requestId, $nextWorkflowStepId > 0 ? $nextWorkflowStepId : null, 'pending');
+
+            return [
+                'status' => 'pending',
+                'current_step_id' => $nextWorkflowStepId > 0 ? $nextWorkflowStepId : null,
+                'step' => $nextStep,
+            ];
+        }
     }
 
     private function resolveSnapshotStepAssigneeId(array $step, int $departmentId, int $requesterId): ?int
@@ -294,10 +358,8 @@ class ExpenseModel
         array $step,
         int $assigneeId,
         string $status,
-        ?int $approvedBy,
         ?string $comment,
-        ?string $actedAt,
-        int $isAutoApproved = 0
+        ?string $actedAt
     ): bool {
         $workflowStepId = (int) ($step['step_id'] ?? 0);
         if ($requestId <= 0 || $workflowStepId <= 0 || $assigneeId <= 0) {
@@ -315,8 +377,6 @@ class ExpenseModel
                     workflow_step_id,
                     request_step_assigned_to,
                     request_step_status,
-                    is_auto_approved,
-                    approved_by,
                     request_step_assigned_at,
                     request_step_acted_at,
                     request_step_comment,
@@ -328,8 +388,6 @@ class ExpenseModel
                     :workflow_step_id,
                     :request_step_assigned_to,
                     :request_step_status,
-                    :is_auto_approved,
-                    :approved_by,
                     :request_step_assigned_at,
                     :request_step_acted_at,
                     :request_step_comment,
@@ -344,8 +402,6 @@ class ExpenseModel
                     workflow_step_id,
                     request_step_assigned_to,
                     request_step_status,
-                    is_auto_approved,
-                    approved_by,
                     request_step_assigned_at,
                     request_step_acted_at,
                     request_step_comment,
@@ -358,8 +414,6 @@ class ExpenseModel
                     :workflow_step_id,
                     :request_step_assigned_to,
                     :request_step_status,
-                    :is_auto_approved,
-                    :approved_by,
                     :request_step_assigned_at,
                     :request_step_acted_at,
                     :request_step_comment,
@@ -375,10 +429,8 @@ class ExpenseModel
             ':workflow_step_id' => $workflowStepId,
             ':request_step_assigned_to' => $assigneeId,
             ':request_step_status' => $status,
-            ':is_auto_approved' => $isAutoApproved,
-            ':approved_by' => $approvedBy,
             ':request_step_assigned_at' => $actedAt ?? $this->getCurrentIstDateTime(),
-            ':request_step_acted_at' => $status === 'pending' && $isAutoApproved === 0 ? null : $actedAt,
+            ':request_step_acted_at' => $status === 'pending' ? null : $actedAt,
             ':request_step_comment' => $comment,
             ':step_approver_type' => $step['step_approver_type'] ?? null,
             ':step_approver_role' => $step['step_approver_role'] ?? null,
@@ -399,35 +451,45 @@ class ExpenseModel
             throw new RuntimeException('Selected workflow has no approval steps.');
         }
 
-        $firstStepId = null;
+        $firstPendingStepId = null;
+        $canAutoApprove = true;
         foreach ($steps as $step) {
             $assigneeId = $this->resolveSnapshotStepAssigneeId($step, $departmentId, $requesterId);
             if ($assigneeId === null || $assigneeId <= 0) {
                 throw new RuntimeException('The workflow step does not have a valid approver.');
             }
 
-            if ($firstStepId === null) {
-                $firstStepId = (int) ($step['step_id'] ?? 0);
-            }
+            $stepId = (int) ($step['step_id'] ?? 0);
+            $isAutoApproved = $canAutoApprove && $assigneeId === $requesterId;
+            $status = $isAutoApproved ? 'auto_approved' : 'pending';
+            $stepComment = $isAutoApproved ? 'Auto-approved during request creation' : null;
+            $stepActedAt = $isAutoApproved ? $assignedAt : null;
 
             $inserted = $this->insertRequestStepAssignmentRecord(
                 $requestId,
                 $step,
                 $assigneeId,
-                'pending',
-                null,
-                null,
-                $assignedAt,
-                0
+                $status,
+                $stepComment,
+                $stepActedAt
             );
 
             if (!$inserted) {
                 throw new RuntimeException('Unable to snapshot the workflow steps for this request.');
             }
+
+            if ($isAutoApproved) {
+                continue;
+            }
+
+            $canAutoApprove = false;
+            if ($firstPendingStepId === null) {
+                $firstPendingStepId = $stepId;
+            }
         }
 
         return [
-            'first_step_id' => $firstStepId !== null ? $firstStepId : null,
+            'first_step_id' => $firstPendingStepId !== null ? $firstPendingStepId : null,
             'step_count' => count($steps),
         ];
     }
@@ -468,8 +530,6 @@ class ExpenseModel
                 workflow_step_id,
                 request_step_assigned_to,
                 request_step_status,
-                is_auto_approved,
-                approved_by,
                 request_step_assigned_at,
                 request_step_acted_at,
                 request_step_comment,
@@ -945,11 +1005,15 @@ class ExpenseModel
 
             $snapshot = $this->createRequestSnapshotAssignments($requestId, $workflowId, $departmentId, $requesterId, $actedAt);
             $firstStepId = (int) ($snapshot['first_step_id'] ?? 0);
-            if ($firstStepId <= 0) {
-                throw new RuntimeException('Selected workflow has no approval steps.');
+            if ($firstStepId > 0) {
+                $this->updateRequestApprovalPointer($requestId, $firstStepId, 'pending');
+            } else {
+                $request = $this->getRequestById($requestId);
+                if (is_array($request)) {
+                    $this->adjustBudgetForFinalApproval($request);
+                }
+                $this->updateRequestApprovalPointer($requestId, null, 'approved', $actedAt);
             }
-
-            $this->updateRequestApprovalPointer($requestId, $firstStepId, 'pending');
 
             $attachmentRows = [];
             if (is_array($attachmentData) && !empty($attachmentData)) {
@@ -1150,7 +1214,6 @@ class ExpenseModel
                     ra.action_actor_id,
                     ra.action_reassigned_to,
                     ra.action_comment,
-                    ws.step_order AS step_order,
                     ws.step_name AS step_name,
                     actor.user_name AS actor_name,
                     reassigned.user_name AS reassigned_to_name
@@ -1171,7 +1234,7 @@ class ExpenseModel
     {
         $sql = "SELECT
                     rsa.workflow_step_id AS step_id,
-                    ws.step_order,
+                    rsa.workflow_step_id,
                     ws.step_name,
                     ws.step_approver_type,
                     ws.step_approver_role,
@@ -1727,8 +1790,6 @@ class ExpenseModel
 
             $updateStepSql = "UPDATE request_step_assignments
                               SET request_step_status = :request_step_status,
-                                  approved_by = :approved_by,
-                                  is_auto_approved = 0,
                                                                     request_step_assigned_to = :request_step_assigned_to,
                                   request_step_acted_at = :request_step_acted_at,
                                   request_step_comment = :request_step_comment
@@ -1745,7 +1806,6 @@ class ExpenseModel
 
                 $updateStepStmt->execute([
                     ':request_step_status' => 'rejected',
-                    ':approved_by' => null,
                     ':request_step_acted_at' => $actedAt,
                     ':request_step_comment' => $commentValue,
                     ':request_id' => $requestId,
@@ -1777,7 +1837,6 @@ class ExpenseModel
 
             $updateStepStmt->execute([
                 ':request_step_status' => 'approved',
-                ':approved_by' => $actorUserId,
                 ':request_step_acted_at' => $actedAt,
                 ':request_step_comment' => $commentValue !== '' ? $commentValue : null,
                 ':request_id' => $requestId,
@@ -1789,19 +1848,13 @@ class ExpenseModel
                 throw new RuntimeException('Unable to approve the current workflow step.');
             }
 
-            $nextStep = $this->getNextPendingSnapshotStep($requestId, $currentRequestStepId);
-            if (is_array($nextStep)) {
-                $this->updateRequestApprovalPointer($requestId, (int) ($nextStep['workflow_step_id'] ?? 0), 'pending');
-            } else {
-                $this->adjustBudgetForFinalApproval($request);
-                $this->updateRequestApprovalPointer($requestId, null, 'approved', $actedAt);
-            }
+            $workflowAdvance = $this->advanceSnapshotWorkflowAfterApproval($requestId, (int) ($request['request_submitted_by'] ?? 0), $currentRequestStepId, $actedAt);
 
             $this->insertRequestAction($requestId, $currentStepId, 'approve', $actorUserId, null, $commentValue !== '' ? $commentValue : null, $actedAt);
             $this->db->commit();
 
             return [
-                'message' => is_array($nextStep) ? 'Request approved and moved to the next step.' : 'Request approved successfully.',
+                'message' => ($workflowAdvance['status'] ?? '') === 'pending' ? 'Request approved and moved to the next step.' : 'Request approved successfully.',
                 'action' => 'approve',
             ];
         } catch (Throwable $error) {

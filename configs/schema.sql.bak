@@ -377,8 +377,6 @@ CREATE TABLE `request_step_assignments` (
   `workflow_step_id` int(11) NOT NULL,
   `request_step_assigned_to` int(11) NOT NULL,
   `request_step_status` enum('pending','approved','rejected','auto_approved','skipped') NOT NULL DEFAULT 'pending',
-  `is_auto_approved` tinyint(1) DEFAULT 0,
-  `approved_by` int(11) DEFAULT NULL,
   `request_step_assigned_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `request_step_acted_at` timestamp NULL DEFAULT NULL,
   `request_step_comment` text DEFAULT NULL,
@@ -386,34 +384,6 @@ CREATE TABLE `request_step_assignments` (
   `step_approver_role` varchar(50) DEFAULT NULL,
   `step_approver_user_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `request_step_assignments`
---
-
-INSERT INTO `request_step_assignments` (`request_step_id`, `request_id`, `workflow_step_id`, `request_step_assigned_to`, `request_step_status`, `is_auto_approved`, `approved_by`, `request_step_assigned_at`, `request_step_acted_at`, `request_step_comment`, `step_approver_type`, `step_approver_role`, `step_approver_user_id`) VALUES
-(1, 9, 3, 14, 'approved', 0, NULL, '2026-04-20 13:28:17', '2026-04-19 14:30:12', NULL, NULL, NULL, NULL),
-(2, 9, 4, 13, 'approved', 0, NULL, '2026-04-20 13:28:17', '2026-04-19 14:30:32', NULL, NULL, NULL, NULL),
-(3, 9, 16, 11, 'approved', 0, NULL, '2026-04-20 13:28:17', '2026-04-20 03:50:01', NULL, NULL, NULL, NULL),
-(7, 12, 3, 14, 'pending', 0, NULL, '2026-04-20 13:28:17', NULL, NULL, NULL, NULL, NULL),
-(8, 13, 20, 14, 'approved', 0, NULL, '2026-04-20 13:28:17', '2026-04-20 13:13:31', NULL, NULL, NULL, NULL),
-(9, 13, 21, 13, 'approved', 0, NULL, '2026-04-20 13:28:17', '2026-04-20 13:15:47', NULL, NULL, NULL, NULL),
-(10, 13, 22, 11, 'approved', 0, NULL, '2026-04-20 13:28:17', '2026-04-20 13:16:01', NULL, NULL, NULL, NULL),
-(11, 14, 3, 26, 'approved', 0, NULL, '2026-04-21 08:37:01', '2026-04-21 08:39:40', NULL, NULL, NULL, NULL),
-(12, 14, 4, 27, 'approved', 0, NULL, '2026-04-21 08:39:40', '2026-04-21 08:40:37', NULL, NULL, NULL, NULL),
-(13, 14, 16, 11, 'approved', 0, NULL, '2026-04-21 08:40:37', '2026-04-21 08:41:12', NULL, NULL, NULL, NULL),
-(14, 15, 3, 26, 'approved', 0, NULL, '2026-04-21 08:46:39', '2026-04-21 08:47:09', NULL, NULL, NULL, NULL),
-(15, 15, 4, 29, 'approved', 0, NULL, '2026-04-21 08:47:09', '2026-04-21 08:48:56', NULL, NULL, NULL, NULL),
-(16, 15, 16, 11, 'approved', 0, NULL, '2026-04-21 08:48:56', '2026-04-21 08:49:32', NULL, NULL, NULL, NULL),
-(17, 16, 3, 26, 'rejected', 0, NULL, '2026-04-21 08:50:26', '2026-04-21 08:51:01', 'dffdv', NULL, NULL, NULL),
-(18, 17, 3, 26, 'approved', 0, NULL, '2026-04-21 09:50:36', '2026-04-21 09:51:08', NULL, NULL, NULL, NULL),
-(19, 17, 4, 27, 'approved', 0, NULL, '2026-04-21 09:51:08', '2026-04-21 09:51:28', NULL, NULL, NULL, NULL),
-(20, 17, 16, 11, 'approved', 0, NULL, '2026-04-21 09:51:28', '2026-04-21 09:51:49', NULL, NULL, NULL, NULL),
-(21, 18, 3, 27, 'approved', 0, NULL, '2026-04-22 04:19:58', '2026-04-22 04:22:02', NULL, NULL, NULL, NULL),
-(22, 18, 4, 27, 'approved', 0, NULL, '2026-04-22 04:22:02', '2026-04-22 04:24:59', NULL, NULL, NULL, NULL),
-(23, 18, 16, 11, 'pending', 0, NULL, '2026-04-22 04:24:59', NULL, NULL, NULL, NULL, NULL),
-(24, 19, 3, 14, 'pending', 0, NULL, '2026-04-22 05:43:03', NULL, NULL, NULL, NULL, NULL),
-(26, 21, 3, 10, 'pending', 0, NULL, '2026-04-22 07:02:11', NULL, NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 

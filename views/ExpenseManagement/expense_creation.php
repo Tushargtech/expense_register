@@ -27,10 +27,9 @@ $selectedRequestType = match ($selectedRequestType) {
 $selectedReferenceNo = (string) ($oldInput['request_reference_no'] ?? '');
 $selectedTitle = (string) ($oldInput['request_title'] ?? '');
 $selectedAmount = (string) ($oldInput['request_amount'] ?? '');
-<<<<<<< Updated upstream
-=======
+
 $selectedBudgetCategoryId = (int) ($oldInput['budget_category_id'] ?? 0);
->>>>>>> Stashed changes
+
 $selectedPriority = strtolower(trim((string) ($oldInput['request_priority'] ?? 'low')));
 $selectedDescription = (string) ($oldInput['request_description'] ?? '');
 $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
@@ -88,9 +87,7 @@ $attachmentMaxSizeMb = isset($attachmentMaxSizeMb) ? max(1, (int) $attachmentMax
 							<label class="user-create-label" for="request_amount">Amount <span class="text-danger">*</span></label>
 							<input type="number" class="user-create-input" id="request_amount" name="request_amount" placeholder="0.00" step="0.01" min="0.01" value="<?php echo htmlspecialchars($selectedAmount, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
-<<<<<<< Updated upstream
-					
-=======
+
 
 						<div class="user-create-field">
 							<label class="user-create-label" for="budget_category_id">Budget Category <span class="text-danger">*</span></label>
@@ -116,7 +113,7 @@ $attachmentMaxSizeMb = isset($attachmentMaxSizeMb) ? max(1, (int) $attachmentMax
 								<?php endforeach; ?>
 							</select>
 						</div>
->>>>>>> Stashed changes
+
 
 						<div class="user-create-field">
 							<label class="user-create-label" for="request_priority">Priority</label>
@@ -234,10 +231,9 @@ $attachmentMaxSizeMb = isset($attachmentMaxSizeMb) ? max(1, (int) $attachmentMax
 <script>
 (function () {
 	const requestTypeSelect = document.getElementById('request_type');
-<<<<<<< Updated upstream
-=======
+
 	const budgetCategorySelect = document.getElementById('budget_category_id');
->>>>>>> Stashed changes
+
 	if (!requestTypeSelect) {
 		return;
 	}
@@ -245,17 +241,7 @@ $attachmentMaxSizeMb = isset($attachmentMaxSizeMb) ? max(1, (int) $attachmentMax
 const attachmentsContainer = document.getElementById('attachmentsContainer');
 	const addAttachmentBtn = document.getElementById('addAttachmentBtn');
 
-<<<<<<< Updated upstream
-	const syncAttachmentGroupVisibility = function (group) {
-		const typeSelect = group.querySelector('.attachmentTypeSelect');
-		const fileWrap = group.querySelector('.attachmentFileWrap');
-		const fileInput = group.querySelector('.attachmentFileInput');
-		const removeBtn = group.querySelector('.removeAttachmentBtn');
 
-		if (!typeSelect || !fileWrap || !fileInput) {
-			return;
-		}
-=======
 	const syncBudgetCategoryOptions = function () {
 		if (!budgetCategorySelect) {
 			return;
@@ -273,7 +259,7 @@ const attachmentsContainer = document.getElementById('attachmentsContainer');
 				selectedOptionVisible = true;
 			}
 		});
->>>>>>> Stashed changes
+
 
 		const hasAttachmentType = String(typeSelect.value || '').trim() !== '';
 		fileWrap.style.display = hasAttachmentType ? '' : 'none';
@@ -288,8 +274,7 @@ const attachmentsContainer = document.getElementById('attachmentsContainer');
 		}
 	};
 
-<<<<<<< Updated upstream
-=======
+
 	const syncAttachmentGroupVisibility = function (group) {
 		const typeSelect = group.querySelector('.attachmentTypeSelect');
 		const fileWrap = group.querySelector('.attachmentFileWrap');
@@ -313,7 +298,7 @@ const attachmentsContainer = document.getElementById('attachmentsContainer');
 		}
 	};
 
->>>>>>> Stashed changes
+
 	const attachTypeChangeHandler = function (event) {
 		const group = event.target.closest('.attachmentGroup');
 		if (group) {
@@ -389,11 +374,10 @@ const attachmentsContainer = document.getElementById('attachmentsContainer');
 	if (addAttachmentBtn) {
 		addAttachmentBtn.addEventListener('click', addAttachmentHandler);
 	}
-<<<<<<< Updated upstream
-=======
+
 
 	requestTypeSelect.addEventListener('change', syncBudgetCategoryOptions);
 	syncBudgetCategoryOptions();
->>>>>>> Stashed changes
+
 })();
 </script>
