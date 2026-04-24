@@ -212,35 +212,87 @@ class DepartmentController
 	
 	public function update(): void
 	{
-		$this->ensureDepartmentCrudAccess();
-		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-			header('Location: ?route=departments');
-			exit;
-		}
-		$deptId = (int) ($_GET['id'] ?? 0);
-		if ($deptId <= 0) {
-			flash_error('Invalid department id');
-			header('Location: ?route=departments');
-			exit;
-		}
-		$departmentData = $this->normalizeDepartmentPayload($_POST);
+	    $this->ensureDepartmentCrudAccess();
+	    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+	        header('Location: ?route=departments');
+	        exit;
+	    }
+	    $deptId = (int) ($_GET['id'] ?? 0);
+	    if ($deptId <= 0) {
+	        flash_error('Invalid department id');
+	        header('Location: ?route=departments');
+	        exit;
+	    }
+	    $departmentData = $this->normalizeDepartmentPayload($_POST);
 
-		if (!$this->isValidDepartmentPayload($departmentData)) {
-			flash_error('Please fill all required fields correctly.');
-			header('Location: ?route=departments/edit&id=' . $deptId);
-			exit;
-		}
-		$deptModel = new DepartmentModel();
-		$success = $deptModel->updateDepartment($deptId, $departmentData);
-		if ($success) {
-			RbacService::audit('department_update', ['department_id' => $deptId]);
-			flash_success('Department updated successfully.');
-			header('Location: ?route=departments');
-		} else {
-			$errorMessage = trim((string) ($deptModel->getLastValidationError() ?? ''));
-			flash_error($errorMessage !== '' ? $errorMessage : 'Failed to update department.');
-			header('Location: ?route=departments/edit&id=' . $deptId);
-		}
-		exit;
+	    if (!$this->isValidDepartmentPayload($departmentData)) {
+	        flash_error('Please fill all required fields correctly.');
+	        header('Location: ?route=departments/edit&id=' . $deptId);
+	        exit;
+	    }
+	    $deptModel = new DepartmentModel();
+	    $success = $deptModel->updateDepartment($deptId, $departmentData);
+	    if ($success) {
+	        RbacService::audit('department_update', ['department_id' => $deptId]);
+	        flash_success('Department updated successfully.');
+	        header('Location: ?route=departments');
+	    } else {
+	        $errorMessage = trim((string) ($deptModel->getLastValidationError() ?? ''));
+	        flash_error($errorMessage !== '' ? $errorMessage : 'Failed to update department.');
+	        header('Location: ?route=departments/edit&id=' . $deptId);
+	    }
+	    exit;
+	}
+
+	/**
+	 * Export departments to Excel
+	 */
+	public function exportExcel(): void
+	{
+	    $this->ensureDepartmentListAccess();
+
+	    $deptModel = new DepartmentModel();
+	    
+	    // Get search filter if any
+	    $search = trim((string) ($_GET['search'] ?? ''));
+	    
+	    // Get all departments (already filtered by search in list() method)
+	    // We'll replicate the filtering logic here
+	    $allDepartments = $deptModel->getAllDepartments();
+	    
+	    // Apply search filter if provided
+	    $departments = $allDepartments;
+	    if (!empty($search)) {
+	        $searchLower = strtolower($search);
+	        $departments = array_filter($allDepartments, function($dept) use ($searchLower) {
+	            $code = strtolower((string) ($dept['department_code'] ?? ''));
+	            $name = strtolower((string) ($dept['department_name'] ?? ''));
+	            return strpos($code, $searchLower) !== false || strpos($name, $searchLower) !== false;
+	        });
+	    }
+
+	    // Define columns matching UI table (excluding Actions column)
+	    $columns = [
+	        'ID' => 'id',
+	        'Department Name' => 'department_name',
+	        'Department Code' => 'department_code',
+	        'Department Head' => 'head_name',
+	        'Head Email' => 'head_email',
+	        'Created At' => function ($row) {
+	            $dt = $row['department_created_at'] ?? '';
+	            return $dt ? date('d M Y', strtotime($dt)) : '—';
+	        },
+	    ];
+
+	    $this->generateExcelFile('departments_list.xlsx', $columns, $departments);
+	}
+
+	/**
+	 * Generate Excel file using shared ExcelExport utility
+	 */
+	private function generateExcelFile(string $filename, array $columns, array $data): void
+	{
+	    require_once ROOT_PATH . '/libraries/ExcelExport.php';
+	    ExcelExport::generateFile($filename, $columns, $data);
 	}
 }

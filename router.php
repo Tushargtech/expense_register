@@ -233,6 +233,16 @@ switch ($route) {
         $expenseController->review();
         break;
 
+    case 'expenses/edit':
+    case '/expenses/edit':
+        $expenseController = new ExpenseController();
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $expenseController->update();
+        } else {
+            $expenseController->edit();
+        }
+        break;
+
     case 'expenses/attachment/download':
     case '/expenses/attachment/download':
         $expenseController = new ExpenseController();
@@ -243,6 +253,42 @@ switch ($route) {
     case '/expenses/attachment/view':
         $expenseController = new ExpenseController();
         $expenseController->viewAttachment();
+        break;
+
+    case 'export/expenses':
+    case '/export/expenses':
+        $expenseController = new ExpenseController();
+        $expenseController->exportExcel();
+        break;
+
+    case 'export/budget-categories':
+    case '/export/budget-categories':
+        $budgetCategoryController = new BudgetCategoryController();
+        $budgetCategoryController->exportExcel();
+        break;
+
+    case 'export/budget-monitor':
+    case '/export/budget-monitor':
+        $budgetMonitorController = new BudgetMonitorController();
+        $budgetMonitorController->exportExcel();
+        break;
+
+    case 'export/workflows':
+    case '/export/workflows':
+        $workflowController = new WorkflowController();
+        $workflowController->exportExcel();
+        break;
+
+    case 'export/users':
+    case '/export/users':
+        $userController = new UserController();
+        $userController->exportExcel();
+        break;
+
+    case 'export/departments':
+    case '/export/departments':
+        $departmentController = new DepartmentController();
+        $departmentController->exportExcel();
         break;
     
     case 'workflows':

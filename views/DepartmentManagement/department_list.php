@@ -152,6 +152,15 @@ $baseQuery = [
 				$rangeStart = $totalDepartmentCount > 0 ? (($currentPage - 1) * $perPage) + 1 : 0;
 				$rangeEnd = $totalDepartmentCount > 0 ? min($totalDepartmentCount, $rangeStart + count($departments) - 1) : 0;
 				?>
+				<div class="pagination-left">
+					<button class="btn btn-outline-secondary btn-sm download-excel-btn"
+							onclick="exportToExcel('export/departments')"
+							title="Download Excel"
+							data-bs-toggle="tooltip"
+							data-bs-placement="top">
+						<i class="bi bi-download me-1"></i>Export
+					</button>
+				</div>
 				<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalDepartmentCount; ?></div>
 				<ul class="pagination user-pagination mb-0">
 					<?php $prevPage = max(1, $currentPage - 1); ?>
