@@ -133,7 +133,7 @@
 .user-list-page .btn-filter {
 	font-size: 13px;
 	height: 34px;
-	min-width: 72px;
+	min-width: 36px;
 	border-radius: 5px;
 	font-weight: 500;
 	background: steelblue;
@@ -1291,7 +1291,7 @@
 .budget-monitor-page .btn-filter {
 	font-size: 13px;
 	height: 34px;
-	min-width: 72px;
+	min-width: 36px;
 	border-radius: 5px;
 	font-weight: 500;
 	background: steelblue;
