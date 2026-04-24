@@ -92,13 +92,10 @@ class ExpenseController
 
         return match ($normalized) {
             'expense' => 'expense',
-<<<<<<< Updated upstream
-            'purchase' => 'purchase',
-=======
+
             'reimbursable' => 'expense',
             'purchase' => 'purchase',
             'company paid' => 'purchase',
->>>>>>> Stashed changes
             default => $normalized,
         };
     }
@@ -129,11 +126,9 @@ class ExpenseController
         ];
     }
 
-<<<<<<< Updated upstream
-    private function resolveWorkflowSelection(int $budgetCategoryId, string $requestType, int $departmentId, int $requesterId): array
-=======
+
     private function resolveWorkflowSelection(string $requestType, string $requestAmount, int $departmentId, int $requesterId): array
->>>>>>> Stashed changes
+
     {
         $workflowModel = $this->workflowModel();
         $requestType = strtolower(trim($requestType));
@@ -214,16 +209,7 @@ class ExpenseController
         };
     }
 
-<<<<<<< Updated upstream
-    private function ensureAttachmentFolderExists(string $relativeFolder): void
-    {
-        $absoluteFolder = ROOT_PATH . '/' . ltrim($relativeFolder, '/');
-        if (!is_dir($absoluteFolder) && !mkdir($absoluteFolder, 0775, true) && !is_dir($absoluteFolder)) {
-            throw new RuntimeException('Failed to create attachment upload directory.');
-        }
-    }
 
-=======
    private function ensureAttachmentFolderExists(string $relativeFolder): void
 {
     $absoluteFolder = $_SERVER['DOCUMENT_ROOT'] . '/expense_register/' . ltrim($relativeFolder, '/');
@@ -239,7 +225,6 @@ class ExpenseController
     }
 }
 
->>>>>>> Stashed changes
     private function buildAttachmentPayload(array $file, string $attachmentType): array
     {
         $originalName = trim((string) ($file['name'] ?? ''));
@@ -271,11 +256,9 @@ class ExpenseController
         $relativeFolder = $this->resolveAttachmentFolder($attachmentType);
         $this->ensureAttachmentFolderExists($relativeFolder);
         $relativePath = $relativeFolder . '/' . $storedName;
-<<<<<<< Updated upstream
-        $absolutePath = ROOT_PATH . '/' . ltrim($relativePath, '/');
-=======
+
         $absolutePath = $_SERVER['DOCUMENT_ROOT'] . '/expense_register/' . ltrim($relativePath, '/');
->>>>>>> Stashed changes
+
 
         // Verify folder exists and is writable
         $folderPath = dirname($absolutePath);
@@ -346,11 +329,9 @@ class ExpenseController
         return $normalized;
     }
 
-<<<<<<< Updated upstream
-        private function validateCreatePayload(array $payload, array $category, array $workflow, ?int $firstStepId, array $firstStepAssigneeIds): array
-=======
+
     private function validateCreatePayload(array $payload, array $category, array $workflow, ?int $firstStepId, array $firstStepAssigneeIds): array
->>>>>>> Stashed changes
+
     {
         $errors = [];
         $allowedTypes = array_keys($this->requestTypeOptions());
@@ -1146,13 +1127,10 @@ class ExpenseController
         $categoryModel = $this->budgetCategoryModel();
         $category = $payload['budget_category_id'] > 0 ? $categoryModel->getCategoryById($payload['budget_category_id']) : null;
         $workflowSelection = $this->resolveWorkflowSelection(
-<<<<<<< Updated upstream
-            $payload['budget_category_id'],
-            $payload['request_type'],
-=======
+
             $payload['request_type'],
             $payload['request_amount'],
->>>>>>> Stashed changes
+
             (int) $payload['department_id'],
             $currentUserId
         );
