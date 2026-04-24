@@ -136,7 +136,7 @@
 	min-width: 72px;
 	border-radius: 5px;
 	font-weight: 500;
-	background: dodgerblue;
+	background: steelblue;
 	color: white;
 	border: none;
 	transition: all 0.3s ease;
@@ -155,7 +155,7 @@
 }
 
 .user-list-page .add-btn {
-	background: dodgerblue;
+	background: steelblue;
 	color: white;
 	padding: 8px 12px;
 	font-size: 12px;
@@ -1294,7 +1294,7 @@
 	min-width: 72px;
 	border-radius: 5px;
 	font-weight: 500;
-	background: dodgerblue;
+	background: steelblue;
 	color: white;
 	border: none;
 	transition: all 0.3s ease;
@@ -1873,6 +1873,23 @@ body.sidebar-collapsed .sidebar-toggle-btn {
 .btn-outline-primary {
     border-color: var(--app-button-bg);
     color: var(--app-button-bg);
+}
+
+.list-download-btn {
+    background-color: steelblue;
+    border-color: steelblue;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.list-download-btn:hover,
+.list-download-btn:focus,
+.list-download-btn:active {
+    background-color: steelblue;
+    border-color: steelblue;
+    color: white;
 }
 
 .dashboard-heading-hero ~ .kpi-grid ~ .row .btn-outline-primary {

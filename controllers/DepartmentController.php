@@ -65,6 +65,25 @@ class DepartmentController
 		$perPage = 10;
 		$currentPage = max(1, (int) ($_GET['page'] ?? 1));
 		$totalDepartments = count($filteredDepartments);
+		if (!empty($_GET['download'])) {
+			$exportRows = [];
+			foreach ($filteredDepartments as $department) {
+				$exportRows[] = [
+					(string) ($department['department_code'] ?? ''),
+					(string) ($department['department_name'] ?? ''),
+					(string) ($department['head_name'] ?? '-'),
+					(string) ($department['head_email'] ?? '-'),
+				];
+			}
+
+			$exportService = new SpreadsheetExportService();
+			$exportService->streamXlsx(
+				'departments-' . date('YmdHis') . '.xlsx',
+				['Department Code', 'Department Name', 'Department Head', 'Head Email'],
+				$exportRows,
+				'Departments'
+			);
+		}
 		$totalPages = max(1, (int) ceil($totalDepartments / $perPage));
 		
 		if ($currentPage > $totalPages) {

@@ -119,8 +119,8 @@ if (!function_exists('renderEmailTemplate')) {
 				'Action Required',
 				$bodyHtml,
 				[
-					'header_color' => '#7c2d12',
-					'accent_color' => '#b45309',
+					'header_color' => 'steelblue',
+					'accent_color' => 'steelblue',
 				]
 			);
 		}
@@ -164,8 +164,8 @@ if (!function_exists('renderEmailTemplate')) {
 				'Request Approved',
 				$bodyHtml,
 				[
-					'header_color' => '#14532d',
-					'accent_color' => '#15803d',
+					'header_color' => 'steelblue',
+					'accent_color' => 'steelblue',
 				]
 			);
 		}
@@ -199,8 +199,8 @@ if (!function_exists('renderEmailTemplate')) {
 				'Request Rejected',
 				$bodyHtml,
 				[
-					'header_color' => '#7f1d1d',
-					'accent_color' => '#b91c1c',
+					'header_color' => 'steelblue',
+					'accent_color' => 'steelblue',
 				]
 			);
 		}
@@ -231,8 +231,8 @@ if (!function_exists('renderEmailTemplate')) {
 				'Action Required',
 				$bodyHtml,
 				[
-					'header_color' => '#4c1d95',
-					'accent_color' => '#6d28d9',
+					'header_color' => 'steelblue',
+					'accent_color' => 'steelblue',
 				]
 			);
 		}

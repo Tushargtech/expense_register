@@ -111,6 +111,27 @@ class UserController
 		$perPage = 10;
 		$currentPage = max(1, (int) ($_GET['page'] ?? 1));
 		$totalUsers = $userModel->countAllUsers($filters);
+		if (!empty($_GET['download'])) {
+			$allUsers = $userModel->getAllUsers($filters, max(1, $totalUsers), 0);
+			$exportRows = [];
+			foreach ($allUsers as $user) {
+				$exportRows[] = [
+					(string) ($user['user_name'] ?? ''),
+					(string) ($user['user_email'] ?? ''),
+					(string) ($user['user_role'] ?? ''),
+					(string) ($user['dept_name'] ?? '-'),
+					(string) ($user['manager_name'] ?? '-'),
+				];
+			}
+
+			$exportService = new SpreadsheetExportService();
+			$exportService->streamXlsx(
+				'users-' . date('YmdHis') . '.xlsx',
+				['User Name', 'Email', 'Role', 'Department', 'Manager Name'],
+				$exportRows,
+				'Users'
+			);
+		}
 		$totalPages = max(1, (int) ceil($totalUsers / $perPage));
 		if ($currentPage > $totalPages) {
 			$currentPage = $totalPages;

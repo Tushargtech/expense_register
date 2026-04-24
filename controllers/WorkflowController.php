@@ -296,6 +296,44 @@ class WorkflowController
 		$perPage = 10;
 		$currentPage = max(1, (int) ($_GET['page'] ?? 1));
 		$totalWorkflows = $workflowModel->countAllWorkflows($filters);
+		if (!empty($_GET['download'])) {
+			$allWorkflows = $workflowModel->getAllWorkflows($filters, max(1, $totalWorkflows), 0);
+			$exportRows = [];
+			foreach ($allWorkflows as $workflow) {
+				$workflowType = strtolower(trim((string) ($workflow['workflow_type'] ?? '')));
+				$workflowTypeLabel = match ($workflowType) {
+					'expense' => 'Expense',
+					'purchase' => 'Purchase',
+					default => ucfirst($workflowType),
+				};
+				$amountMin = $workflow['workflow_amount_min'] ?? null;
+				$amountMax = $workflow['workflow_amount_max'] ?? null;
+				if ($amountMin === null && $amountMax === null) {
+					$amountRange = '-';
+				} elseif ($amountMin !== null && $amountMax !== null) {
+					$amountRange = number_format((float) $amountMin, 2) . ' - ' . number_format((float) $amountMax, 2);
+				} elseif ($amountMin !== null) {
+					$amountRange = '>= ' . number_format((float) $amountMin, 2);
+				} else {
+					$amountRange = '<= ' . number_format((float) $amountMax, 2);
+				}
+
+				$exportRows[] = [
+					(string) ($workflow['workflow_name'] ?? ''),
+					$workflowTypeLabel !== '' ? $workflowTypeLabel : '-',
+					$amountRange,
+					(string) ($workflow['approval_flow'] ?? '-'),
+				];
+			}
+
+			$exportService = new SpreadsheetExportService();
+			$exportService->streamXlsx(
+				'workflows-' . date('YmdHis') . '.xlsx',
+				['Workflow Name', 'Workflow Type', 'Amount Range', 'Approval Flow'],
+				$exportRows,
+				'Workflows'
+			);
+		}
 		$totalPages = max(1, (int) ceil($totalWorkflows / $perPage));
 
 		if ($currentPage > $totalPages) {

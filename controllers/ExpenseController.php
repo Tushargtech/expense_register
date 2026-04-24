@@ -513,6 +513,34 @@ class ExpenseController
         ];
 
         $data = $this->model->getExpenses($filters, $page, $perPage);
+
+        if (!empty($_GET['download'])) {
+            $exportData = $this->model->getExpenses($filters, max(1, (int) ($data['total'] ?? 0)), 0);
+            $exportRows = [];
+            foreach (($exportData['expenses'] ?? []) as $expenseRow) {
+                $exportRows[] = [
+                    (string) ($expenseRow['request_title'] ?? ''),
+                    (string) ($expenseRow['department_name'] ?? '—'),
+                    ((string) ($expenseRow['request_currency'] ?? 'INR')) . ' ' . number_format((float) ($expenseRow['request_amount'] ?? 0), 2),
+                    match ((string) ($expenseRow['request_type'] ?? '')) {
+                        'expense' => 'Expense',
+                        'purchase' => 'Purchase',
+                        default => ucfirst((string) ($expenseRow['request_type'] ?? '')),
+                    },
+                    ucfirst((string) ($expenseRow['request_status'] ?? 'pending')),
+                    (string) ($expenseRow['submitter_name'] ?? '—'),
+                    !empty($expenseRow['request_submitted_at']) ? date('d M Y', strtotime((string) $expenseRow['request_submitted_at'])) : '—',
+                ];
+            }
+
+            $exportService = new SpreadsheetExportService();
+            $exportService->streamXlsx(
+                'expenses-' . date('YmdHis') . '.xlsx',
+                ['Title', 'Department', 'Amount', 'Type', 'Status', 'Submitted By', 'Date'],
+                $exportRows,
+                'Expenses'
+            );
+        }
         $editableRequestIds = [];
         if (!empty($data['expenses']) && is_array($data['expenses'])) {
             $requestIds = [];

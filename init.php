@@ -35,6 +35,7 @@ require_once ROOT_PATH . '/models/LookupModel.php';
 require_once ROOT_PATH . '/models/PasswordResetModel.php';
 require_once ROOT_PATH . '/libraries/FlashMessage.php';
 require_once ROOT_PATH . '/libraries/RbacService.php';
+require_once ROOT_PATH . '/libraries/SpreadsheetExportService.php';
 require_once ROOT_PATH . '/libraries/ApiRequest.php';
 require_once ROOT_PATH . '/libraries/ApiResponse.php';
 require_once ROOT_PATH . '/libraries/MailService.php';

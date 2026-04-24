@@ -153,9 +153,15 @@ $totalSummaryRows = isset($totalSummaryRows) ? (int) $totalSummaryRows : count($
 				];
 				$rangeStart = $totalSummaryRows > 0 ? (($currentPage - 1) * $perPage) + 1 : 0;
 				$rangeEnd = $totalSummaryRows > 0 ? min($totalSummaryRows, $rangeStart + count($departmentSummary) - 1) : 0;
+				$downloadQuery = $baseQuery + ['download' => 1];
 				?>
 				<nav class="user-pagination-wrap" aria-label="Budget monitor pagination" style="margin-top: 12px;">
-					<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalSummaryRows; ?></div>
+					<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+						<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalSummaryRows; ?></div>
+						<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-monitor', $downloadQuery), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-filter list-download-btn">
+							<i class="bi bi-download me-1"></i>Download Excel
+						</a>
+					</div>
 					<ul class="pagination user-pagination mb-0">
 						<?php $prevPage = max(1, $currentPage - 1); ?>
 						<li class="page-item <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>">

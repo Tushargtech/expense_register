@@ -166,8 +166,14 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 				$totalWorkflowCount = isset($totalWorkflows) ? (int) $totalWorkflows : count($workflows);
 				$rangeStart = $totalWorkflowCount > 0 ? (($currentPage - 1) * $perPage) + 1 : 0;
 				$rangeEnd = $totalWorkflowCount > 0 ? min($totalWorkflowCount, $rangeStart + count($workflows) - 1) : 0;
+				$downloadQuery = $baseQuery + ['download' => 1];
 				?>
-				<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalWorkflowCount; ?></div>
+				<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+					<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalWorkflowCount; ?></div>
+					<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('workflows', $downloadQuery), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-filter list-download-btn">
+						<i class="bi bi-download me-1"></i>Download Excel
+					</a>
+				</div>
 				<ul class="pagination user-pagination mb-0">
 					<?php $prevPage = max(1, $currentPage - 1); ?>
 					<li class="page-item <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>">

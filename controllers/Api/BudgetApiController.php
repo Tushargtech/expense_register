@@ -58,6 +58,11 @@ class BudgetApiController extends ApiBaseController
         }
         if ($budgetData['budget_fiscal_period'] === '') {
             $errors['budget_fiscal_period'] = 'Fiscal period is required.';
+            } else {
+            $allowedPeriods = ['Q1', 'Q2', 'Q3', 'Q4', 'annual'];
+            if (!in_array($budgetData['budget_fiscal_period'], $allowedPeriods, true)) {
+                $errors['budget_fiscal_period'] = 'Fiscal period must be one of: ' . implode(', ', $allowedPeriods) . '.';
+            }
         }
         if ($budgetData['budget_category_id'] <= 0) {
             $errors['budget_category_id'] = 'Budget category is required.';

@@ -274,6 +274,7 @@ CREATE TABLE `requests` (
   `request_priority` enum('low','medium','high') NOT NULL,
   `request_notes` text DEFAULT NULL,
   `request_submitted_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `request_updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `request_resolved_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

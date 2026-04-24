@@ -223,6 +223,34 @@ class BudgetMonitorController
 		}
 
 		$departmentSummary = $this->summarizeByDepartmentAndCategory($rows);
+		if (!empty($_GET['download'])) {
+			$exportRows = [];
+			foreach ($departmentSummary as $summary) {
+				$allocated = (float) ($summary['allocated'] ?? 0);
+				$spent = !empty($summary['has_spend_data']) ? (float) ($summary['spent'] ?? 0) : null;
+				$remaining = $spent !== null ? max(0, $allocated - $spent) : null;
+				$utilization = ($spent !== null && $allocated > 0) ? round(($spent / $allocated) * 100, 1) : null;
+
+				$exportRows[] = [
+					(string) ($summary['department'] ?? ''),
+					(string) ($summary['budget_category'] ?? ''),
+					(string) ($summary['fiscal_year'] ?? ''),
+					(string) ($summary['fiscal_period'] ?? ''),
+					$allocated,
+					$spent !== null ? $spent : 'N/A',
+					$remaining !== null ? $remaining : 'N/A',
+					$utilization !== null ? $utilization . '%' : 'N/A',
+				];
+			}
+
+			$exportService = new SpreadsheetExportService();
+			$exportService->streamXlsx(
+				'budget-monitor-' . date('YmdHis') . '.xlsx',
+				['Department', 'Budget Category', 'Fiscal Year', 'Fiscal Period', 'Allocated', 'Spent', 'Remaining', 'Utilization'],
+				$exportRows,
+				'Budget Monitor'
+			);
+		}
 		$totalSummaryRows = count($departmentSummary);
 		$totalPages = max(1, (int) ceil($totalSummaryRows / $perPage));
 		if ($currentPage > $totalPages) {

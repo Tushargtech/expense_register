@@ -149,8 +149,12 @@ class BudgetController
 		));
 		if ($fiscalPeriod === '') {
 			$errors[] = 'Fiscal Period is required';
+		} else {
+			$allowedPeriods = ['Q1', 'Q2', 'Q3', 'Q4', 'annual'];
+			if (!in_array($fiscalPeriod, $allowedPeriods, true)) {
+				$errors[] = 'Fiscal Period must be one of: ' . implode(', ', $allowedPeriods) . '.';
+			}
 		}
-
 		$rawAmount = (string) (
 			$row['budget_allocated_amount'] ??
 			$row['allocated_amount'] ??
@@ -268,6 +272,14 @@ class BudgetController
 			if ($hasDuplicates && !$overwriteExisting) {
 				flash_error('Some budget rows already exist for the same department, category, fiscal year and fiscal period. Choose Upload and Update Existing to proceed.');
 				header('Location: ?route=budget-uploader');
+				exit;
+			}
+
+			
+			$allowedPeriods = ['Q1', 'Q2', 'Q3', 'Q4', 'annual'];
+			if (!in_array($budgetData['budget_fiscal_period'], $allowedPeriods, true)) {
+				flash_error('Fiscal Period must be one of: ' . implode(', ', $allowedPeriods) . '.');
+				header('Location: ?route=budget-monitor');
 				exit;
 			}
 
