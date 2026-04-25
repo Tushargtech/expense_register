@@ -70,7 +70,8 @@ CREATE TABLE `departments` (
 
 INSERT INTO `departments` (`id`, `department_name`, `department_code`, `department_head_user_id`, `department_created_at`) VALUES
 (1, 'ADMIN', 'DEPT-01', 1, '2026-04-06 11:34:46'),
-(2, 'HR', 'DEPT-02', 2, '2026-04-06 11:34:46');
+(2, 'HR', 'DEPT-02', 2, '2026-04-06 11:34:46'),
+(3, 'FINANCE', 'DEPT-03', 3, '2026-04-06 11:34:46');
 
 
 
@@ -262,7 +263,9 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`user_id`, `user_name`, `user_email`, `user_password_hash`, `user_role`, `department_id`, `manager_id`, `user_is_active`, `user_created_at`, `password_must_reset`, `force_password_change`) VALUES
 (1, 'System Administrator', 'admin@example.com', 'admin123', 'admin', 1, NULL, 1, '2026-04-03 07:57:40', 0, 0),
-(2, 'HR Department Head', 'hr.depthead@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'hr', 2, NULL, 1, '2026-04-12 08:36:54', 0, 0);
+(2, 'HR Department Head', 'hr.depthead@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'hr', 2, NULL, 1, '2026-04-12 08:36:54', 0, 0),
+(3, 'Finance Department Head', 'finance.depthead@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'finance', 3, NULL, 1, '2026-04-12 08:37:25', 0, 0);
+
 
 
 CREATE TABLE `workflows` (
