@@ -245,7 +245,7 @@ CREATE TABLE `users` (
   `user_name` varchar(100) NOT NULL,
   `user_email` varchar(150) NOT NULL,
   `user_password_hash` varchar(255) NOT NULL,
-  `user_role` varchar(100) NOT NULL,
+  `user_role` enum('hr','admin','finance','employee') NOT NULL,
   `department_id` int(11) DEFAULT NULL,
   `manager_id` int(11) DEFAULT NULL,
   `user_is_active` tinyint(1) DEFAULT 1,
