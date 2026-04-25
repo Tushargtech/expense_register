@@ -93,8 +93,8 @@ foreach ($managers as $manager) {
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="manager_id">Manager <span class="text-danger">*</span></label>
-							<select class="user-create-select" id="manager_id" name="manager_id" required data-selected-manager-id="<?php echo (int) $selectedManagerId; ?>">
+							<label class="user-create-label" for="manager_id">Manager</label>
+							<select class="user-create-select" id="manager_id" name="manager_id" data-selected-manager-id="<?php echo (int) $selectedManagerId; ?>">
 								<option value="">Choose Manager</option>
 							</select>
 						</div>
