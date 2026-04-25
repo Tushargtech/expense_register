@@ -62,12 +62,16 @@ class UserController
 		$allowedRoles = $lookupModel->getRoleSlugs();
 		$normalizedRole = $this->normalizeUserRole((string) ($userData['role'] ?? ''));
 
+		// Manager is optional - allow 0 (no manager selected) or any positive integer
+		$managerId = $userData['manager_id'] ?? 0;
+		$isValidManager = $managerId >= 0;
+
 		return (
 			$userData['name'] !== '' &&
 			filter_var($userData['email'], FILTER_VALIDATE_EMAIL) !== false &&
 			in_array($normalizedRole, $allowedRoles, true) &&
 			$userData['department_id'] > 0 &&
-			$userData['manager_id'] > 0 &&
+			$isValidManager &&
 			in_array($userData['user_is_active'], [0, 1], true)
 		);
 	}
