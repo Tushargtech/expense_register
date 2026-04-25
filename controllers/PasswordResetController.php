@@ -105,8 +105,8 @@ class PasswordResetController
         $this->resetModel->markTokenAsUsed($token);
         $this->resetModel->invalidateUserTokens($userId);
 
-        // Clear force password change flag if set
-        $this->userModel->clearForcePasswordChange($userId);
+        // Update password and reset password_must_reset flag
+        $this->userModel->updateUserPassword($userId, $hashedPassword);
 
         flash_success('Your password has been reset successfully. You can now log in with your new password.');
         header('Location: ' . buildCleanRouteUrl('login'));

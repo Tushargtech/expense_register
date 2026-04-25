@@ -144,33 +144,34 @@ class AuthController
 
         $sessionRole = strtolower(trim((string) ($user['role'] ?? '')));
 
-        $_SESSION['auth'] = [
-            'is_logged_in' => true,
-            'user_id' => (int) ($user['id'] ?? 0),
-            'name' => (string) ($user['name'] ?? 'User'),
-            'email' => (string) ($user['email'] ?? $email),
-            'last_activity_at' => time(),
-            'role' => $sessionRole,
-            'base_role' => $sessionRole,
-            'is_manager' => (bool) ($user['is_manager'] ?? false),
-            'is_department_head' => (bool) ($user['is_department_head'] ?? false),
-            'role_permissions' => $user['role_permissions'] ?? null,
-            'department_id' => (int) ($user['department_id'] ?? 0),
-            'department_name' => (string) ($user['department_name'] ?? ''),
-        ];
 
-        unset($_SESSION['old_email']);
+        // Check if user must reset password
+if (!empty($user['password_must_reset'])) {
+    $resetModel = new PasswordResetModel();
+    $token = $resetModel->createResetToken((int) ($user['id'] ?? 0), 120); // 2 hours
+    
+    if ($token) {
+        flash_success('Please set your new password.');
+        header('Location: ' . buildCleanRouteUrl('password-reset', ['token' => $token]));
+        exit;
+    }
+}
+$_SESSION['auth'] = [
+    'is_logged_in' => true,
+    'user_id' => (int) ($user['id'] ?? 0),
+    'name' => (string) ($user['name'] ?? 'User'),
+    'email' => (string) ($user['email'] ?? $email),
+    'last_activity_at' => time(),
+    'role' => $sessionRole,
+    'base_role' => $sessionRole,
+    'is_manager' => (bool) ($user['is_manager'] ?? false),
+    'is_department_head' => (bool) ($user['is_department_head'] ?? false),
+    'role_permissions' => $user['role_permissions'] ?? null,
+    'department_id' => (int) ($user['department_id'] ?? 0),
+    'department_name' => (string) ($user['department_name'] ?? ''),
+];
 
-        // Check if user must reset password (first-time login or admin-required)
-        if (!empty($user['force_password_change']) || !empty($user['password_must_reset'])) {
-            $resetModel = new PasswordResetModel();
-            $token = $resetModel->createResetToken((int) ($user['id'] ?? 0), 120); // 2 hours
-            if ($token) {
-                flash_success('Please set your new password.');
-                header('Location: ' . buildCleanRouteUrl('password-reset', ['token' => $token]));
-                exit;
-            }
-        }
+unset($_SESSION['old_email']);
 
         flash_success('Login successful.');
 

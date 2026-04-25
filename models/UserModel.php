@@ -195,6 +195,7 @@ class UserModel
 			'department_id',
 			'manager_id',
 			'user_is_active',
+			'password_must_reset', 
 		];
 
 		$placeholders = [
@@ -215,6 +216,7 @@ class UserModel
 			':department_id' => $departmentId,
 			':manager_id' => $managerId,
 			':user_is_active' => $isActive,
+			':password_must_reset' => 1,
 		];
 
 		if ($this->userCreatedAtColumn !== null) {
@@ -341,39 +343,22 @@ class UserModel
                 }
         }
 
-        /**
-         * Clear force password change flag
-         */
-        public function clearForcePasswordChange(int $userId): bool
+		public function updatePasswordMustReset(int $userId, int $value): bool
         {
-                try {
-                        $stmt = $this->db->prepare('
-                                UPDATE users 
-                                SET force_password_change = 0, password_must_reset = 0
-                                WHERE user_id = :user_id
-                        ');
-                        return $stmt->execute([':user_id' => $userId]);
-                } catch (Throwable $error) {
-                        error_log('Error clearing force password change: ' . $error->getMessage());
-                        return false;
-                }
-        }
+         try {
+        $stmt = $this->db->prepare('
+            UPDATE users 
+            SET password_must_reset = :value
+            WHERE user_id = :user_id
+        ');
+        return $stmt->execute([
+            ':value' => $value,
+            ':user_id' => $userId,
+        ]);
+    } catch (Throwable $error) {
+        error_log('Error updating password_must_reset: ' . $error->getMessage());
+        return false;
+    }
+}
 
-        /**
-         * Set force password change flag (used when HR creates new user)
-         */
-        public function setForcePasswordChange(int $userId): bool
-        {
-                try {
-                        $stmt = $this->db->prepare('
-                                UPDATE users 
-                                SET force_password_change = 1, password_must_reset = 1
-                                WHERE user_id = :user_id
-                        ');
-                        return $stmt->execute([':user_id' => $userId]);
-                } catch (Throwable $error) {
-                        error_log('Error setting force password change: ' . $error->getMessage());
-                        return false;
-                }
-        }
 }

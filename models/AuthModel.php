@@ -225,7 +225,6 @@ class AuthModel
                 r.role_permissions AS base_role_permissions,
                 department_id,
                 d.department_name AS department_name,
-                COALESCE(users.force_password_change, 0) AS force_password_change,
                 COALESCE(users.password_must_reset, 0) AS password_must_reset,
                 EXISTS(
                     SELECT 1
