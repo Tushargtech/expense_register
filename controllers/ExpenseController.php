@@ -527,7 +527,7 @@ class ExpenseController
         $data = $this->model->getExpenses($filters, $page, $perPage);
 
         if (!empty($_GET['download'])) {
-            $exportData = $this->model->getExpenses($filters, max(1, (int) ($data['total'] ?? 0)), 0);
+            $exportData = $this->model->getExpenses($filters, 1, 0);
             $exportRows = [];
             foreach (($exportData['expenses'] ?? []) as $expenseRow) {
                 $exportRows[] = [

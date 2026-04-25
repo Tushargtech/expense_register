@@ -249,7 +249,6 @@ CREATE TABLE `users` (
   `user_is_active` tinyint(1) DEFAULT 1,
   `user_created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `password_must_reset` tinyint(1) DEFAULT 0,
-  `force_password_change` tinyint(1) DEFAULT 0,
 
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `uk_users_email` (`user_email`),

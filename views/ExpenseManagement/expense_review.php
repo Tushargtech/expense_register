@@ -41,7 +41,6 @@ $statusLabel = ucfirst($requestStatus !== '' ? $requestStatus : 'pending');
                     <div class="user-create-head">
                         <div>
                             <h2 class="user-create-section-title">Request Information</h2>
-                            <p class="user-create-note">Complete details for this request.</p>
                         </div>
                     </div>
 
@@ -108,7 +107,6 @@ $statusLabel = ucfirst($requestStatus !== '' ? $requestStatus : 'pending');
                     <div class="user-create-head">
                         <div>
                             <h2 class="user-create-section-title">Approval Progress</h2>
-                            <p class="user-create-note">Workflow progress for this request.</p>
                         </div>
                     </div>
 
@@ -145,7 +143,6 @@ $statusLabel = ucfirst($requestStatus !== '' ? $requestStatus : 'pending');
                         <div class="user-create-head">
                             <div>
                                 <h2 class="user-create-section-title">Approval Actions</h2>
-                                <p class="user-create-note">Approve, reject, or reassign this workflow step.</p>
                             </div>
                         </div>
 
@@ -194,7 +191,6 @@ $statusLabel = ucfirst($requestStatus !== '' ? $requestStatus : 'pending');
                     <div class="user-create-head">
                         <div>
                             <h2 class="user-create-section-title">Additional Details</h2>
-                            <p class="user-create-note">Notes, description, and attachments.</p>
                         </div>
                     </div>
 

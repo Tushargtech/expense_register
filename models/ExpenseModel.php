@@ -652,13 +652,13 @@ class ExpenseModel
 
         $whereClause = implode(' AND ', $where);
 
+        $limitClause = $perPage > 0 ? "LIMIT $perPage OFFSET $offset" : "";
         $sql = "SELECT r.*, d.department_name, u.user_name as submitter_name, u.user_email as submitter_email
                 FROM requests r
                 LEFT JOIN departments d ON r.department_id = d.id
                 LEFT JOIN users u ON r.request_submitted_by = u.user_id
                 WHERE $whereClause
-                ORDER BY r.request_submitted_at DESC
-                LIMIT $perPage OFFSET $offset";
+                ORDER BY r.request_submitted_at DESC" . ($limitClause ? " $limitClause" : "");
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -670,12 +670,13 @@ class ExpenseModel
         $countStmt->execute($params);
         $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
+        $totalPages = $perPage > 0 ? ceil($total / $perPage) : ($total > 0 ? 1 : 0);
         return [
             'expenses' => $expenses,
-            'total' => $total,
             'page' => $page,
             'perPage' => $perPage,
-            'totalPages' => ceil($total / $perPage)
+            'total' => $total,
+            'totalPages' => $totalPages
         ];
     }
 

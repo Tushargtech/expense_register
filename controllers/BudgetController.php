@@ -38,6 +38,20 @@ class BudgetController
 		return round((float) $clean, 2);
 	}
 
+	private function normalizeFiscalPeriod(string $period): string
+	{
+		$period = trim($period);
+		$upper = strtoupper($period);
+		if (in_array($upper, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+			return $upper;
+		}
+		if (strtolower($period) === 'annual') {
+			return 'annual';
+		}
+		// If not matched, return original (validation will fail)
+		return $period;
+	}
+
 	private function getCurrentIstDate(): string
 	{
 		$istNow = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
@@ -75,25 +89,8 @@ class BudgetController
 		$differenceAmount = $currentLimit - $previousLimit;
 		$differenceAmountFormatted = ($differenceAmount >= 0 ? '+' : '-') . number_format(abs($differenceAmount), 2, '.', '');
 
-		$mailService = new MailService();
-		$sent = $mailService->sendBudgetUpdateNotificationEmail(
-			$departmentHeadEmail,
-			$departmentHeadName !== '' ? $departmentHeadName : 'Department Head',
-			$departmentName !== '' ? $departmentName : 'Department',
-			$budgetHead !== '' ? $budgetHead : 'Budget',
-			$fiscalYear,
-			$fiscalPeriod,
-			$currency !== '' ? $currency : 'INR',
-			number_format($currentLimit, 2, '.', ''),
-			number_format($previousLimit, 2, '.', ''),
-			$differenceAmountFormatted,
-			$this->getCurrentIstDate(),
-			strtolower(trim($actionType)) === 'created' ? 'created' : 'updated'
-		);
-
-		if (!$sent) {
-			error_log('Failed to send budget update notification to department head for department ' . $departmentId);
-		}
+		// Mail service disabled - notification not sent
+		// $sent = true;
 	}
 
 	private function mapToDatabaseSchema(array $row, BudgetModel $budgetModel, int $uploadedBy): array
@@ -150,6 +147,7 @@ class BudgetController
 		if ($fiscalPeriod === '') {
 			$errors[] = 'Fiscal Period is required';
 		} else {
+			$fiscalPeriod = $this->normalizeFiscalPeriod($fiscalPeriod);
 			$allowedPeriods = ['Q1', 'Q2', 'Q3', 'Q4', 'annual'];
 			if (!in_array($fiscalPeriod, $allowedPeriods, true)) {
 				$errors[] = 'Fiscal Period must be one of: ' . implode(', ', $allowedPeriods) . '.';
@@ -272,14 +270,6 @@ class BudgetController
 			if ($hasDuplicates && !$overwriteExisting) {
 				flash_error('Some budget rows already exist for the same department, category, fiscal year and fiscal period. Choose Upload and Update Existing to proceed.');
 				header('Location: ?route=budget-uploader');
-				exit;
-			}
-
-			
-			$allowedPeriods = ['Q1', 'Q2', 'Q3', 'Q4', 'annual'];
-			if (!in_array($budgetData['budget_fiscal_period'], $allowedPeriods, true)) {
-				flash_error('Fiscal Period must be one of: ' . implode(', ', $allowedPeriods) . '.');
-				header('Location: ?route=budget-monitor');
 				exit;
 			}
 
