@@ -35,9 +35,60 @@ require_once ROOT_PATH . '/models/LookupModel.php';
 require_once ROOT_PATH . '/models/PasswordResetModel.php';
 require_once ROOT_PATH . '/libraries/FlashMessage.php';
 require_once ROOT_PATH . '/libraries/RbacService.php';
+require_once ROOT_PATH . '/libraries/SpreadsheetExportService.php';
 require_once ROOT_PATH . '/libraries/ApiRequest.php';
 require_once ROOT_PATH . '/libraries/ApiResponse.php';
 require_once ROOT_PATH . '/libraries/MailService.php';
+
+// Temp file cleanup feature removed - files are now stored directly in upload folders
+
+if (!function_exists('isApiRequestPath')) {
+	function isApiRequestPath(): bool
+	{
+		$routeQuery = trim((string) ($_GET['route'] ?? ''), '/');
+		if (str_starts_with($routeQuery, 'api/')) {
+			return true;
+		}
+
+		$requestPath = trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH), '/');
+
+		if ($requestPath === '') {
+			return false;
+		}
+
+		return str_contains($requestPath, '/api/') || str_starts_with($requestPath, 'api/');
+	}
+}
+
+if (!function_exists('enforceAuthenticatedSessionTimeout')) {
+	function enforceAuthenticatedSessionTimeout(): void
+	{
+		if (empty($_SESSION['auth']['is_logged_in'])) {
+			return;
+		}
+
+		$timeoutMinutes = (int) ($GLOBALS['envConfig']['app']['session_timeout_minutes'] ?? SESSION_TIMEOUT_MINUTES);
+		$timeoutSeconds = max(1, $timeoutMinutes) * 60;
+		$lastActivityAt = (int) ($_SESSION['auth']['last_activity_at'] ?? 0);
+		$currentTime = time();
+
+		if ($lastActivityAt > 0 && ($currentTime - $lastActivityAt) > $timeoutSeconds) {
+			unset($_SESSION['auth']);
+			session_regenerate_id(true);
+
+			if (!isApiRequestPath()) {
+				flash_error('Your session expired due to inactivity. Please login again.');
+			}
+
+			return;
+		}
+
+		$_SESSION['auth']['last_activity_at'] = $currentTime;
+	}
+}
+
+enforceAuthenticatedSessionTimeout();
+
 require_once ROOT_PATH . '/controllers/ApiBaseController.php';
 require_once ROOT_PATH . '/controllers/AuthController.php';
 require_once ROOT_PATH . '/controllers/PasswordResetController.php';

@@ -3,12 +3,22 @@
 		<div class="user-create-shell">
 			<?php require ROOT_PATH . '/views/templates/flash_message.php'; ?>
 			<?php
+			$showPreview = !empty($_SESSION['budget_uploader_show_preview_once']);
+			unset($_SESSION['budget_uploader_show_preview_once']);
+
 			$preview = isset($_SESSION['budget_uploader_preview']) && is_array($_SESSION['budget_uploader_preview'])
 				? $_SESSION['budget_uploader_preview']
 				: [];
 			$staged = isset($_SESSION['budget_uploader_staged']) && is_array($_SESSION['budget_uploader_staged'])
 				? $_SESSION['budget_uploader_staged']
 				: [];
+
+			if (!$showPreview) {
+				$preview = [];
+				$staged = [];
+				unset($_SESSION['budget_uploader_preview'], $_SESSION['budget_uploader_staged']);
+			}
+
 			$canConfirmUpload = !empty($staged) && !empty($staged['valid_rows']) && empty($staged['has_errors']);
 			$hasDuplicateBudgets = !empty($staged['has_duplicates']);
 			$duplicateRows = (int) ($staged['duplicate_rows'] ?? 0);
@@ -42,7 +52,7 @@
 									accept=".csv,.xlsx,.xls"
 									required
 								>
-								<p class="user-create-note">Selecting a file generates a preview table before anything is inserted.</p>
+								<p class="user-create-note">Select a file and click Generate Preview to view parsed rows before upload.</p>
 							</div>
 						</div>
 
@@ -59,31 +69,31 @@
 									<thead>
 										<tr>
 											<th>Department</th>
-											<th>Budget Category</th>
+											<th>Category ID</th>
 											<th>Budget Fiscal Year</th>
 											<th>Budget Fiscal Period</th>
 											<th>Budget Allocated Amount</th>
-											<th>Budget Currency</th>
+											
 											<th>Budget Notes</th>
 										</tr>
 									</thead>
 									<tbody>
 										<tr>
 											<td>HR</td>
-											<td>Recruitment</td>
+											<td>12</td>
 											<td>2026</td>
 											<td>Q1</td>
 											<td>250000</td>
-											<td>INR</td>
+											
 											<td>Quarter 1 hiring allocation</td>
 										</tr>
 										<tr>
 											<td>Finance</td>
-											<td>Operations</td>
+											<td>4</td>
 											<td>2026</td>
 											<td>Q2</td>
 											<td>180000</td>
-											<td>INR</td>
+										
 											<td>Audit and compliance spend</td>
 										</tr>
 									</tbody>
@@ -164,9 +174,7 @@
 									<th>Fiscal Year</th>
 									<th>Period</th>
 									<th>Category</th>
-									<th>Category ID</th>
 									<th class="text-end">Amount</th>
-									<th>Currency</th>
 									<th>Already Assigned Budget</th>
 									<th>Status</th>
 								</tr>
@@ -203,21 +211,11 @@
 											echo !empty($data['budget_category']) ? htmlspecialchars((string) $data['budget_category'], ENT_QUOTES, 'UTF-8') : '<span class="text-danger">Missing</span>';
 											?>
 										</td>
-										<td>
-											<?php 
-											echo isset($data['budget_category_id']) && (int) $data['budget_category_id'] > 0 ? (int) $data['budget_category_id'] : '<span class="text-danger">Missing</span>';
-											?>
-										</td>
 										<td class="text-end">
 											<?php 
 											echo isset($data['budget_allocated_amount']) && is_numeric((string) $data['budget_allocated_amount'])
 												? number_format((float) $data['budget_allocated_amount'], 2)
 												: '<span class="text-danger">Invalid</span>';
-											?>
-										</td>
-										<td>
-											<?php 
-											echo !empty($data['budget_currency']) ? htmlspecialchars((string) $data['budget_currency'], ENT_QUOTES, 'UTF-8') : 'INR';
 											?>
 										</td>
 										<td>
@@ -282,19 +280,3 @@
 		</div>
 	</div>
 </main>
-
-<script>
-(function () {
-	var fileInput = document.getElementById('budget_file');
-	if (!fileInput || !fileInput.form) {
-		return;
-	}
-
-	fileInput.addEventListener('change', function () {
-		if (!fileInput.files || fileInput.files.length === 0) {
-			return;
-		}
-		fileInput.form.submit();
-	});
-})();
-</script>

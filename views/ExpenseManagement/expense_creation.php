@@ -6,13 +6,13 @@ $submitLabel = isset($submitLabel) ? (string) $submitLabel : 'Submit Request';
 $oldInput = isset($oldInput) && is_array($oldInput) ? $oldInput : [];
 
 $requestTypes = isset($requestTypes) && is_array($requestTypes) ? $requestTypes : [
-	'expense' => 'Reimbursable',
-    'purchase' => 'Company Paid',
+	'expense' => 'Expense',
+	'purchase' => 'Purchase',
 ];
 $priorityOptions = isset($priorityOptions) && is_array($priorityOptions) ? $priorityOptions : [
-    'low' => 'Low',
-    'medium' => 'Medium',
-    'high' => 'High',
+	'low' => 'Low',
+	'medium' => 'Medium',
+	'high' => 'High',
 ];
 $currencyOptions = isset($currencyOptions) && is_array($currencyOptions) ? $currencyOptions : ['INR'];
 
@@ -20,18 +20,21 @@ $budgetCategories = isset($budgetCategories) && is_array($budgetCategories) ? $b
 
 $selectedRequestType = strtolower(trim((string) ($oldInput['request_type'] ?? 'expense')));
 $selectedRequestType = match ($selectedRequestType) {
-	'expense', 'reimbursable' => 'expense',
-	'purchase', 'company paid', 'company_paid' => 'purchase',
+	'expense' => 'expense',
+	'purchase' => 'purchase',
 	default => $selectedRequestType,
 };
+$selectedReferenceNo = (string) ($oldInput['request_reference_no'] ?? '');
 $selectedTitle = (string) ($oldInput['request_title'] ?? '');
 $selectedAmount = (string) ($oldInput['request_amount'] ?? '');
-$selectedCurrency = strtoupper(trim((string) ($oldInput['request_currency'] ?? (string) ($currencyOptions[0] ?? 'INR'))));
 
 $selectedBudgetCategoryId = (int) ($oldInput['budget_category_id'] ?? 0);
+
 $selectedPriority = strtolower(trim((string) ($oldInput['request_priority'] ?? 'low')));
 $selectedDescription = (string) ($oldInput['request_description'] ?? '');
 $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
+$selectedAttachmentTypes = isset($oldInput['attachment_types']) && is_array($oldInput['attachment_types']) ? $oldInput['attachment_types'] : [];
+$attachmentMaxSizeMb = isset($attachmentMaxSizeMb) ? max(1, (int) $attachmentMaxSizeMb) : 5;
 ?>
 
 <main class="main">
@@ -55,18 +58,22 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 					<div class="user-create-head">
 						<div>
 							<h2 class="user-create-section-title">Request Details</h2>
-							<p class="user-create-note">Fill in the request details below.</p>
 						</div>
 					</div>
 
 					<div class="user-create-grid expense-details-grid">
 						<div class="user-create-field user-create-field-medium">
-							<label class="user-create-label" for="request_title">Title</label>
+							<label class="user-create-label" for="request_reference_no">Reference Number <span class="text-danger">*</span></label>
+							<input type="text" class="user-create-input" id="request_reference_no" name="request_reference_no" placeholder="Enter receipt reference number" value="<?php echo htmlspecialchars($selectedReferenceNo, ENT_QUOTES, 'UTF-8'); ?>" maxlength="30" required>
+						</div>
+
+						<div class="user-create-field user-create-field-medium">
+							<label class="user-create-label" for="request_title">Title <span class="text-danger">*</span></label>
 							<input type="text" class="user-create-input" id="request_title" name="request_title" placeholder="Enter request title" value="<?php echo htmlspecialchars($selectedTitle, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="request_type">Request Type</label>
+							<label class="user-create-label" for="request_type">Request Type <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="request_type" name="request_type" required>
 								<?php foreach ($requestTypes as $key => $label): ?>
 									<option value="<?php echo htmlspecialchars($key, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedRequestType === $key ? 'selected' : ''; ?>>
@@ -77,36 +84,23 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="request_amount">Amount</label>
+							<label class="user-create-label" for="request_amount">Amount <span class="text-danger">*</span></label>
 							<input type="number" class="user-create-input" id="request_amount" name="request_amount" placeholder="0.00" step="0.01" min="0.01" value="<?php echo htmlspecialchars($selectedAmount, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
-						<div class="user-create-field">
-							<label class="user-create-label" for="request_currency">Currency</label>
-							<select class="user-create-select" id="request_currency" name="request_currency" required>
-								<?php foreach ($currencyOptions as $currency): ?>
-									<?php $currencyValue = strtoupper(trim((string) $currency)); ?>
-									<?php if ($currencyValue === '') { continue; } ?>
-									<option value="<?php echo htmlspecialchars($currencyValue, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedCurrency === $currencyValue ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars($currencyValue, ENT_QUOTES, 'UTF-8'); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-						</div>
-					
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="budget_category_id">Budget Category</label>
+							<label class="user-create-label" for="budget_category_id">Budget Category <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="budget_category_id" name="budget_category_id" required>
 								<option value="">Select Budget Category</option>
 								<?php foreach ($budgetCategories as $category): ?>
 									<?php
 									$categoryId = (int) ($category['budget_category_id'] ?? 0);
-									$categoryTypeRaw = strtolower(trim((string) ($category['budget_category_type'] ?? '')));
-									$categoryType = match ($categoryTypeRaw) {
-										'expense' => 'reimbursable',
-										'purchase', 'company_paid' => 'company paid',
-										default => $categoryTypeRaw,
+									$rawCategoryType = strtolower(trim((string) ($category['budget_category_type'] ?? '')));
+									$categoryType = match ($rawCategoryType) {
+										'reimbursable' => 'expense',
+										'company paid' => 'purchase',
+										default => $rawCategoryType,
 									};
 									?>
 									<option
@@ -118,8 +112,8 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 									</option>
 								<?php endforeach; ?>
 							</select>
-							<p class="user-create-note">Categories are filtered by request type.</p>
 						</div>
+
 
 						<div class="user-create-field">
 							<label class="user-create-label" for="request_priority">Priority</label>
@@ -138,14 +132,13 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 					<div class="user-create-head">
 						<div>
 							<h2 class="user-create-section-title">Additional Information</h2>
-							<p class="user-create-note">Add context, notes, and an optional attachment.</p>
 						</div>
 					</div>
 
 					<div class="user-create-grid expense-additional-grid">
 						<div class="user-create-field">
-							<label class="user-create-label" for="request_description">Description</label>
-							<textarea class="user-create-input" id="request_description" name="request_description" rows="4" placeholder="Describe the expense request"><?php echo htmlspecialchars($selectedDescription, ENT_QUOTES, 'UTF-8'); ?></textarea>
+							<label class="user-create-label" for="request_description">Description <span class="text-danger">*</span></label>
+							<textarea class="user-create-input" id="request_description" name="request_description" rows="4" placeholder="Describe the expense request" required><?php echo htmlspecialchars($selectedDescription, ENT_QUOTES, 'UTF-8'); ?></textarea>
 						</div>
 
 						<div class="user-create-field">
@@ -153,24 +146,77 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 							<textarea class="user-create-input" id="request_notes" name="request_notes" rows="4" placeholder="Add any internal notes"><?php echo htmlspecialchars($selectedNotes, ENT_QUOTES, 'UTF-8'); ?></textarea>
 						</div>
 
-						<div class="user-create-field">
-							<label class="user-create-label" for="attachment_file">Attachment</label>
-							<input
-								type="file"
-								class="user-create-input"
-								id="attachment_file"
-								name="attachment_file"
-								accept=".pdf,.jpg,.jpeg,.png,.doc"
-							>
-							<p class="user-create-note">Allowed file types: PDF, JPG, JPEG, PNG, DOC.</p>
+						<div id="attachmentsContainer">
+							<div class="attachmentGroup" data-attachment-index="0">
+								<div class="user-create-field">
+									<label class="user-create-label">Attachment Type</label>
+									<select class="user-create-select attachmentTypeSelect" name="attachment_type[]">
+										<option value="">Select Attachment Type</option>
+										<option value="invoice" <?php echo (isset($selectedAttachmentTypes[0]) && $selectedAttachmentTypes[0] === 'invoice') ? 'selected' : ''; ?>>Invoice</option>
+										<option value="receipt" <?php echo (isset($selectedAttachmentTypes[0]) && $selectedAttachmentTypes[0] === 'receipt') ? 'selected' : ''; ?>>Receipt</option>
+										<option value="other" <?php echo (isset($selectedAttachmentTypes[0]) && $selectedAttachmentTypes[0] === 'other') ? 'selected' : ''; ?>>Others</option>
+									</select>
+								</div>
+
+								<div class="user-create-field attachmentFileWrap" style="display: none;">
+									<label class="user-create-label">Attachment File</label>
+									<input
+										type="file"
+										class="user-create-input attachmentFileInput"
+										name="attachment_file[]"
+										accept=".pdf,.jpg,.jpeg,.png,.doc"
+									>
+									<p class="user-create-note">Allowed file types: PDF, JPG, JPEG, PNG, DOC. Max <?php echo (int) $attachmentMaxSizeMb; ?> MB per file.</p>
+								</div>
+
+								<div style="display: flex; gap: 10px; margin-top: 10px;">
+									<button type="button" class="removeAttachmentBtn user-create-btn user-create-btn-secondary" style="display: none;">Remove Attachment</button>
+								</div>
+							</div>
+							<?php
+							if (count($selectedAttachmentTypes) > 1) {
+								for ($i = 1; $i < count($selectedAttachmentTypes); $i++) {
+									$attachmentType = isset($selectedAttachmentTypes[$i]) ? strtolower(trim((string) $selectedAttachmentTypes[$i])) : '';
+									?>
+									<div class="attachmentGroup" data-attachment-index="<?php echo (int) $i; ?>">
+										<div class="user-create-field">
+											<label class="user-create-label">Attachment Type</label>
+											<select class="user-create-select attachmentTypeSelect" name="attachment_type[]">
+												<option value="">Select Attachment Type</option>
+												<option value="invoice" <?php echo $attachmentType === 'invoice' ? 'selected' : ''; ?>>Invoice</option>
+												<option value="receipt" <?php echo $attachmentType === 'receipt' ? 'selected' : ''; ?>>Receipt</option>
+												<option value="other" <?php echo $attachmentType === 'other' ? 'selected' : ''; ?>>Others</option>
+											</select>
+										</div>
+
+										<div class="user-create-field attachmentFileWrap" style="display: none;">
+											<label class="user-create-label">Attachment File</label>
+											<input
+												type="file"
+												class="user-create-input attachmentFileInput"
+												name="attachment_file[]"
+												accept=".pdf,.jpg,.jpeg,.png,.doc"
+											>
+											<p class="user-create-note">Allowed file types: PDF, JPG, JPEG, PNG, DOC. Max <?php echo (int) $attachmentMaxSizeMb; ?> MB per file.</p>
+										</div>
+
+										<div style="display: flex; gap: 10px; margin-top: 10px;">
+											<button type="button" class="removeAttachmentBtn user-create-btn user-create-btn-secondary">Remove Attachment</button>
+										</div>
+									</div>
+									<?php
+								}
+							}
+							?>
 						</div>
+
+						<button type="button" id="addAttachmentBtn" class="user-create-btn user-create-btn-secondary" style="margin-top: 10px;">Add More Attachments</button>
 					</div>
 				</section>
 
 				<div class="user-create-action-bar">
 					<div class="user-create-action-copy">
 						<strong>Review before submitting</strong>
-						<span>The request will start in pending status.</span>
 					</div>
 					<div class="user-create-actions">
 						<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses'), ENT_QUOTES, 'UTF-8'); ?>" class="user-create-btn user-create-btn-secondary">Back to Expense List</a>
@@ -185,30 +231,28 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 <script>
 (function () {
 	const requestTypeSelect = document.getElementById('request_type');
+
 	const budgetCategorySelect = document.getElementById('budget_category_id');
-	if (!requestTypeSelect || !budgetCategorySelect) {
+
+	if (!requestTypeSelect) {
 		return;
 	}
 
-	const syncBudgetCategories = function () {
-		const normalizeType = function (value) {
-			const normalized = String(value || '').toLowerCase().trim();
-			if (normalized === 'reimbursable' || normalized === 'expense') {
-				return 'expense';
-			}
-			if (normalized === 'company paid' || normalized === 'company_paid' || normalized === 'purchase') {
-				return 'purchase';
-			}
-			return normalized;
-		};
+const attachmentsContainer = document.getElementById('attachmentsContainer');
+	const addAttachmentBtn = document.getElementById('addAttachmentBtn');
 
-		const requestType = normalizeType(requestTypeSelect.value || '');
-		const options = budgetCategorySelect.querySelectorAll('option[data-category-type]');
+
+	const syncBudgetCategoryOptions = function () {
+		if (!budgetCategorySelect) {
+			return;
+		}
+
+		const requestType = String(requestTypeSelect.value || '').trim().toLowerCase();
 		let selectedOptionVisible = false;
 
-		options.forEach(function (option) {
-			const categoryType = normalizeType(option.getAttribute('data-category-type') || '');
-			const shouldShow = requestType === '' || categoryType === '' || categoryType === requestType;
+		budgetCategorySelect.querySelectorAll('option[data-category-type]').forEach(function (option) {
+			const categoryType = String(option.getAttribute('data-category-type') || '').trim().toLowerCase();
+			const shouldShow = requestType === '' || categoryType === requestType;
 			option.hidden = !shouldShow;
 			option.disabled = !shouldShow;
 			if (option.selected && shouldShow) {
@@ -216,12 +260,124 @@ $selectedNotes = (string) ($oldInput['request_notes'] ?? '');
 			}
 		});
 
-		if (!selectedOptionVisible) {
-			budgetCategorySelect.value = '';
+
+		const hasAttachmentType = String(typeSelect.value || '').trim() !== '';
+		fileWrap.style.display = hasAttachmentType ? '' : 'none';
+		if (!hasAttachmentType) {
+			fileInput.value = '';
+		}
+
+		// Show remove button only if there are multiple attachment groups
+		if (removeBtn) {
+			const groupCount = attachmentsContainer.querySelectorAll('.attachmentGroup').length;
+			removeBtn.style.display = groupCount > 1 ? '' : 'none';
 		}
 	};
 
-	requestTypeSelect.addEventListener('change', syncBudgetCategories);
-	syncBudgetCategories();
+
+	const syncAttachmentGroupVisibility = function (group) {
+		const typeSelect = group.querySelector('.attachmentTypeSelect');
+		const fileWrap = group.querySelector('.attachmentFileWrap');
+		const fileInput = group.querySelector('.attachmentFileInput');
+		const removeBtn = group.querySelector('.removeAttachmentBtn');
+
+		if (!typeSelect || !fileWrap || !fileInput) {
+			return;
+		}
+
+		const hasAttachmentType = String(typeSelect.value || '').trim() !== '';
+		fileWrap.style.display = hasAttachmentType ? '' : 'none';
+		if (!hasAttachmentType) {
+			fileInput.value = '';
+		}
+
+		// Show remove button only if there are multiple attachment groups
+		if (removeBtn) {
+			const groupCount = attachmentsContainer.querySelectorAll('.attachmentGroup').length;
+			removeBtn.style.display = groupCount > 1 ? '' : 'none';
+		}
+	};
+
+
+	const attachTypeChangeHandler = function (event) {
+		const group = event.target.closest('.attachmentGroup');
+		if (group) {
+			syncAttachmentGroupVisibility(group);
+		}
+	};
+
+	const removeAttachmentHandler = function (event) {
+		event.preventDefault();
+		const group = event.target.closest('.attachmentGroup');
+		if (group) {
+			group.remove();
+			// Update visibility of remaining remove buttons
+			attachmentsContainer.querySelectorAll('.attachmentGroup').forEach(function (g) {
+				syncAttachmentGroupVisibility(g);
+			});
+		}
+	};
+
+	const addAttachmentHandler = function (event) {
+		event.preventDefault();
+		const firstGroup = attachmentsContainer.querySelector('.attachmentGroup');
+		if (!firstGroup) {
+			return;
+		}
+
+		const newGroup = firstGroup.cloneNode(true);
+		const newIndex = attachmentsContainer.querySelectorAll('.attachmentGroup').length;
+		newGroup.setAttribute('data-attachment-index', newIndex);
+
+		// Clear the values
+		newGroup.querySelector('.attachmentTypeSelect').value = '';
+		newGroup.querySelector('.attachmentFileInput').value = '';
+
+		// Reset event listeners
+		const typeSelect = newGroup.querySelector('.attachmentTypeSelect');
+		if (typeSelect) {
+			typeSelect.removeEventListener('change', attachTypeChangeHandler);
+			typeSelect.addEventListener('change', attachTypeChangeHandler);
+		}
+
+		const removeBtn = newGroup.querySelector('.removeAttachmentBtn');
+		if (removeBtn) {
+			removeBtn.removeEventListener('click', removeAttachmentHandler);
+			removeBtn.addEventListener('click', removeAttachmentHandler);
+		}
+
+		attachmentsContainer.appendChild(newGroup);
+		syncAttachmentGroupVisibility(newGroup);
+
+		// Update visibility of remove buttons
+		attachmentsContainer.querySelectorAll('.attachmentGroup').forEach(function (g) {
+			syncAttachmentGroupVisibility(g);
+		});
+	};
+
+	// Initialize event listeners for existing groups
+	attachmentsContainer.querySelectorAll('.attachmentGroup').forEach(function (group) {
+		const typeSelect = group.querySelector('.attachmentTypeSelect');
+		const removeBtn = group.querySelector('.removeAttachmentBtn');
+
+		if (typeSelect) {
+			typeSelect.addEventListener('change', attachTypeChangeHandler);
+		}
+
+		if (removeBtn) {
+			removeBtn.addEventListener('click', removeAttachmentHandler);
+		}
+
+		syncAttachmentGroupVisibility(group);
+	});
+
+	if (addAttachmentBtn) {
+		addAttachmentBtn.addEventListener('click', addAttachmentHandler);
+	}
+
+
+	requestTypeSelect.addEventListener('change', syncBudgetCategoryOptions);
+	syncBudgetCategoryOptions();
+
 })();
 </script>

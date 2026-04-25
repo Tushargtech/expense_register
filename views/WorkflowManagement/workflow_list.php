@@ -9,23 +9,20 @@ $totalPages = isset($totalPages) ? (int) $totalPages : 1;
 $perPage = 10;
 
 $selectedWorkflowType = (string) ($filters['workflow_type'] ?? '');
-$selectedBudgetCategoryId = (int) ($filters['budget_category_id'] ?? 0);
 
 $baseQuery = [
 	'search' => $searchValue,
 	'status' => $selectedStatus,
 	'workflow_type' => $selectedWorkflowType,
-	'budget_category_id' => $selectedBudgetCategoryId > 0 ? $selectedBudgetCategoryId : '',
 ];
 
 $workflowTypes = isset($workflowTypes) && is_array($workflowTypes) ? $workflowTypes : [];
-$budgetCategories = isset($budgetCategories) && is_array($budgetCategories) ? $budgetCategories : [];
 $canCreateWorkflow = isset($canCreateWorkflow) ? (bool) $canCreateWorkflow : false;
 $canEditWorkflow = isset($canEditWorkflow) ? (bool) $canEditWorkflow : false;
 
 $workflowTypeLabels = [
-	'reimbursable' => 'Reimbursable',
-	'company paid' => 'Company Paid',
+	'expense' => 'Expense',
+	'purchase' => 'Purchase',
 ];
 
 function formatWorkflowAmountRange($minAmount, $maxAmount): string
@@ -90,18 +87,6 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 				</select>
 			</div>
 
-			<div class="filter-field">
-				<select name="budget_category_id" class="form-select">
-					<option value="">Workflow Categories</option>
-					<?php foreach ($budgetCategories as $category): ?>
-						<?php $categoryId = (int) ($category['budget_category_id'] ?? 0); ?>
-						<option value="<?php echo $categoryId; ?>" <?php echo $selectedBudgetCategoryId === $categoryId ? 'selected' : ''; ?>>
-							<?php echo htmlspecialchars((string) ($category['budget_category_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-						</option>
-					<?php endforeach; ?>
-				</select>
-			</div>
-
 			<div class="filter-actions">
 				<button type="submit" class="btn btn-primary btn-filter">Search</button>
 				<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('workflows'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary btn-filter">Reset</a>
@@ -125,7 +110,6 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 					<thead>
 						<tr>
 							<th>Workflow Name</th>
-							<th>Workflow Category</th>
 							<th>Workflow Type</th>
 							<th>Amount Range</th>
 							<th>Approval Flow</th>
@@ -135,7 +119,7 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 					<tbody>
 						<?php if (empty($workflows)): ?>
 							<tr>
-								<td colspan="6" class="text-center py-4 text-muted">No workflows found for the selected filters.</td>
+								<td colspan="5" class="text-center py-4 text-muted">No workflows found for the selected filters.</td>
 							</tr>
 						<?php else: ?>
 							<?php foreach ($workflows as $index => $row): ?>
@@ -146,7 +130,6 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 								?>
 								<tr class="<?php echo $rowClass; ?>">
 									<td><?php echo htmlspecialchars((string) ($row['workflow_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
-									<td><?php echo htmlspecialchars((string) ($row['budget_category_name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars($workflowTypeLabels[strtolower((string) ($row['workflow_type'] ?? ''))] ?? (string) ($row['workflow_type'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars($amountRange, ENT_QUOTES, 'UTF-8'); ?></td>
 									<td><?php echo htmlspecialchars((string) ($row['approval_flow'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
@@ -183,8 +166,14 @@ function formatWorkflowAmountRange($minAmount, $maxAmount): string
 				$totalWorkflowCount = isset($totalWorkflows) ? (int) $totalWorkflows : count($workflows);
 				$rangeStart = $totalWorkflowCount > 0 ? (($currentPage - 1) * $perPage) + 1 : 0;
 				$rangeEnd = $totalWorkflowCount > 0 ? min($totalWorkflowCount, $rangeStart + count($workflows) - 1) : 0;
+				$downloadQuery = $baseQuery + ['download' => 1];
 				?>
-				<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalWorkflowCount; ?></div>
+				<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+					<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalWorkflowCount; ?></div>
+					<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('workflows', $downloadQuery), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-filter list-download-btn" title="Download Excel">
+						<i class="bi bi-download"></i>
+					</a>
+				</div>
 				<ul class="pagination user-pagination mb-0">
 					<?php $prevPage = max(1, $currentPage - 1); ?>
 					<li class="page-item <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>">

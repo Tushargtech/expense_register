@@ -5,6 +5,7 @@ class WorkflowModel
 	private PDO $db;
 	private string $workflowTable = 'workflows';
 	private bool $checkedWorkflowTable = false;
+	private array $autoIncrementSupport = [];
 
 	public function __construct()
 	{
@@ -42,7 +43,7 @@ class WorkflowModel
 				 FROM information_schema.KEY_COLUMN_USAGE kcu
 				 WHERE kcu.TABLE_SCHEMA = DATABASE()
 				   AND kcu.REFERENCED_TABLE_NAME = 'workflow_steps'
-				   AND kcu.TABLE_NAME IN ('requests', 'request_actions', 'request_step_assignments', 'request_workflow_steps')"
+				   AND kcu.TABLE_NAME IN ('requests', 'request_actions', 'request_step_assignments')"
 			);
 			$stmt->execute();
 			$constraints = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -61,6 +62,49 @@ class WorkflowModel
 		}
 	}
 
+	private function supportsAutoIncrement(string $tableName, string $columnName): bool
+	{
+		$cacheKey = $tableName . '.' . $columnName;
+		if (array_key_exists($cacheKey, $this->autoIncrementSupport)) {
+			return $this->autoIncrementSupport[$cacheKey];
+		}
+
+		try {
+			$stmt = $this->db->prepare(
+				'SELECT EXTRA
+				 FROM information_schema.COLUMNS
+				 WHERE TABLE_SCHEMA = DATABASE()
+				   AND TABLE_NAME = :table_name
+				   AND COLUMN_NAME = :column_name
+				 LIMIT 1'
+			);
+			$stmt->execute([
+				':table_name' => $tableName,
+				':column_name' => $columnName,
+			]);
+			$extra = strtolower(trim((string) ($stmt->fetchColumn() ?: '')));
+			$this->autoIncrementSupport[$cacheKey] = str_contains($extra, 'auto_increment');
+		} catch (Throwable $error) {
+			$this->autoIncrementSupport[$cacheKey] = false;
+		}
+
+		return $this->autoIncrementSupport[$cacheKey];
+	}
+
+	private function reserveNextId(string $tableName, string $columnName): int
+	{
+		$stmt = $this->db->query(
+			'SELECT `' . $columnName . '`
+			 FROM `' . $tableName . '`
+			 ORDER BY `' . $columnName . '` DESC
+			 LIMIT 1
+			 FOR UPDATE'
+		);
+		$currentId = (int) ($stmt->fetchColumn() ?: 0);
+
+		return $currentId + 1;
+	}
+
 	private function buildFilterSql(array $filters): array
 	{
 		$whereSql = ' WHERE 1 = 1';
@@ -68,7 +112,7 @@ class WorkflowModel
 
 		$search = trim((string) ($filters['search'] ?? ''));
 		if ($search !== '') {
-			$whereSql .= ' AND (w.workflow_name LIKE :search OR w.workflow_type LIKE :search OR bc.budget_category_name LIKE :search)';
+			$whereSql .= ' AND (w.workflow_name LIKE :search OR w.workflow_type LIKE :search)';
 			$params[':search'] = '%' . $search . '%';
 		}
 
@@ -82,12 +126,6 @@ class WorkflowModel
 		if ($workflowType !== '') {
 			$whereSql .= ' AND w.workflow_type = :workflow_type';
 			$params[':workflow_type'] = $workflowType;
-		}
-
-		$budgetCategoryId = (int) ($filters['budget_category_id'] ?? 0);
-		if ($budgetCategoryId > 0) {
-			$whereSql .= ' AND w.budget_category_id = :budget_category_id';
-			$params[':budget_category_id'] = $budgetCategoryId;
 		}
 
 		return [$whereSql, $params];
@@ -125,15 +163,12 @@ class WorkflowModel
 		$sql = 'SELECT
 					w.workflow_id,
 					w.workflow_name,
-					w.budget_category_id,
-					bc.budget_category_name,
 					step_flow.approval_flow,
 					w.workflow_type,
 					w.workflow_amount_min,
 					w.workflow_amount_max,
 					w.workflow_is_active
 				FROM ' . $this->workflowTable . ' w
-				LEFT JOIN budget_categories bc ON bc.budget_category_id = w.budget_category_id
 				LEFT JOIN (
 					SELECT
 						workflow_id,
@@ -161,8 +196,7 @@ class WorkflowModel
 		[$whereSql, $params] = $this->buildFilterSql($filters);
 
 		$sql = 'SELECT COUNT(*)
-				FROM ' . $this->workflowTable . ' w
-				LEFT JOIN budget_categories bc ON bc.budget_category_id = w.budget_category_id' . $whereSql;
+				FROM ' . $this->workflowTable . ' w' . $whereSql;
 		$stmt = $this->db->prepare($sql);
 		$stmt->execute($params);
 
@@ -176,17 +210,12 @@ class WorkflowModel
 		$sql = 'SELECT
 				w.workflow_id,
 				w.workflow_name,
-				w.budget_category_id,
 				w.workflow_type,
 				w.workflow_is_active
 			FROM ' . $this->workflowTable . ' w
 			WHERE w.workflow_is_active = 1';
 
 		$params = [];
-		if ($budgetCategoryId !== null && $budgetCategoryId > 0) {
-			$sql .= ' AND w.budget_category_id = :budget_category_id';
-			$params[':budget_category_id'] = $budgetCategoryId;
-		}
 
 		$normalizedRequestType = strtolower(trim((string) ($requestType ?? '')));
 		if ($normalizedRequestType !== '') {
@@ -200,6 +229,48 @@ class WorkflowModel
 		$stmt->execute($params);
 
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	public function getWorkflowForRequestCriteria(string $requestType, float $amount): ?array
+	{
+		$this->resolveWorkflowTable();
+
+		$normalizedRequestType = strtolower(trim($requestType));
+		if ($normalizedRequestType === '' || $amount <= 0) {
+			return null;
+		}
+
+		$sql = 'SELECT
+				w.workflow_id,
+				w.workflow_name,
+				w.workflow_type,
+				w.workflow_is_active,
+				w.workflow_is_default,
+				w.workflow_amount_min,
+				w.workflow_amount_max
+			FROM ' . $this->workflowTable . ' w
+			WHERE w.workflow_is_active = 1
+			  AND LOWER(TRIM(w.workflow_type)) = :workflow_type
+			  AND (w.workflow_amount_min IS NULL OR w.workflow_amount_min <= :request_amount)
+			  AND (w.workflow_amount_max IS NULL OR w.workflow_amount_max >= :request_amount)
+			ORDER BY
+				w.workflow_is_default DESC,
+				CASE
+					WHEN w.workflow_amount_min IS NULL OR w.workflow_amount_max IS NULL THEN 999999999999
+					ELSE ABS(w.workflow_amount_max - w.workflow_amount_min)
+				END ASC,
+				COALESCE(w.workflow_amount_min, 0) ASC,
+				w.workflow_id ASC
+			LIMIT 1';
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute([
+			':workflow_type' => $normalizedRequestType,
+			':request_amount' => $amount,
+		]);
+		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+		return $row !== false ? $row : null;
 	}
 
 	public function getActiveUsers(): array
@@ -253,7 +324,6 @@ class WorkflowModel
 			"SELECT
 				workflow_id,
 				workflow_name,
-				budget_category_id,
 				workflow_type,
 				workflow_is_active,
 				workflow_is_default,
@@ -297,66 +367,124 @@ class WorkflowModel
 		$this->db->beginTransaction();
 
 		try {
-			$workflowSql = "INSERT INTO " . $this->workflowTable . " (
-				workflow_name,
-				workflow_description,
-				budget_category_id,
-				workflow_type,
-				workflow_is_active,
-				workflow_is_default,
-				workflow_amount_min,
-				workflow_amount_max,
-				workflow_created_by
-			) VALUES (
-				:workflow_name,
-				:workflow_description,
-				:budget_category_id,
-				:workflow_type,
-				:workflow_is_active,
-				:workflow_is_default,
-				:workflow_amount_min,
-				:workflow_amount_max,
-				:workflow_created_by
-			)";
+
+			$workflowUsesAutoIncrement = $this->supportsAutoIncrement($this->workflowTable, 'workflow_id');
+			$workflowId = null;
+
+			if ($workflowUsesAutoIncrement) {
+				$workflowSql = "INSERT INTO " . $this->workflowTable . " (
+					workflow_name,
+					workflow_description,
+					workflow_type,
+					workflow_is_active,
+					workflow_is_default,
+					workflow_amount_min,
+					workflow_amount_max,
+					workflow_created_by
+				) VALUES (
+					:workflow_name,
+					:workflow_description,
+					:workflow_type,
+					:workflow_is_active,
+					:workflow_is_default,
+					:workflow_amount_min,
+					:workflow_amount_max,
+					:workflow_created_by
+				)";
+			} else {
+				$workflowId = $this->reserveNextId($this->workflowTable, 'workflow_id');
+				$workflowSql = "INSERT INTO " . $this->workflowTable . " (
+					workflow_id,
+					workflow_name,
+					workflow_description,
+					workflow_type,
+					workflow_is_active,
+					workflow_is_default,
+					workflow_amount_min,
+					workflow_amount_max,
+					workflow_created_by
+				) VALUES (
+					:workflow_id,
+					:workflow_name,
+					:workflow_description,
+					:workflow_type,
+					:workflow_is_active,
+					:workflow_is_default,
+					:workflow_amount_min,
+					:workflow_amount_max,
+					:workflow_created_by
+				)";
+			}
+
 
 			$workflowStmt = $this->db->prepare($workflowSql);
-			$workflowStmt->execute([
+			$workflowParams = [
 				':workflow_name' => $workflowData['workflow_name'],
 				':workflow_description' => $workflowData['workflow_description'],
-				':budget_category_id' => $workflowData['budget_category_id'],
 				':workflow_type' => $workflowData['workflow_type'],
 				':workflow_is_active' => $workflowData['workflow_is_active'],
 				':workflow_is_default' => $workflowData['workflow_is_default'],
 				':workflow_amount_min' => $workflowData['workflow_amount_min'],
 				':workflow_amount_max' => $workflowData['workflow_amount_max'],
 				':workflow_created_by' => $workflowData['workflow_created_by'],
-			]);
+			];
+			if (!$workflowUsesAutoIncrement) {
+				$workflowParams[':workflow_id'] = $workflowId;
+			}
+			$workflowStmt->execute($workflowParams);
 
-			$workflowId = (int) $this->db->lastInsertId();
+			if ($workflowUsesAutoIncrement) {
+				$workflowId = (int) $this->db->lastInsertId();
+			}
 
-			$stepSql = "INSERT INTO workflow_steps (
-				workflow_id,
-				step_order,
-				step_name,
-				step_approver_type,
-				step_approver_role,
-				step_approver_user_id,
-				step_is_required,
-				step_timeout_hours
-			) VALUES (
-				:workflow_id,
-				:step_order,
-				:step_name,
-				:step_approver_type,
-				:step_approver_role,
-				:step_approver_user_id,
-				:step_is_required,
-				:step_timeout_hours
-			)";
+			$stepUsesAutoIncrement = $this->supportsAutoIncrement('workflow_steps', 'step_id');
+			if ($stepUsesAutoIncrement) {
+				$stepSql = "INSERT INTO workflow_steps (
+					workflow_id,
+					step_order,
+					step_name,
+					step_approver_type,
+					step_approver_role,
+					step_approver_user_id,
+					step_is_required,
+					step_timeout_hours
+				) VALUES (
+					:workflow_id,
+					:step_order,
+					:step_name,
+					:step_approver_type,
+					:step_approver_role,
+					:step_approver_user_id,
+					:step_is_required,
+					:step_timeout_hours
+				)";
+			} else {
+				$stepSql = "INSERT INTO workflow_steps (
+					step_id,
+					workflow_id,
+					step_order,
+					step_name,
+					step_approver_type,
+					step_approver_role,
+					step_approver_user_id,
+					step_is_required,
+					step_timeout_hours
+				) VALUES (
+					:step_id,
+					:workflow_id,
+					:step_order,
+					:step_name,
+					:step_approver_type,
+					:step_approver_role,
+					:step_approver_user_id,
+					:step_is_required,
+					:step_timeout_hours
+				)";
+			}
 
 			$stepStmt = $this->db->prepare($stepSql);
 			foreach ($steps as $step) {
-				$stepStmt->execute([
+				$stepParams = [
 					':workflow_id' => $workflowId,
 					':step_order' => (int) $step['step_order'],
 					':step_name' => (string) $step['step_name'],
@@ -365,7 +493,11 @@ class WorkflowModel
 					':step_approver_user_id' => (int) ($step['step_approver_user_id'] ?? 0) > 0 ? (int) $step['step_approver_user_id'] : null,
 					':step_is_required' => (int) $step['step_is_required'],
 					':step_timeout_hours' => $step['step_timeout_hours'],
-				]);
+				];
+				if (!$stepUsesAutoIncrement) {
+					$stepParams[':step_id'] = $this->reserveNextId('workflow_steps', 'step_id');
+				}
+				$stepStmt->execute($stepParams);
 			}
 
 			$this->db->commit();
@@ -396,7 +528,6 @@ class WorkflowModel
 			$workflowSql = "UPDATE " . $this->workflowTable . " SET
 				workflow_name = :workflow_name,
 				workflow_description = :workflow_description,
-				budget_category_id = :budget_category_id,
 				workflow_type = :workflow_type,
 				workflow_is_active = :workflow_is_active,
 				workflow_is_default = :workflow_is_default,
@@ -409,7 +540,6 @@ class WorkflowModel
 			$workflowStmt->execute([
 				':workflow_name' => $workflowData['workflow_name'],
 				':workflow_description' => $workflowData['workflow_description'],
-				':budget_category_id' => $workflowData['budget_category_id'],
 				':workflow_type' => $workflowData['workflow_type'],
 				':workflow_is_active' => $workflowData['workflow_is_active'],
 				':workflow_is_default' => $workflowData['workflow_is_default'],
@@ -438,25 +568,50 @@ class WorkflowModel
 				WHERE step_id = :step_id AND workflow_id = :workflow_id";
 			$updateStepStmt = $this->db->prepare($updateStepSql);
 
-			$insertStepSql = "INSERT INTO workflow_steps (
-				workflow_id,
-				step_order,
-				step_name,
-				step_approver_type,
-				step_approver_role,
-				step_approver_user_id,
-				step_is_required,
-				step_timeout_hours
-			) VALUES (
-				:workflow_id,
-				:step_order,
-				:step_name,
-				:step_approver_type,
-				:step_approver_role,
-				:step_approver_user_id,
-				:step_is_required,
-				:step_timeout_hours
-			)";
+			$stepUsesAutoIncrement = $this->supportsAutoIncrement('workflow_steps', 'step_id');
+			if ($stepUsesAutoIncrement) {
+				$insertStepSql = "INSERT INTO workflow_steps (
+					workflow_id,
+					step_order,
+					step_name,
+					step_approver_type,
+					step_approver_role,
+					step_approver_user_id,
+					step_is_required,
+					step_timeout_hours
+				) VALUES (
+					:workflow_id,
+					:step_order,
+					:step_name,
+					:step_approver_type,
+					:step_approver_role,
+					:step_approver_user_id,
+					:step_is_required,
+					:step_timeout_hours
+				)";
+			} else {
+				$insertStepSql = "INSERT INTO workflow_steps (
+					step_id,
+					workflow_id,
+					step_order,
+					step_name,
+					step_approver_type,
+					step_approver_role,
+					step_approver_user_id,
+					step_is_required,
+					step_timeout_hours
+				) VALUES (
+					:step_id,
+					:workflow_id,
+					:step_order,
+					:step_name,
+					:step_approver_type,
+					:step_approver_role,
+					:step_approver_user_id,
+					:step_is_required,
+					:step_timeout_hours
+				)";
+			}
 			$insertStepStmt = $this->db->prepare($insertStepSql);
 
 			$submittedStepIds = [];
@@ -482,6 +637,9 @@ class WorkflowModel
 					$submittedStepIds[] = $stepId;
 					$updateStepStmt->execute($params + [':step_id' => $stepId]);
 				} else {
+					if (!$stepUsesAutoIncrement) {
+						$params[':step_id'] = $this->reserveNextId('workflow_steps', 'step_id');
+					}
 					$insertStepStmt->execute($params);
 				}
 			}

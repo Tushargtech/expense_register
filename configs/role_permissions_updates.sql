@@ -1,3 +1,5 @@
+-- IMPORTANT: Remove UNIQUE constraint on request_reference_no if it exists
+ALTER TABLE requests DROP INDEX uk_requests_reference_no;
 -- Role permission updates for Expense Register
 -- Date: 13-Apr-2026
 -- Notes:

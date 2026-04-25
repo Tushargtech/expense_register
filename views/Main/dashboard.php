@@ -24,7 +24,7 @@ $totalExpense = (float) ($dashboardKpis['total_expense'] ?? 0);
 
 <main class="main">
 	<div class="page-shell budget-monitor-page">
-		<section class="page-card mb-3 budget-monitor-hero">
+		<section class="page-card mb-3 budget-monitor-hero dashboard-heading-hero">
 			<div class="card-body p-4 p-md-5">
 				<div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
 					<div>
@@ -123,22 +123,9 @@ $totalExpense = (float) ($dashboardKpis['total_expense'] ?? 0);
 				<div class="card page-card h-100">
 					<div class="card-body">
 						<h5 class="mb-3">Quick Actions</h5>
-						<div class="d-grid gap-2 mb-3">
+						<div class="d-grid gap-2">
 							<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/create'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Request</a>
 							<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses', ['request_scope' => 'others', 'status' => 'pending']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-primary"><i class="bi bi-list-check me-1"></i>Pending Approvals</a>
-						</div>
-
-						<h6 class="mb-2">Quick Links</h6>
-						<div class="d-grid gap-2">
-							<a href="<?php echo htmlspecialchars(buildAssetUrl('README.md'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary text-start" target="_blank" rel="noopener">
-								<i class="bi bi-file-earmark-text me-1"></i>Expense Policy
-							</a>
-							<a href="<?php echo htmlspecialchars(buildAssetUrl('fsd.md'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary text-start" target="_blank" rel="noopener">
-								<i class="bi bi-journal-text me-1"></i>Purchase Policy
-							</a>
-							<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-uploader'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-secondary text-start">
-								<i class="bi bi-info-circle me-1"></i>Budget Request Guidelines
-							</a>
 						</div>
 					</div>
 				</div>

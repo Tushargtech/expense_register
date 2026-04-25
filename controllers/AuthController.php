@@ -1,6 +1,22 @@
 <?php
 class AuthController
 {
+    private function authPolicy(): array
+    {
+        $appConfig = $GLOBALS['envConfig']['app'] ?? [];
+
+        return [
+            'max_attempts' => max(1, (int) ($appConfig['auth_max_login_attempts'] ?? AUTH_MAX_LOGIN_ATTEMPTS)),
+            'lockout_minutes' => max(1, (int) ($appConfig['auth_lockout_minutes'] ?? AUTH_LOCKOUT_MINUTES)),
+        ];
+    }
+
+    private function formatLockoutMessage(int $remainingSeconds): string
+    {
+        $remainingMinutes = (int) ceil(max(0, $remainingSeconds) / 60);
+        return 'Too many failed login attempts. Please try again in ' . max(1, $remainingMinutes) . ' minute(s).';
+    }
+
     public function showLogin(): void
     {
         if (!empty($_SESSION['auth']['is_logged_in'])) {
@@ -21,7 +37,9 @@ class AuthController
             'pageTitle' => 'Login - Expense Register',
             'pageStyles' => ['assets/css/app.css'],
             'bodyClass' => 'bg-light',
-            'includeChrome' => false,
+            'includeChrome' => true,
+            'showNavbarControls' => false,
+            'showSidebar' => false,
         ]);
 
         require ROOT_PATH . '/views/main/login.php';
@@ -82,6 +100,15 @@ class AuthController
         }
 
         $authModel = new AuthModel();
+        $policy = $this->authPolicy();
+
+        $lockStatus = $authModel->getLoginLockStatus($email, $policy['max_attempts'], $policy['lockout_minutes']);
+        if (!empty($lockStatus['is_locked'])) {
+            flash_error($this->formatLockoutMessage((int) ($lockStatus['remaining_seconds'] ?? 0)));
+            header('Location: ?route=login');
+            exit;
+        }
+
         $user = null;
         try {
             $user = $authModel->getUserByEmail($email);
@@ -98,10 +125,22 @@ class AuthController
         }
 
         if (!$isValid) {
-            flash_error('Invalid Credentials');
+            $authModel->recordLoginAttempt($email, false);
+            $lockStatus = $authModel->getLoginLockStatus($email, $policy['max_attempts'], $policy['lockout_minutes']);
+
+            if (!empty($lockStatus['is_locked'])) {
+                flash_error($this->formatLockoutMessage((int) ($lockStatus['remaining_seconds'] ?? 0)));
+            } else {
+                $remainingAttempts = max(0, (int) ($policy['max_attempts'] - ((int) ($lockStatus['failed_attempts'] ?? 0))));
+                flash_error('Invalid Credentials. Remaining attempts before lockout: ' . $remainingAttempts . '.');
+            }
+
             header('Location: ?route=login');
             exit;
         }
+
+        $authModel->recordLoginAttempt($email, true);
+        $authModel->clearFailedLoginAttempts($email);
 
         $sessionRole = strtolower(trim((string) ($user['role'] ?? '')));
 
@@ -110,6 +149,7 @@ class AuthController
             'user_id' => (int) ($user['id'] ?? 0),
             'name' => (string) ($user['name'] ?? 'User'),
             'email' => (string) ($user['email'] ?? $email),
+            'last_activity_at' => time(),
             'role' => $sessionRole,
             'base_role' => $sessionRole,
             'is_manager' => (bool) ($user['is_manager'] ?? false),

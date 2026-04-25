@@ -39,8 +39,8 @@ if (count($workflowSteps) === 0) {
 }
 
 $workflowTypeLabels = [
-	'reimbursable' => 'Reimbursable',
-	'company paid' => 'Company Paid',
+	'expense' => 'Expense',
+	'purchase' => 'Purchase',
 ];
 ?>
 
@@ -68,60 +68,47 @@ $workflowTypeLabels = [
 					<div class="user-create-head">
 						<div>
 							<h2 class="user-create-section-title">Workflow Details</h2>
-							<p class="user-create-note">Define workflow details and amount boundaries.</p>
 						</div>
 					</div>
 
 					<div class="user-create-grid">
 						<div class="user-create-field user-create-field-medium">
-							<label class="user-create-label" for="workflow_name">Workflow Name</label>
+							<label class="user-create-label" for="workflow_name">Workflow Name <span class="text-danger">*</span></label>
 							<input type="text" class="user-create-input" id="workflow_name" name="workflow_name" placeholder="Ex: Procurement Approval" value="<?php echo htmlspecialchars($workflowName, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field user-create-field-medium">
-							<label class="user-create-label" for="workflow_description">Workflow Description</label>
-							<textarea class="user-create-input" id="workflow_description" name="workflow_description" rows="3" placeholder="Describe this workflow..."><?php echo htmlspecialchars($workflowDescription, ENT_QUOTES, 'UTF-8'); ?></textarea>
+							<label class="user-create-label" for="workflow_description">Workflow Description <span class="text-danger">*</span></label>
+							<textarea class="user-create-input" id="workflow_description" name="workflow_description" rows="3" placeholder="Describe this workflow..." required><?php echo htmlspecialchars($workflowDescription, ENT_QUOTES, 'UTF-8'); ?></textarea>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="budget_category_id">Workflow Category</label>
-							<select class="user-create-select" id="budget_category_id" name="budget_category_id" required>
-								<option value="">Select Workflow Category</option>
-								<?php foreach ($budgetCategories as $category): ?>
-									<?php $categoryId = (int) ($category['budget_category_id'] ?? 0); ?>
-									<option value="<?php echo $categoryId; ?>" <?php echo $selectedBudgetCategoryId === $categoryId ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars((string) ($category['budget_category_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-						</div>
-
-						<div class="user-create-field">
-							<label class="user-create-label" for="workflow_type">Workflow Type</label>
+							<label class="user-create-label" for="workflow_type">Workflow Type <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="workflow_type" name="workflow_type" required>
 								<option value="">Select Workflow Type</option>
 								<?php foreach ($workflowTypeOptions as $workflowTypeOption): ?>
-									<?php $normalizedWorkflowType = ucfirst(strtolower(trim((string) $workflowTypeOption))); ?>
-									<?php if ($normalizedWorkflowType === '') { continue; } ?>
-									<option value="<?php echo htmlspecialchars($normalizedWorkflowType, ENT_QUOTES, 'UTF-8'); ?>" <?php echo strtolower($workflowType) === strtolower($normalizedWorkflowType) ? 'selected' : ''; ?>>
-										<?php echo htmlspecialchars($workflowTypeLabels[strtolower($normalizedWorkflowType)] ?? $normalizedWorkflowType, ENT_QUOTES, 'UTF-8'); ?>
-									</option>
-								<?php endforeach; ?>
+	                            <?php $value = strtolower(trim((string) $workflowTypeOption)); ?>
+	                            <?php if ($value === '') { continue; } ?>
+	                            <option value="<?php echo htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); ?>"
+		                        <?php echo strtolower($workflowType) === $value ? 'selected' : ''; ?>>
+								<?php echo htmlspecialchars($workflowTypeLabels[$value] ?? ucwords(str_replace('_',' ', $value)), ENT_QUOTES, 'UTF-8'); ?>
+	                           </option>
+                            <?php endforeach; ?>
 							</select>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="workflow_amount_min">Amount Min</label>
-							<input type="number" class="user-create-input" id="workflow_amount_min" name="workflow_amount_min" step="0.01" min="0" placeholder="0.00" value="<?php echo htmlspecialchars($workflowAmountMin, ENT_QUOTES, 'UTF-8'); ?>">
+							<label class="user-create-label" for="workflow_amount_min">Amount Min <span class="text-danger">*</span></label>
+							<input type="number" class="user-create-input" id="workflow_amount_min" name="workflow_amount_min" step="0.01" min="0" placeholder="0.00" value="<?php echo htmlspecialchars($workflowAmountMin, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="workflow_amount_max">Amount Max</label>
-							<input type="number" class="user-create-input" id="workflow_amount_max" name="workflow_amount_max" step="0.01" min="0" placeholder="50000.00" value="<?php echo htmlspecialchars($workflowAmountMax, ENT_QUOTES, 'UTF-8'); ?>">
+							<label class="user-create-label" for="workflow_amount_max">Amount Max <span class="text-danger">*</span></label>
+							<input type="number" class="user-create-input" id="workflow_amount_max" name="workflow_amount_max" step="0.01" min="0" placeholder="50000.00" value="<?php echo htmlspecialchars($workflowAmountMax, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="workflow_is_active">Status</label>
+							<label class="user-create-label" for="workflow_is_active">Status <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="workflow_is_active" name="workflow_is_active" required>
 									<option value="1" <?php echo $workflowIsActive === 1 ? 'selected' : ''; ?>>Active</option>
 									<option value="0" <?php echo $workflowIsActive === 0 ? 'selected' : ''; ?>>Inactive</option>
@@ -143,7 +130,6 @@ $workflowTypeLabels = [
 					<div class="user-create-head">
 						<div>
 							<h2 class="user-create-section-title">Workflow Steps</h2>
-							<p class="user-create-note">Drag and drop step cards to reorder approval levels.</p>
 						</div>
 						<?php if (!$isReadOnlyWorkflow): ?>
 						<button type="button" class="user-create-btn user-create-btn-secondary" id="addStepBtn">Add Approval Step</button>
@@ -152,7 +138,7 @@ $workflowTypeLabels = [
 
 					<div id="stepsContainer">
 						<?php foreach ($workflowSteps as $stepIndex => $step): ?>
-						<div class="workflow-step-card workflow-step-row" draggable="true" data-step-index="<?php echo (int) $stepIndex; ?>">
+						<div class="workflow-step-card workflow-step-row <?php echo !empty($step['step_is_required']) ? '' : 'workflow-step-inactive'; ?>" draggable="true" data-step-index="<?php echo (int) $stepIndex; ?>">
 							<div class="workflow-step-card-head">
 								<div class="workflow-step-title-wrap">
 									<span class="workflow-step-number"><?php echo (int) ($step['step_order'] ?? ($stepIndex + 1)); ?></span>
@@ -160,25 +146,24 @@ $workflowTypeLabels = [
 								</div>
 								<div class="workflow-step-actions">
 									<button type="button" class="workflow-step-drag-handle" title="Drag to reorder" aria-label="Drag step">::</button>
-									<button type="button" class="user-create-btn user-create-btn-secondary remove-step-btn" disabled>Remove</button>
 								</div>
 							</div>
 
 							<div class="user-create-grid workflow-step-grid">
 								<input type="hidden" name="step_id[]" value="<?php echo (int) ($step['step_id'] ?? 0); ?>">
 							<div class="user-create-field">
-								<label class="user-create-label">Step Order</label>
+								<label class="user-create-label">Step Order <span class="text-danger">*</span></label>
 								<input type="number" class="user-create-input" name="step_order[]" min="1" value="<?php echo (int) ($step['step_order'] ?? ($stepIndex + 1)); ?>" required>
 							</div>
 
 							<div class="user-create-field user-create-field-medium">
-								<label class="user-create-label">Step Name</label>
+								<label class="user-create-label">Step Name <span class="text-danger">*</span></label>
 								<input type="text" class="user-create-input step-name-input" name="step_name[]" placeholder="Ex: Manager Approval" value="<?php echo htmlspecialchars((string) ($step['step_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" required>
 							</div>
 
 							<div class="user-create-field">
-								<label class="user-create-label">Approver Type</label>
-								<select class="user-create-select approver-type-select" name="step_approver_type[]">
+								<label class="user-create-label">Approver Type <span class="text-danger">*</span></label>
+								<select class="user-create-select approver-type-select" name="step_approver_type[]" required>
 									<option value="role" <?php echo (string) ($step['step_approver_type'] ?? 'role') === 'role' ? 'selected' : ''; ?>>Role</option>
 									<option value="manager" <?php echo (string) ($step['step_approver_type'] ?? '') === 'manager' ? 'selected' : ''; ?>>Manager</option>
 									<option value="department_head" <?php echo (string) ($step['step_approver_type'] ?? '') === 'department_head' ? 'selected' : ''; ?>>Department Head</option>
@@ -215,8 +200,8 @@ $workflowTypeLabels = [
 							</div>
 
 							<div class="user-create-field">
-								<label class="user-create-label">Timeout (Hours)</label>
-								<input type="number" class="user-create-input" name="step_timeout_hours[]" min="1" step="1" placeholder="24" value="<?php echo htmlspecialchars((string) ($step['step_timeout_hours'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+								<label class="user-create-label">Timeout (Hours) <span class="text-danger">*</span></label>
+								<input type="number" class="user-create-input" name="step_timeout_hours[]" min="1" step="1" placeholder="24" value="<?php echo htmlspecialchars((string) ($step['step_timeout_hours'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" required>
 							</div>
 
 							<div class="user-create-field required-slider-field">
@@ -224,7 +209,7 @@ $workflowTypeLabels = [
 								<label class="required-switch">
 									<input type="checkbox" class="required-toggle" <?php echo !empty($step['step_is_required']) ? 'checked' : ''; ?>>
 									<span class="required-slider"></span>
-									<span class="required-switch-text">Required Step</span>
+									<span class="required-switch-text"><?php echo !empty($step['step_is_required']) ? 'Active' : 'Inactive'; ?></span>
 								</label>
 								<input type="hidden" class="required-hidden-input" name="step_is_required[]" value="<?php echo !empty($step['step_is_required']) ? '1' : '0'; ?>">
 							</div>
@@ -240,7 +225,6 @@ $workflowTypeLabels = [
 				<div class="user-create-action-bar">
 					<div class="user-create-action-copy">
 						<strong>Review workflow details before saving</strong>
-						<span>At least one step is required.</span>
 					</div>
 					<div class="user-create-actions">
 						<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('workflows'), ENT_QUOTES, 'UTF-8'); ?>" class="user-create-btn user-create-btn-secondary">Back to Workflow List</a>
@@ -258,7 +242,7 @@ $workflowTypeLabels = [
 (function () {
 	const container = document.getElementById('stepsContainer');
 	const addBtn = document.getElementById('addStepBtn');
-	if (!container || !addBtn) {
+	if (!container) {
 		return;
 	}
 
@@ -282,6 +266,10 @@ $workflowTypeLabels = [
 	};
 
 	const syncApproverInputs = function (row) {
+		if (row.classList.contains('workflow-step-inactive')) {
+			return;
+		}
+
 		const typeSelect = row.querySelector('.approver-type-select');
 		const roleSelect = row.querySelector('.approver-role-select');
 		const userSelect = row.querySelector('.approver-user-select');
@@ -336,21 +324,74 @@ $workflowTypeLabels = [
 		rows.forEach(function (row) {
 			const toggle = row.querySelector('.required-toggle');
 			const hiddenInput = row.querySelector('.required-hidden-input');
+			const switchText = row.querySelector('.required-switch-text');
+			const dragHandle = row.querySelector('.workflow-step-drag-handle');
 			if (!toggle || !hiddenInput) {
 				return;
 			}
+
+			const isActive = toggle.checked;
 			hiddenInput.value = toggle.checked ? '1' : '0';
+			row.classList.toggle('workflow-step-inactive', !isActive);
+			row.setAttribute('draggable', isActive ? 'true' : 'false');
+
+			if (dragHandle instanceof HTMLButtonElement) {
+				dragHandle.disabled = !isActive;
+			}
+
+			row.querySelectorAll('input, select, textarea').forEach(function (field) {
+				if (!(field instanceof HTMLElement)) {
+					return;
+				}
+
+				if (field.classList.contains('required-toggle') || field.classList.contains('required-hidden-input')) {
+					return;
+				}
+
+				if (field.getAttribute('name') === 'step_id[]') {
+					return;
+				}
+
+				if (!field.hasAttribute('data-original-required')) {
+					field.setAttribute('data-original-required', field.hasAttribute('required') ? '1' : '0');
+				}
+
+				if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+					if (isActive) {
+						field.removeAttribute('readonly');
+					} else {
+						field.setAttribute('readonly', 'readonly');
+					}
+				}
+
+				if (field instanceof HTMLSelectElement) {
+					if (isActive) {
+						field.classList.remove('workflow-step-field-locked');
+						field.removeAttribute('tabindex');
+						field.removeAttribute('aria-disabled');
+					} else {
+						field.classList.add('workflow-step-field-locked');
+						field.setAttribute('tabindex', '-1');
+						field.setAttribute('aria-disabled', 'true');
+					}
+				}
+
+				if (isActive && field.getAttribute('data-original-required') === '1') {
+					field.setAttribute('required', 'required');
+				} else if (!isActive) {
+					field.removeAttribute('required');
+				}
+			});
+
+			if (switchText) {
+				switchText.textContent = toggle.checked ? 'Active' : 'Inactive';
+			}
 		});
 	};
 
-	const refreshRemoveButtons = function () {
+	const refreshStepCards = function () {
 		const rows = container.querySelectorAll('.workflow-step-row');
-		rows.forEach(function (row, index) {
-			const removeBtn = row.querySelector('.remove-step-btn');
-			if (!removeBtn) {
-				return;
-			}
-			removeBtn.disabled = rows.length === 1;
+		rows.forEach(function (row) {
 			const title = row.querySelector('.workflow-step-title');
 			if (title && title.textContent.trim() === '') {
 				title.textContent = 'Approval Step';
@@ -359,51 +400,53 @@ $workflowTypeLabels = [
 		syncStepMeta();
 	};
 
-	addBtn.addEventListener('click', function () {
-		const rowCount = container.querySelectorAll('.workflow-step-row').length;
-		const clone = template.cloneNode(true);
-		clone.setAttribute('data-step-index', String(rowCount));
+	if (addBtn) {
+		addBtn.addEventListener('click', function () {
+			const rowCount = container.querySelectorAll('.workflow-step-row').length;
+			const clone = template.cloneNode(true);
+			clone.setAttribute('data-step-index', String(rowCount));
 
-		clone.querySelectorAll('input').forEach(function (input) {
-			if (input.name === 'step_order[]') {
-				input.value = String(rowCount + 1);
-			} else {
-				input.value = '';
+			clone.querySelectorAll('input').forEach(function (input) {
+				if (input.name === 'step_order[]') {
+					input.value = String(rowCount + 1);
+				} else {
+					input.value = '';
+				}
+			});
+
+			clone.querySelectorAll('select').forEach(function (select) {
+				select.selectedIndex = 0;
+			});
+
+			const approverTypeSelect = clone.querySelector('.approver-type-select');
+			if (approverTypeSelect) {
+				approverTypeSelect.value = 'role';
+			}
+
+			clone.querySelectorAll('.required-toggle').forEach(function (toggle) {
+				toggle.checked = true;
+			});
+			clone.querySelectorAll('.required-hidden-input').forEach(function (hiddenInput) {
+				hiddenInput.value = '1';
+			});
+
+			const title = clone.querySelector('.workflow-step-title');
+			if (title) {
+				title.textContent = 'Approval Step';
+			}
+
+			container.appendChild(clone);
+			syncApproverInputs(clone);
+			syncRequiredHiddenValues();
+			refreshStepCards();
+
+			clone.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			const stepNameInput = clone.querySelector('.step-name-input');
+			if (stepNameInput instanceof HTMLInputElement) {
+				stepNameInput.focus();
 			}
 		});
-
-		clone.querySelectorAll('select').forEach(function (select) {
-			select.selectedIndex = 0;
-		});
-
-		const approverTypeSelect = clone.querySelector('.approver-type-select');
-		if (approverTypeSelect) {
-			approverTypeSelect.value = 'role';
-		}
-
-		clone.querySelectorAll('.required-toggle').forEach(function (toggle) {
-			toggle.checked = true;
-		});
-		clone.querySelectorAll('.required-hidden-input').forEach(function (hiddenInput) {
-			hiddenInput.value = '1';
-		});
-
-		const title = clone.querySelector('.workflow-step-title');
-		if (title) {
-			title.textContent = 'Approval Step';
-		}
-
-		container.appendChild(clone);
-		syncApproverInputs(clone);
-		syncRequiredHiddenValues();
-		refreshRemoveButtons();
-
-		clone.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-		const stepNameInput = clone.querySelector('.step-name-input');
-		if (stepNameInput instanceof HTMLInputElement) {
-			stepNameInput.focus();
-		}
-	});
+	}
 
 	let draggedRow = null;
 
@@ -427,6 +470,10 @@ $workflowTypeLabels = [
 		if (!row) {
 			return;
 		}
+		if (row.classList.contains('workflow-step-inactive')) {
+			event.preventDefault();
+			return;
+		}
 		draggedRow = row;
 		row.classList.add('dragging');
 	});
@@ -437,7 +484,7 @@ $workflowTypeLabels = [
 			row.classList.remove('dragging');
 		}
 		draggedRow = null;
-		refreshRemoveButtons();
+		refreshStepCards();
 	});
 
 	container.addEventListener('dragover', function (event) {
@@ -453,37 +500,21 @@ $workflowTypeLabels = [
 		}
 	});
 
-	container.addEventListener('click', function (event) {
-		const target = event.target;
-		if (!(target instanceof HTMLElement)) {
-			return;
-		}
-
-		if (!target.classList.contains('remove-step-btn')) {
-			return;
-		}
-
-		const rows = container.querySelectorAll('.workflow-step-row');
-		if (rows.length <= 1) {
-			return;
-		}
-
-		const row = target.closest('.workflow-step-row');
-		if (row) {
-			row.remove();
-			refreshRemoveButtons();
-		}
-	});
-
 	container.addEventListener('change', function (event) {
 		const target = event.target;
 		if (!(target instanceof HTMLElement)) {
 			return;
 		}
 
+		const row = target.closest('.workflow-step-row');
+		if (row && row.classList.contains('workflow-step-inactive') && !target.classList.contains('required-toggle')) {
+			event.preventDefault();
+			syncRequiredHiddenValues();
+			return;
+		}
+
 		if (!target.classList.contains('required-toggle')) {
 			if (target.classList.contains('approver-type-select') || target.classList.contains('approver-role-select')) {
-				const row = target.closest('.workflow-step-row');
 				if (row) {
 					syncApproverInputs(row);
 				}
@@ -492,6 +523,34 @@ $workflowTypeLabels = [
 		}
 
 		syncRequiredHiddenValues();
+		if (row) {
+			syncApproverInputs(row);
+		}
+	});
+
+	const stopInactiveCardEdit = function (event) {
+		const target = event.target;
+		if (!(target instanceof HTMLElement)) {
+			return;
+		}
+
+		const row = target.closest('.workflow-step-row');
+		if (!row || !row.classList.contains('workflow-step-inactive')) {
+			return;
+		}
+
+		if (target.classList.contains('required-toggle') || target.closest('.required-switch')) {
+			return;
+		}
+
+		event.preventDefault();
+		if (typeof event.stopPropagation === 'function') {
+			event.stopPropagation();
+		}
+	};
+
+	['beforeinput', 'input', 'keydown', 'mousedown', 'click', 'focusin'].forEach(function (eventName) {
+		container.addEventListener(eventName, stopInactiveCardEdit, true);
 	});
 
 	const form = document.getElementById('workflowCreateForm');
@@ -503,6 +562,6 @@ $workflowTypeLabels = [
 
 	syncRequiredHiddenValues();
 	syncAllApproverInputs();
-	refreshRemoveButtons();
+	refreshStepCards();
 })();
 </script>

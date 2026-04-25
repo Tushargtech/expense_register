@@ -19,7 +19,7 @@ $rangeEnd = $total > 0 ? min($total, $rangeStart + count($expenses) - 1) : 0;
 
 // Mock data for filters - in real app, these would come from controller
 $departments = isset($departments) && is_array($departments) ? $departments : [];
-$requestTypes = ['reimbursable' => 'Reimbursable', 'company paid' => 'Company Paid'];
+$requestTypes = ['expense' => 'Expense', 'purchase' => 'Purchase'];
 $requestScopes = [
     "all" => 'All Requests',
     'others' => 'Others',
@@ -27,6 +27,7 @@ $requestScopes = [
 ];
 $statuses = ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'];
 $canCreateExpense = isset($canCreateExpense) ? (bool) $canCreateExpense : false;
+$editableRequestIds = isset($editableRequestIds) && is_array($editableRequestIds) ? $editableRequestIds : [];
 
 $expenseListUrl = buildCleanRouteUrl('expenses');
 
@@ -143,7 +144,7 @@ $buildExpenseUrl = static function (array $params = []) use ($expenseListUrl) : 
                             <th>Status</th>
                             <th>Submitted By</th>
                             <th>Date</th>
-                            <th class="text-center">Actions</th>
+                            <th class="text-end pe-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -170,8 +171,8 @@ $buildExpenseUrl = static function (array $params = []) use ($expenseListUrl) : 
                                     <td>
                                         <?php echo htmlspecialchars(
                                             match ($expense['request_type'] ?? '') {
-                                                'reimbursable' => 'Reimbursable',
-                                                'company paid' => 'Company Paid',
+                                                'expense' => 'Expense',
+                                                'purchase' => 'Purchase',
                                                 default => ucfirst((string) ($expense['request_type'] ?? '')),
                                             },
                                             ENT_QUOTES,
@@ -194,7 +195,18 @@ $buildExpenseUrl = static function (array $params = []) use ($expenseListUrl) : 
                                         echo $dt ? date('d M Y', strtotime($dt)) : '—';
                                         ?>
                                     </td>
-                                    <td class="text-center">
+                                    <td class="text-end pe-3">
+                                        <?php $requestId = (int) ($expense['request_id'] ?? 0); ?>
+                                        <?php if (in_array($requestId, $editableRequestIds, true)): ?>
+                                            <a
+                                                href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/edit', ['id' => $requestId]), ENT_QUOTES, 'UTF-8'); ?>"
+                                                class="btn btn-sm btn-warning edit-btn action-icon-btn"
+                                                title="Edit"
+                                                aria-label="Edit request"
+                                            >
+                                                <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                            </a>
+                                        <?php endif; ?>
                                         <a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses/review', ['id' => (int) ($expense['request_id'] ?? 0)]), ENT_QUOTES, 'UTF-8'); ?>"
                                            title="View"
                                            class="btn btn-sm btn-outline-secondary border-0 p-1">
@@ -210,7 +222,13 @@ $buildExpenseUrl = static function (array $params = []) use ($expenseListUrl) : 
 
             <!-- ── Pagination ── -->
             <nav class="user-pagination-wrap" aria-label="Expenses pagination">
-                <div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $total; ?></div>
+                <?php $downloadQuery = array_merge($filters, ['download' => 1]); ?>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                    <div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $total; ?></div>
+                    <a href="<?php echo htmlspecialchars(buildCleanRouteUrl('expenses', $downloadQuery), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-filter list-download-btn" title="Download Excel">
+                        <i class="bi bi-download"></i>
+                    </a>
+                </div>
                 <ul class="pagination user-pagination mb-0">
                     <?php $prev = max(1, $currentPage - 1); ?>
                     <li class="page-item <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>">

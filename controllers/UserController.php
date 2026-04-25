@@ -62,12 +62,16 @@ class UserController
 		$allowedRoles = $lookupModel->getRoleSlugs();
 		$normalizedRole = $this->normalizeUserRole((string) ($userData['role'] ?? ''));
 
+		// Manager is optional - allow 0 (no manager selected) or any positive integer
+		$managerId = $userData['manager_id'] ?? 0;
+		$isValidManager = $managerId >= 0;
+
 		return (
 			$userData['name'] !== '' &&
 			filter_var($userData['email'], FILTER_VALIDATE_EMAIL) !== false &&
 			in_array($normalizedRole, $allowedRoles, true) &&
 			$userData['department_id'] > 0 &&
-			$userData['manager_id'] > 0 &&
+			$isValidManager &&
 			in_array($userData['user_is_active'], [0, 1], true)
 		);
 	}
@@ -111,6 +115,27 @@ class UserController
 		$perPage = 10;
 		$currentPage = max(1, (int) ($_GET['page'] ?? 1));
 		$totalUsers = $userModel->countAllUsers($filters);
+		if (!empty($_GET['download'])) {
+			$allUsers = $userModel->getAllUsers($filters, max(1, $totalUsers), 0);
+			$exportRows = [];
+			foreach ($allUsers as $user) {
+				$exportRows[] = [
+					(string) ($user['user_name'] ?? ''),
+					(string) ($user['user_email'] ?? ''),
+					(string) ($user['user_role'] ?? ''),
+					(string) ($user['dept_name'] ?? '-'),
+					(string) ($user['manager_name'] ?? '-'),
+				];
+			}
+
+			$exportService = new SpreadsheetExportService();
+			$exportService->streamXlsx(
+				'users-' . date('YmdHis') . '.xlsx',
+				['User Name', 'Email', 'Role', 'Department', 'Manager Name'],
+				$exportRows,
+				'Users'
+			);
+		}
 		$totalPages = max(1, (int) ceil($totalUsers / $perPage));
 		if ($currentPage > $totalPages) {
 			$currentPage = $totalPages;
@@ -320,117 +345,50 @@ class UserController
 
 	public function update(): void
 	{
-	    $this->ensureUserCrudAccess();
+		$this->ensureUserCrudAccess();
 
-	    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-	        header('Location: ' . buildCleanRouteUrl('users'));
-	        exit;
-	    }
+		if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+			header('Location: ' . buildCleanRouteUrl('users'));
+			exit;
+		}
 
-	    $userId = (int) ($_GET['id'] ?? 0);
-	    if ($userId <= 0) {
-	        flash_error('Invalid user id');
-	        header('Location: ' . buildCleanRouteUrl('users'));
-	        exit;
-	    }
+		$userId = (int) ($_GET['id'] ?? 0);
+		if ($userId <= 0) {
+			flash_error('Invalid user id');
+			header('Location: ' . buildCleanRouteUrl('users'));
+			exit;
+		}
 
-	    $userModel = new UserModel();
-	    $existingUser = $userModel->getUserById($userId);
-	    if ($existingUser === null) {
-	        flash_error('User not found.');
-	        header('Location: ' . buildCleanRouteUrl('users'));
-	        exit;
-	    }
-	    $userData = $this->normalizeUserPayload($_POST);
+		$userModel = new UserModel();
+		$existingUser = $userModel->getUserById($userId);
+		if ($existingUser === null) {
+			flash_error('User not found.');
+			header('Location: ' . buildCleanRouteUrl('users'));
+			exit;
+		}
+		$userData = $this->normalizeUserPayload($_POST);
 
-	    if (!$this->isValidUserPayload($userData)) {
-	        flash_error('Please fill all required fields correctly.');
-	        header('Location: ' . buildCleanRouteUrl('users/edit', ['id' => $userId]));
-	        exit;
-	    }
+		if (!$this->isValidUserPayload($userData)) {
+			flash_error('Please fill all required fields correctly.');
+			header('Location: ' . buildCleanRouteUrl('users/edit', ['id' => $userId]));
+			exit;
+		}
 
-	    $success = $userModel->updateUser($userId, $userData);
+		$success = $userModel->updateUser($userId, $userData);
 
-	    if ($success) {
-	        RbacService::audit('user_update', ['user_id' => $userId, 'role' => $userData['role']]);
-	        $oldRole = strtolower(trim((string) ($existingUser['user_role'] ?? '')));
-	        $newRole = strtolower(trim((string) ($userData['role'] ?? '')));
-	        if ($oldRole !== '' && $newRole !== '' && $oldRole !== $newRole) {
-	            RbacService::audit('user_role_change', ['user_id' => $userId, 'from' => $oldRole, 'to' => $newRole]);
-	        }
-	        flash_success('Employee updated successfully.');
-	        header('Location: ' . buildCleanRouteUrl('users'));
-	    } else {
-	        flash_error('Failed to update employee.');
-	        header('Location: ' . buildCleanRouteUrl('users/edit', ['id' => $userId]));
-	    }
-	    exit;
-	}
-
-	/**
-	 * Export users to Excel
-	 */
-	public function exportExcel(): void
-	{
-	    $this->ensureUserListAccess();
-
-	    $userModel = new UserModel();
-	    $rbac = $this->rbac();
-
-	    $filters = [
-	        'search' => trim((string) ($_GET['search'] ?? '')),
-	        'role' => trim((string) ($_GET['role'] ?? '')),
-	        'department' => trim((string) ($_GET['department'] ?? '')),
-	        'status' => trim((string) ($_GET['status'] ?? '')),
-	        'department_id_scope' => 0,
-	    ];
-
-	    $canViewAllUsers = $rbac->canViewAllUsers();
-	    if ($rbac->isDepartmentScopedUserViewer()) {
-	        $departmentIdScope = $rbac->departmentId();
-	        if ($departmentIdScope <= 0) {
-	            header('Location: ?route=forbidden&code=rbac_user_department_scope_missing');
-	            exit;
-	        }
-
-	        $filters['department_id_scope'] = $departmentIdScope;
-	        $filters['department'] = '';
-	    }
-
-	    // Fetch all data (no pagination) - we need to get all users
-	    // Since getAllUsers uses limit/offset, we'll call it with a large limit
-	    $users = $userModel->getAllUsers($filters, 10000, 0);
-
-	    // Define columns matching UI table (excluding Actions column)
-	    $columns = [
-	        'ID' => 'user_id',
-	        'Name' => 'user_name',
-	        'Email' => 'user_email',
-	        'Role' => function ($row) {
-	            $role = $row['user_role'] ?? '';
-	            return ucfirst(str_replace('_', ' ', $role));
-	        },
-	        'Department' => 'dept_name',
-	        'Manager' => 'manager_name',
-	        'Status' => function ($row) {
-	            $status = (int) ($row['user_is_active'] ?? 1);
-	            return $status === 1 ? 'Active' : 'Inactive';
-	        },
-	        'Created At' => function ($row) {
-	            $dt = $row['user_created_at'] ?? '';
-	            return $dt ? date('d M Y', strtotime($dt)) : '—';
-	        },
-	    ];
-
-	    $this->generateExcelFile('users_list.xlsx', $columns, $users);
-	}
-
-	/**
-	 * Generate Excel file using shared ExcelExport utility
-	 */
-	private function generateExcelFile(string $filename, array $columns, array $data): void
-	{
-	    require_once ROOT_PATH . '/libraries/ExcelExport.php';
-	    ExcelExport::generateFile($filename, $columns, $data);
+		if ($success) {
+			RbacService::audit('user_update', ['user_id' => $userId, 'role' => $userData['role']]);
+			$oldRole = strtolower(trim((string) ($existingUser['user_role'] ?? '')));
+			$newRole = strtolower(trim((string) ($userData['role'] ?? '')));
+			if ($oldRole !== '' && $newRole !== '' && $oldRole !== $newRole) {
+				RbacService::audit('user_role_change', ['user_id' => $userId, 'from' => $oldRole, 'to' => $newRole]);
+			}
+			flash_success('Employee updated successfully.');
+			header('Location: ' . buildCleanRouteUrl('users'));
+		} else {
+			flash_error('Failed to update employee.');
+			header('Location: ' . buildCleanRouteUrl('users/edit', ['id' => $userId]));
+		}
+		exit;
 	}
 }

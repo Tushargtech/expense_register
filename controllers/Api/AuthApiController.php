@@ -2,6 +2,22 @@
 
 class AuthApiController extends ApiBaseController
 {
+    private function authPolicy(): array
+    {
+        $appConfig = $GLOBALS['envConfig']['app'] ?? [];
+
+        return [
+            'max_attempts' => max(1, (int) ($appConfig['auth_max_login_attempts'] ?? AUTH_MAX_LOGIN_ATTEMPTS)),
+            'lockout_minutes' => max(1, (int) ($appConfig['auth_lockout_minutes'] ?? AUTH_LOCKOUT_MINUTES)),
+        ];
+    }
+
+    private function lockoutMessage(int $remainingSeconds): string
+    {
+        $remainingMinutes = (int) ceil(max(0, $remainingSeconds) / 60);
+        return 'Too many failed login attempts. Please try again in ' . max(1, $remainingMinutes) . ' minute(s).';
+    }
+
     public function login(): void
     {
         if ($this->method() !== 'POST') {
@@ -17,6 +33,13 @@ class AuthApiController extends ApiBaseController
         }
 
         $authModel = new AuthModel();
+        $policy = $this->authPolicy();
+        $lockStatus = $authModel->getLoginLockStatus($email, $policy['max_attempts'], $policy['lockout_minutes']);
+
+        if (!empty($lockStatus['is_locked'])) {
+            $this->jsonError($this->lockoutMessage((int) ($lockStatus['remaining_seconds'] ?? 0)), 429);
+        }
+
         $user = null;
 
         try {
@@ -32,8 +55,19 @@ class AuthApiController extends ApiBaseController
         }
 
         if (!$isValid) {
-            $this->jsonError('Invalid credentials.', 401);
+            $authModel->recordLoginAttempt($email, false);
+            $lockStatus = $authModel->getLoginLockStatus($email, $policy['max_attempts'], $policy['lockout_minutes']);
+
+            if (!empty($lockStatus['is_locked'])) {
+                $this->jsonError($this->lockoutMessage((int) ($lockStatus['remaining_seconds'] ?? 0)), 429);
+            }
+
+            $remainingAttempts = max(0, (int) ($policy['max_attempts'] - ((int) ($lockStatus['failed_attempts'] ?? 0))));
+            $this->jsonError('Invalid credentials. Remaining attempts before lockout: ' . $remainingAttempts . '.', 401);
         }
+
+        $authModel->recordLoginAttempt($email, true);
+        $authModel->clearFailedLoginAttempts($email);
 
         $sessionRole = strtolower(trim((string) ($user['role'] ?? '')));
         $_SESSION['auth'] = [
@@ -41,6 +75,7 @@ class AuthApiController extends ApiBaseController
             'user_id' => (int) ($user['id'] ?? 0),
             'name' => (string) ($user['name'] ?? 'User'),
             'email' => (string) ($user['email'] ?? $email),
+            'last_activity_at' => time(),
             'role' => $sessionRole,
             'base_role' => $sessionRole,
             'is_manager' => (bool) ($user['is_manager'] ?? false),
