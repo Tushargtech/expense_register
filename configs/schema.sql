@@ -261,14 +261,14 @@ CREATE TABLE `users` (
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-INSERT INTO `users` (`user_id`, `user_name`, `user_email`, `user_password_hash`, `user_role`, `department_id`, `manager_id`, `user_is_active`, `user_created_at`, `password_must_reset`, `force_password_change`) VALUES
-(1, 'System Administrator', 'admin@example.com', 'admin123', 'admin', 1, NULL, 1, '2026-04-03 07:57:40', 0, 0),
-(2, 'HR Department Head', 'hr.depthead@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'hr', 2, NULL, 1, '2026-04-12 08:36:54', 0, 0),
-(3, 'Finance Department Head', 'finance.depthead@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'finance', 3, NULL, 1, '2026-04-12 08:37:25', 0, 0),
-(4, 'Admin Employee 1', 'adminemployee1@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'employee', 1, 1, 1, '2026-04-12 08:38:00', 0, 0),
-(5, 'IT Department Head', 'it.head@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'employee', 4, NULL, 1, '2026-04-12 08:38:30', 0, 0),
-(6, 'IT Employee 1', 'it.employee1@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'employee', 4, 7, 1, '2026-04-12 08:38:30', 0, 0),
-(7, 'IT Employee 2', 'it.employee2@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'employee', 4, 6, 1, '2026-04-12 08:38:30', 0, 0);
+INSERT INTO `users` (`user_id`, `user_name`, `user_email`, `user_password_hash`, `user_role`, `department_id`, `manager_id`, `user_is_active`, `user_created_at`, `password_must_reset`) VALUES
+(1, 'System Administrator', 'admin@example.com', 'admin123', 'admin', 1, NULL, 1, '2026-04-03 07:57:40', 0),
+(2, 'HR Department Head', 'hr.depthead@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'hr', 2, NULL, 1, '2026-04-12 08:36:54', 0),
+(3, 'Finance Department Head', 'finance.depthead@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'finance', 3, NULL, 1, '2026-04-12 08:37:25', 0),
+(4, 'Admin Employee 1', 'adminemployee1@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'employee', 1, 1, 1, '2026-04-12 08:38:00', 0),
+(5, 'IT Department Head', 'it.head@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'employee', 4, NULL, 1, '2026-04-12 08:38:30', 0),
+(6, 'IT Employee 1', 'it.employee1@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'employee', 4, 7, 1, '2026-04-12 08:38:30', 0),
+(7, 'IT Employee 2', 'it.employee2@example.com', '$2y$12$EwppjASakgFWaX07e4QPbO3ePQFOR.ukMX8.ptrtyLnVmgZgc7iB6', 'employee', 4, 6, 1, '2026-04-12 08:38:30', 0);
 
 
 
