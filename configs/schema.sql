@@ -320,12 +320,12 @@ CREATE TABLE `workflow_steps` (
 
 
 INSERT INTO `workflow_steps` (`step_id`, `workflow_id`, `step_order`, `step_name`, `step_approver_type`, `step_approver_role`, `step_approver_user_id`, `step_is_required`, `step_timeout_hours`, `step_created_at`) VALUES
-(25, 1, 1, 'Manager Approval', 'manager', 'manager', NULL, 1, 45, '2026-04-23 12:33:56'),
-(26, 1, 3, 'Finance Approval', 'role', 'finance', 11, 1, 48, '2026-04-23 12:33:56'),
-(27, 2, 1, 'Manager Approval', 'manager', 'manager', NULL, 1, 48, '2026-04-23 12:38:34'),
-(28, 2, 2, 'Department Head Approval', 'department_head', 'department_head', NULL, 1, 48, '2026-04-23 12:38:34'),
-(29, 2, 3, 'Finance Approval', 'role', 'finance', 11, 1, 48, '2026-04-23 12:38:34'),
-(30, 3, 1, 'Manager Approval', 'manager', 'manager', NULL, 1, 49, '2026-04-23 12:41:48'),
-(31, 3, 2, 'Finance Approval', 'role', 'finance', 11, 1, 49, '2026-04-23 12:41:48'),
-(32, 4, 1, 'Manager Approval', 'manager', 'manager', NULL, 1, 40, '2026-04-23 12:43:14'),
-(33, 1, 2, 'Department Head Approval', 'department_head', 'department_head', NULL, 1, 27, '2026-04-24 09:14:07');
+(1, 1, 1, 'Manager Approval', 'manager', 'manager', NULL, 1, 45, '2026-04-23 12:33:56'),
+(2, 1, 2, 'Department Head Approval', 'department_head', 'department_head', NULL, 1, 27, '2026-04-24 09:14:07'),
+(3, 1, 3, 'Finance Approval', 'role', 'finance', 11, 1, 48, '2026-04-23 12:33:56'),
+(4, 2, 1, 'Manager Approval', 'manager', 'manager', NULL, 1, 48, '2026-04-23 12:38:34'),
+(5, 2, 2, 'Department Head Approval', 'department_head', 'department_head', NULL, 1, 48, '2026-04-23 12:38:34'),
+(6, 2, 3, 'Finance Approval', 'role', 'finance', 11, 1, 48, '2026-04-23 12:38:34'),
+(7, 3, 1, 'Manager Approval', 'manager', 'manager', NULL, 1, 49, '2026-04-23 12:41:48'),
+(8, 3, 2, 'Finance Approval', 'role', 'finance', 11, 1, 49, '2026-04-23 12:41:48'),
+(9, 4, 1, 'Manager Approval', 'manager', 'manager', NULL, 1, 40, '2026-04-23 12:43:14');
