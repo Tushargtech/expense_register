@@ -26,6 +26,14 @@
 	color: rgba(148, 163, 184, 0.85);
 	opacity: 1;
 }
+.login-card .forgot-password-link {
+    color: #dc2626 !important;
+}
+
+.login-card .forgot-password-link:hover {
+    color: #b91c1c !important;
+    text-decoration: underline !important;
+}
 /* ===== End: login.css ===== */
 
 
