@@ -76,52 +76,6 @@ class MailService
     }
 
     /**
-     * Send request submission confirmation email
-     */
-    public function sendRequestSubmittedEmail(
-        string $recipientEmail,
-        string $employeeName,
-        string $requestTypeLabel,
-        string $requestNo,
-        string $currency,
-        string $amount,
-        string $budgetHead,
-        string $description,
-        string $requestLink
-    ): bool {
-        if (!$this->configured) {
-            error_log('Mail service not configured');
-            return false;
-        }
-
-        try {
-            $this->mailer->clearAddresses();
-            $this->mailer->addAddress($recipientEmail);
-            $this->mailer->isHTML(true);
-            $this->mailer->Subject = 'Request Submitted Successfully: ' . $requestTypeLabel . ' #' . $requestNo;
-
-            $htmlBody = $this->renderEmailTemplate('request_submission', [
-                'employee_name' => $employeeName,
-                'request_type_label' => $requestTypeLabel,
-                'request_no' => $requestNo,
-                'currency' => $currency,
-                'amount' => $amount,
-                'budget_head' => $budgetHead,
-                'description' => $description,
-                'request_link' => $requestLink,
-            ]);
-
-            $this->mailer->Body = $htmlBody;
-            $this->mailer->AltBody = strip_tags($htmlBody);
-
-            return $this->mailer->send();
-        } catch (Exception $e) {
-            error_log('Request submission email error: ' . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
      * Send approver action required email
      */
     public function sendRequestActionRequiredEmail(
@@ -137,7 +91,8 @@ class MailService
         string $description,
         string $requestLink,
         int $approvalTimeout,
-        bool $isNewSubmission
+        bool $isNewSubmission,
+        ?string $ccRecipientEmail = null
     ): bool {
         if (!$this->configured) {
             error_log('Mail service not configured');
@@ -147,6 +102,12 @@ class MailService
         try {
             $this->mailer->clearAddresses();
             $this->mailer->addAddress($recipientEmail);
+            
+            // Add requester in CC if provided
+            if ($ccRecipientEmail !== null && $ccRecipientEmail !== '') {
+                $this->mailer->addCC($ccRecipientEmail);
+            }
+            
             $this->mailer->isHTML(true);
             $this->mailer->Subject = 'Action Required: ' . $requestTypeLabel . ' #' . $requestNo . ' Pending Your Review';
 
@@ -305,100 +266,6 @@ class MailService
             return $this->mailer->send();
         } catch (Exception $e) {
             error_log('Ticket reassignment email error: ' . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * Send budget threshold alert email
-     */
-    public function sendBudgetThresholdAlertEmail(
-        string $recipientEmail,
-        string $departmentName,
-        string $budgetHead,
-        string $usagePercent,
-        string $currency,
-        string $totalLimit,
-        string $usedAmount
-    ): bool {
-        if (!$this->configured) {
-            error_log('Mail service not configured');
-            return false;
-        }
-
-        try {
-            $this->mailer->clearAddresses();
-            $this->mailer->addAddress($recipientEmail);
-            $this->mailer->isHTML(true);
-            $this->mailer->Subject = 'URGENT: Budget Utilization Alert – ' . $departmentName;
-
-            $htmlBody = $this->renderEmailTemplate('budget_threshold_alert', [
-                'department_name' => $departmentName,
-                'budget_head' => $budgetHead,
-                'usage_percent' => $usagePercent,
-                'currency' => $currency,
-                'total_limit' => $totalLimit,
-                'used_amount' => $usedAmount,
-            ]);
-
-            $this->mailer->Body = $htmlBody;
-            $this->mailer->AltBody = strip_tags($htmlBody);
-
-            return $this->mailer->send();
-        } catch (Exception $e) {
-            error_log('Budget threshold alert email error: ' . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * Send budget update notification to department head
-     */
-    public function sendBudgetUpdateNotificationEmail(
-        string $recipientEmail,
-        string $departmentHeadName,
-        string $departmentName,
-        string $budgetHead,
-        string $fiscalYear,
-        string $fiscalPeriod,
-        string $currency,
-        string $totalLimit,
-        string $previousLimit,
-        string $differenceAmount,
-        string $effectiveDate,
-        string $actionType
-    ): bool {
-        if (!$this->configured) {
-            error_log('Mail service not configured');
-            return false;
-        }
-
-        try {
-            $this->mailer->clearAddresses();
-            $this->mailer->addAddress($recipientEmail);
-            $this->mailer->isHTML(true);
-            $this->mailer->Subject = 'Budget ' . ucfirst($actionType) . ' Notification - ' . $departmentName . ' (FY ' . $fiscalYear . ')';
-
-            $htmlBody = $this->renderEmailTemplate('budget_update_notification', [
-                'department_head_name' => $departmentHeadName,
-                'department_name' => $departmentName,
-                'budget_head' => $budgetHead,
-                'fiscal_year' => $fiscalYear,
-                'fiscal_period' => $fiscalPeriod,
-                'currency' => $currency,
-                'total_limit' => $totalLimit,
-                'previous_limit' => $previousLimit,
-                'difference_amount' => $differenceAmount,
-                'effective_date' => $effectiveDate,
-                'action_type' => $actionType,
-            ]);
-
-            $this->mailer->Body = $htmlBody;
-            $this->mailer->AltBody = strip_tags($htmlBody);
-
-            return $this->mailer->send();
-        } catch (Exception $e) {
-            error_log('Budget update notification email error: ' . $e->getMessage());
             return false;
         }
     }

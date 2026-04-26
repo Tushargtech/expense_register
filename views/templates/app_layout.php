@@ -35,6 +35,7 @@ if (!function_exists('renderAppLayoutStart')) {
 		$bodyClassName = isset($options['bodyClass']) ? (string) $options['bodyClass'] : '';
 		$activeMenu = isset($options['activeMenu']) ? (string) $options['activeMenu'] : 'dashboard';
 		$includeChrome = !isset($options['includeChrome']) || (bool) $options['includeChrome'] === true;
+		$showNavbarControls = !isset($options['showNavbarControls']) || (bool) $options['showNavbarControls'] === true;
 		$displayName = (string) ($_SESSION['auth']['name'] ?? 'User');
 		$normalizedDisplayName = strtolower(trim($displayName));
 		if ($normalizedDisplayName === 'system administrator' || $normalizedDisplayName === 'system admininstrator') {
@@ -68,6 +69,7 @@ if (!function_exists('renderAppLayoutStart')) {
 		<nav class="navbar navbar-dark fixed-top app-navbar">
 			<div class="container-fluid px-3 px-md-4">
 				<a class="navbar-brand fw-bold app-brand" href="<?php echo htmlspecialchars(buildCleanRouteUrl('dashboard'), ENT_QUOTES, 'UTF-8'); ?>">Expense Register</a>
+				<?php if ($showNavbarControls): ?>
 				<div class="d-flex align-items-center gap-3 ms-auto">
 					<span id="navbarDateTime" class="navbar-text text-white-50 fw-semibold d-none d-md-inline">--</span>
 					<span class="navbar-text text-white fw-semibold d-none d-md-inline"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></span>
@@ -79,6 +81,7 @@ if (!function_exists('renderAppLayoutStart')) {
 						</ul>
 					</div>
 				</div>
+				<?php endif; ?>
 			</div>
 		</nav>
 

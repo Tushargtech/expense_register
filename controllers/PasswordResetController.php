@@ -40,7 +40,9 @@ class PasswordResetController
             'pageTitle' => $pageTitle,
             'pageStyles' => $pageStyles,
             'bodyClass' => $bodyClass,
-            'includeChrome' => false,
+            'includeChrome' => true,
+            'showNavbarControls' => false,
+            'showSidebar' => false,
         ]);
 
         require ROOT_PATH . '/views/Main/password_reset.php';
@@ -128,7 +130,9 @@ class PasswordResetController
             'pageTitle' => $pageTitle,
             'pageStyles' => $pageStyles,
             'bodyClass' => $bodyClass,
-            'includeChrome' => false,
+            'includeChrome' => true,
+            'showNavbarControls' => false,
+            'showSidebar' => false,
         ]);
 
         require ROOT_PATH . '/views/Main/forgot_password.php';

@@ -134,8 +134,14 @@ $baseQuery = [
 				$totalCategoryCount = isset($totalCategories) ? (int) $totalCategories : count($categories);
 				$rangeStart = $totalCategoryCount > 0 ? (($currentPage - 1) * $perPage) + 1 : 0;
 				$rangeEnd = $totalCategoryCount > 0 ? min($totalCategoryCount, $rangeStart + count($categories) - 1) : 0;
+				$downloadQuery = $baseQuery + ['download' => 1];
 				?>
-				<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalCategoryCount; ?></div>
+				<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+					<div class="pagination-meta"><?php echo $rangeStart; ?>&ndash;<?php echo $rangeEnd; ?> of <?php echo $totalCategoryCount; ?></div>
+					<a href="<?php echo htmlspecialchars(buildCleanRouteUrl('budget-categories', $downloadQuery), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-filter list-download-btn" title="Download Excel">
+						<i class="bi bi-download"></i>
+					</a>
+				</div>
 				<ul class="pagination user-pagination mb-0">
 					<?php $prevPage = max(1, $currentPage - 1); ?>
 					<li class="page-item <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>">

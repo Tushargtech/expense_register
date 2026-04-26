@@ -38,7 +38,7 @@ class BudgetApiController extends ApiBaseController
         return [
             'department_id' => (int) ($source['department_id'] ?? 0),
             'budget_fiscal_year' => trim((string) ($source['budget_fiscal_year'] ?? '')),
-            'budget_fiscal_period' => trim((string) ($source['budget_fiscal_period'] ?? '')),
+            'budget_fiscal_period' => $this->normalizeFiscalPeriod(trim((string) ($source['budget_fiscal_period'] ?? ''))),
             'budget_category_id' => (int) ($source['budget_category_id'] ?? 0),
             'budget_allocated_amount' => trim((string) ($source['budget_allocated_amount'] ?? '')),
             'budget_currency' => strtoupper(trim((string) ($source['budget_currency'] ?? ''))),
@@ -58,6 +58,11 @@ class BudgetApiController extends ApiBaseController
         }
         if ($budgetData['budget_fiscal_period'] === '') {
             $errors['budget_fiscal_period'] = 'Fiscal period is required.';
+            } else {
+            $allowedPeriods = ['Q1', 'Q2', 'Q3', 'Q4', 'annual'];
+            if (!in_array($budgetData['budget_fiscal_period'], $allowedPeriods, true)) {
+                $errors['budget_fiscal_period'] = 'Fiscal period must be one of: ' . implode(', ', $allowedPeriods) . '.';
+            }
         }
         if ($budgetData['budget_category_id'] <= 0) {
             $errors['budget_category_id'] = 'Budget category is required.';
@@ -84,6 +89,20 @@ class BudgetApiController extends ApiBaseController
         }
 
         return round((float) $clean, 2);
+    }
+
+    private function normalizeFiscalPeriod(string $period): string
+    {
+        $period = trim($period);
+        $upper = strtoupper($period);
+        if (in_array($upper, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+            return $upper;
+        }
+        if (strtolower($period) === 'annual') {
+            return 'annual';
+        }
+        // If not matched, return original (validation will fail)
+        return $period;
     }
 
     private function mapToDatabaseSchema(array $row, BudgetModel $budgetModel, int $uploadedBy): array
@@ -114,6 +133,8 @@ class BudgetApiController extends ApiBaseController
         $fiscalPeriod = trim((string) ($row['budget_fiscal_period'] ?? $row['fiscal_period'] ?? $row['period'] ?? ''));
         if ($fiscalPeriod === '') {
             $errors[] = 'Fiscal Period is required';
+        } else {
+            $fiscalPeriod = $this->normalizeFiscalPeriod($fiscalPeriod);
         }
 
         $rawAmount = (string) ($row['budget_allocated_amount'] ?? $row['allocated_amount'] ?? $row['budget_amount'] ?? $row['amount'] ?? '');

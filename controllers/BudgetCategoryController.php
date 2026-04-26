@@ -46,6 +46,26 @@ class BudgetCategoryController
 		$perPage = 10;
 		$currentPage = max(1, (int) ($_GET['page'] ?? 1));
 		$totalCategories = $categoryModel->countFilteredCategories($filters);
+		if (!empty($_GET['download'])) {
+			$exportRows = $categoryModel->getFilteredCategories($filters, max(1, $totalCategories), 0);
+			$exportData = [];
+			foreach ($exportRows as $category) {
+				$exportData[] = [
+					(string) ($category['budget_category_code'] ?? ''),
+					(string) ($category['budget_category_name'] ?? ''),
+					ucfirst(strtolower((string) ($category['budget_category_type'] ?? ''))),
+					((int) ($category['budget_category_is_active'] ?? 0) === 1) ? 'Active' : 'Inactive',
+				];
+			}
+
+			$exportService = new SpreadsheetExportService();
+			$exportService->streamXlsx(
+				'budget-categories-' . date('YmdHis') . '.xlsx',
+				['Category Code', 'Category Name', 'Category Type', 'Status'],
+				$exportData,
+				'Budget Categories'
+			);
+		}
 		$totalPages = max(1, (int) ceil($totalCategories / $perPage));
 
 		if ($currentPage > $totalPages) {

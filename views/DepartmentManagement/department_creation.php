@@ -39,17 +39,17 @@ $selectedHeadUserId = (int) ($department['department_head_user_id'] ?? 0);
 
 					<div class="user-create-grid">
 						<div class="user-create-field user-create-field-medium">
-							<label class="user-create-label" for="department_name">Department Name</label>
+							<label class="user-create-label" for="department_name">Department Name <span class="text-danger">*</span></label>
 							<input type="text" class="user-create-input" id="department_name" name="department_name" placeholder="Enter department name" value="<?php echo htmlspecialchars($selectedName, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="department_code">Department Code</label>
+							<label class="user-create-label" for="department_code">Department Code <span class="text-danger">*</span></label>
 							<input type="text" class="user-create-input" id="department_code" name="department_code" placeholder="DEPT001" value="<?php echo htmlspecialchars($selectedCode, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field user-create-field-medium">
-							<label class="user-create-label" for="department_head_user_id">Department Head</label>
+							<label class="user-create-label" for="department_head_user_id">Department Head <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="department_head_user_id" name="department_head_user_id" required>
 								<option value="">Select Department Head</option>
 								<?php foreach ($managers as $manager): ?>

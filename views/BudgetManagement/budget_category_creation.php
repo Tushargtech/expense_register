@@ -45,17 +45,17 @@ if ($categoryTypeOptions === [] && trim($selectedType) !== '') {
 
 					<div class="user-create-grid">
 						<div class="user-create-field">
-							<label class="user-create-label" for="budget_category_code">Category Code</label>
+							<label class="user-create-label" for="budget_category_code">Category Code <span class="text-danger">*</span></label>
 							<input type="text" class="user-create-input" id="budget_category_code" name="budget_category_code" placeholder="CAT001" value="<?php echo htmlspecialchars($selectedCode, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field user-create-field-medium">
-							<label class="user-create-label" for="budget_category_name">Category Name</label>
+							<label class="user-create-label" for="budget_category_name">Category Name <span class="text-danger">*</span></label>
 							<input type="text" class="user-create-input" id="budget_category_name" name="budget_category_name" placeholder="Enter budget category name" value="<?php echo htmlspecialchars($selectedName, ENT_QUOTES, 'UTF-8'); ?>" required>
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="budget_category_type">Category Type</label>
+							<label class="user-create-label" for="budget_category_type">Category Type <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="budget_category_type" name="budget_category_type" required>
 								<option value="">Select Category Type</option>
 								<?php foreach ($categoryTypeOptions as $categoryType): ?>
@@ -74,7 +74,7 @@ if ($categoryTypeOptions === [] && trim($selectedType) !== '') {
 						</div>
 
 						<div class="user-create-field">
-							<label class="user-create-label" for="budget_category_is_active">Status</label>
+							<label class="user-create-label" for="budget_category_is_active">Status <span class="text-danger">*</span></label>
 							<select class="user-create-select" id="budget_category_is_active" name="budget_category_is_active" required>
 								<option value="1" <?php echo $selectedStatus === 1 ? 'selected' : ''; ?>>Active</option>
 								<option value="0" <?php echo $selectedStatus === 0 ? 'selected' : ''; ?>>Inactive</option>

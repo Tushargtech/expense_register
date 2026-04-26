@@ -62,12 +62,16 @@ class UserController
 		$allowedRoles = $lookupModel->getRoleSlugs();
 		$normalizedRole = $this->normalizeUserRole((string) ($userData['role'] ?? ''));
 
+		// Manager is optional - allow 0 (no manager selected) or any positive integer
+		$managerId = $userData['manager_id'] ?? 0;
+		$isValidManager = $managerId >= 0;
+
 		return (
 			$userData['name'] !== '' &&
 			filter_var($userData['email'], FILTER_VALIDATE_EMAIL) !== false &&
 			in_array($normalizedRole, $allowedRoles, true) &&
 			$userData['department_id'] > 0 &&
-			$userData['manager_id'] > 0 &&
+			$isValidManager &&
 			in_array($userData['user_is_active'], [0, 1], true)
 		);
 	}
@@ -111,6 +115,27 @@ class UserController
 		$perPage = 10;
 		$currentPage = max(1, (int) ($_GET['page'] ?? 1));
 		$totalUsers = $userModel->countAllUsers($filters);
+		if (!empty($_GET['download'])) {
+			$allUsers = $userModel->getAllUsers($filters, max(1, $totalUsers), 0);
+			$exportRows = [];
+			foreach ($allUsers as $user) {
+				$exportRows[] = [
+					(string) ($user['user_name'] ?? ''),
+					(string) ($user['user_email'] ?? ''),
+					(string) ($user['user_role'] ?? ''),
+					(string) ($user['dept_name'] ?? '-'),
+					(string) ($user['manager_name'] ?? '-'),
+				];
+			}
+
+			$exportService = new SpreadsheetExportService();
+			$exportService->streamXlsx(
+				'users-' . date('YmdHis') . '.xlsx',
+				['User Name', 'Email', 'Role', 'Department', 'Manager Name'],
+				$exportRows,
+				'Users'
+			);
+		}
 		$totalPages = max(1, (int) ceil($totalUsers / $perPage));
 		if ($currentPage > $totalPages) {
 			$currentPage = $totalPages;

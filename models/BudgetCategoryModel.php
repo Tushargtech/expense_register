@@ -99,11 +99,12 @@ class BudgetCategoryModel
 			$whereClauses[] = 'budget_category_is_active = 0';
 		}
 
-		if ($type === 'reimbursable' || $type === 'company paid') {
-			$whereClauses[] = 'LOWER(TRIM(budget_category_type)) = :type';
-			$params[':type'] = $type;
+		if ($type === 'expense') {
+			$whereClauses[] = "LOWER(TRIM(REPLACE(budget_category_type, ' ', '_'))) = 'expense'";
 		}
-
+		if ($type === 'purchase') {
+			$whereClauses[] = "LOWER(TRIM(REPLACE(budget_category_type, ' ', '_'))) = 'purchase'";
+		}
 		$sql = 'SELECT COUNT(*) AS total FROM budget_categories';
 		if (!empty($whereClauses)) {
 			$sql .= ' WHERE ' . implode(' AND ', $whereClauses);
@@ -138,11 +139,12 @@ class BudgetCategoryModel
 			$whereClauses[] = 'budget_category_is_active = 0';
 		}
 
-		if ($type === 'reimbursable' || $type === 'company paid') {
-			$whereClauses[] = 'LOWER(TRIM(budget_category_type)) = :type';
-			$params[':type'] = $type;
+		if ($type === 'expense') {
+			$whereClauses[] = "LOWER(TRIM(REPLACE(budget_category_type, ' ', '_'))) = 'expense'";
 		}
-
+		if ($type === 'purchase') {
+			$whereClauses[] = "LOWER(TRIM(REPLACE(budget_category_type, ' ', '_'))) = 'purchase'";
+		}
 		$sql = "SELECT
 				budget_category_id,
 				budget_category_name,

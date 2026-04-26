@@ -348,8 +348,8 @@ class UserModel
         {
                 try {
                         $stmt = $this->db->prepare('
-                                UPDATE users 
-                                SET force_password_change = 0, password_must_reset = 0
+                                UPDATE users
+                                SET password_must_reset = 0
                                 WHERE user_id = :user_id
                         ');
                         return $stmt->execute([':user_id' => $userId]);
@@ -366,8 +366,8 @@ class UserModel
         {
                 try {
                         $stmt = $this->db->prepare('
-                                UPDATE users 
-                                SET force_password_change = 1, password_must_reset = 1
+                                UPDATE users
+                                SET password_must_reset = 1
                                 WHERE user_id = :user_id
                         ');
                         return $stmt->execute([':user_id' => $userId]);

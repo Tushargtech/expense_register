@@ -1,4 +1,4 @@
-/* ===== Begin: login.css ===== */
+/* Begin: login css */
 .login-shell {
     min-height: 100vh;
 }
@@ -16,6 +16,7 @@
 .login-icon {
     width: 56px;
     height: 56px;
+    background-color: steelblue !important;
 }
 
 .login-title {
@@ -26,6 +27,7 @@
 	color: rgba(148, 163, 184, 0.85);
 	opacity: 1;
 }
+
 .login-card .forgot-password-link {
     color: #dc2626 !important;
 }
@@ -34,10 +36,10 @@
     color: #b91c1c !important;
     text-decoration: underline !important;
 }
-/* ===== End: login.css ===== */
+/* End: login css */
 
 
-/* ===== Begin: list.css ===== */
+/* Begin: list css */
 
 .user-list-page {
 	background: whitesmoke;
@@ -140,10 +142,10 @@
 .user-list-page .btn-filter {
 	font-size: 13px;
 	height: 34px;
-	min-width: 72px;
+	min-width: 36px;
 	border-radius: 5px;
 	font-weight: 500;
-	background: dodgerblue;
+	background: steelblue;
 	color: white;
 	border: none;
 	transition: all 0.3s ease;
@@ -162,7 +164,7 @@
 }
 
 .user-list-page .add-btn {
-	background: dodgerblue;
+	background: steelblue;
 	color: white;
 	padding: 8px 12px;
 	font-size: 12px;
@@ -408,7 +410,7 @@
 }
 
 .user-create-hero {
-    background: linear-gradient(135deg, darkslategray 0%, steelblue 100%);
+    background: steelblue;
     color: white;
     border-radius: 22px;
     padding: 28px 30px;
@@ -666,6 +668,21 @@
     opacity: 0.75;
     border-color: dodgerblue;
     box-shadow: 0 16px 24px rgba(30, 144, 255, 0.22);
+}
+
+.workflow-step-card.workflow-step-inactive {
+    background: #eceff3;
+    border-color: #c5cbd3;
+}
+
+.workflow-step-card.workflow-step-inactive .workflow-step-drag-handle {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.workflow-step-field-locked {
+    pointer-events: none;
+    opacity: 0.7;
 }
 
 .workflow-step-card-head {
@@ -974,6 +991,11 @@
     background: #f0fdf4;
 }
 
+.progress-approved .review-progress-head strong,
+.progress-approved .review-progress-head span {
+    color: #166534;
+}
+
 .progress-in_progress {
     border-color: #93c5fd;
     background: #eff6ff;
@@ -1177,6 +1199,11 @@
 	padding: 28px 30px !important;
 }
 
+.dashboard-heading-hero {
+    background-color: steelblue;
+    background-image: none;
+}
+
 /* ===== FILTER CARD ===== */
 
 .budget-filter-card,
@@ -1273,10 +1300,10 @@
 .budget-monitor-page .btn-filter {
 	font-size: 13px;
 	height: 34px;
-	min-width: 72px;
+	min-width: 36px;
 	border-radius: 5px;
 	font-weight: 500;
-	background: dodgerblue;
+	background: steelblue;
 	color: white;
 	border: none;
 	transition: all 0.3s ease;
@@ -1393,8 +1420,8 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-    --nav-height: 60px;
-    --footer-height: 56px;
+    --nav-height: 50px;
+    --footer-height: 30px;
     --sidebar-width: 175px;
 }
 
@@ -1420,14 +1447,14 @@ body {
 }
 
 .app-brand {
-    font-size: 24px;
+    font-size: 21px;
     font-weight: 700;
     color: dodgerblue;
 }
 
 .profile-icon {
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     background: dodgerblue;
     border-radius: 50%;
     display: flex;
@@ -1804,3 +1831,90 @@ body.sidebar-collapsed .sidebar-toggle-btn {
 }
 
 /* ===== End: dashboard.css ===== */
+
+/* ===== Shared button colour overrides ===== */
+:root {
+    --app-button-bg: steelblue;
+    --app-button-hover-bg: #36648b;
+}
+
+.btn-primary,
+.btn-success,
+.user-list-page .btn-filter.btn-primary,
+.budget-monitor-page .btn-filter.btn-primary,
+.user-list-page .btn-filter.btn-outline-secondary,
+.budget-monitor-page .btn-filter.btn-outline-secondary,
+.user-list-page .add-btn,
+.user-create-btn-primary,
+.profile-icon {
+    background-color: var(--app-button-bg);
+    background-image: none;
+    border-color: var(--app-button-bg);
+    color: white;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+.btn-success:hover,
+.btn-success:focus,
+.btn-success:active,
+.user-list-page .btn-filter.btn-primary:hover,
+.user-list-page .btn-filter.btn-primary:focus,
+.budget-monitor-page .btn-filter.btn-primary:hover,
+.budget-monitor-page .btn-filter.btn-primary:focus,
+.user-list-page .btn-filter.btn-outline-secondary:hover,
+.user-list-page .btn-filter.btn-outline-secondary:focus,
+.budget-monitor-page .btn-filter.btn-outline-secondary:hover,
+.budget-monitor-page .btn-filter.btn-outline-secondary:focus,
+.user-list-page .add-btn:hover,
+.user-list-page .add-btn:focus,
+.user-create-btn-primary:hover,
+.user-create-btn-primary:focus,
+.profile-icon:hover,
+.profile-icon:focus-visible {
+    background-color: var(--app-button-hover-bg);
+    border-color: var(--app-button-hover-bg);
+    color: white;
+}
+
+.dashboard-heading-hero ~ .kpi-grid ~ .row .btn-outline-primary,
+.btn-outline-primary {
+    border-color: var(--app-button-bg);
+    color: var(--app-button-bg);
+}
+
+.list-download-btn {
+    background-color: steelblue;
+    border-color: steelblue;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.list-download-btn:hover,
+.list-download-btn:focus,
+.list-download-btn:active {
+    background-color: steelblue;
+    border-color: steelblue;
+    color: white;
+}
+
+.dashboard-heading-hero ~ .kpi-grid ~ .row .btn-outline-primary {
+    background-color: var(--app-button-bg);
+    background-image: none;
+    color: white;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active {
+    background-color: var(--app-button-hover-bg);
+    border-color: var(--app-button-hover-bg);
+    color: white;
+}
+
+.required-toggle:checked + .required-slider {
+    background: var(--app-button-bg);
+}
