@@ -77,8 +77,6 @@ if (!function_exists('renderEmailTemplate')) {
 	{
 		$template = strtolower(trim($template));
 
-		// request_submission template removed
-
 		if ($template === 'request_action_required') {
 			$approverName = mailTemplateEscape((string) ($data['approver_name'] ?? 'Approver'));
 			$employeeName = mailTemplateEscape((string) ($data['employee_name'] ?? 'Employee'));
@@ -237,8 +235,6 @@ if (!function_exists('renderEmailTemplate')) {
 			);
 		}
 
-		// budget_threshold_alert template removed
-		// budget_update_notification template removed
 
 		if ($template === 'password_reset') {
 			$employeeName = mailTemplateEscape((string) ($data['employee_name'] ?? 'User'));

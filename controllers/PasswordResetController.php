@@ -22,12 +22,19 @@ class PasswordResetController
         $error = '';
         $user = null;
 
+        // Log token for debugging
+        error_log('Password reset token received: ' . ($token !== '' ? $token : '(empty)') . ', IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+
         if ($token === '') {
             $error = 'Invalid reset link. Please request a new password reset.';
+            error_log('Password reset token empty, showing error.');
         } else {
             $user = $this->resetModel->getUserByResetToken($token);
             if ($user === null) {
                 $error = 'This password reset link has expired or is invalid. Please request a new one.';
+                error_log('Password reset token invalid or expired: ' . $token);
+            } else {
+                error_log('Password reset token valid for user ID: ' . ($user['user_id'] ?? 'unknown'));
             }
         }
 
@@ -40,7 +47,7 @@ class PasswordResetController
             'pageTitle' => $pageTitle,
             'pageStyles' => $pageStyles,
             'bodyClass' => $bodyClass,
-            'includeChrome' => true,
+            'includeChrome' => false,
             'showNavbarControls' => false,
             'showSidebar' => false,
         ]);
@@ -130,7 +137,7 @@ class PasswordResetController
             'pageTitle' => $pageTitle,
             'pageStyles' => $pageStyles,
             'bodyClass' => $bodyClass,
-            'includeChrome' => true,
+            'includeChrome' => false,
             'showNavbarControls' => false,
             'showSidebar' => false,
         ]);
@@ -202,6 +209,13 @@ class PasswordResetController
      */
     private function getResetLink(string $token): string
     {
-        return buildAbsoluteUrl('password-reset', ['token' => $token]);
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+        
+        // Get the clean URL path
+        $cleanUrl = buildCleanRouteUrl('password-reset', ['token' => $token]);
+        
+        // Return absolute URL
+        return "{$scheme}://{$host}{$cleanUrl}";
     }
 }

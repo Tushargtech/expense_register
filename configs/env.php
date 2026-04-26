@@ -15,6 +15,9 @@ if (!defined('DB_PASS')) {
 if (!defined('DB_PORT')) {
 	define('DB_PORT', '3307');
 }
+if (!defined('APP_URL')) {
+	define('APP_URL', 'http://localhost');
+}
 if (!defined('MAIL_HOST')) {
 	define('MAIL_HOST', 'smtp.gmail.com');
 }

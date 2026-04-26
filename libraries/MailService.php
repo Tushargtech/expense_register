@@ -49,7 +49,6 @@ class MailService
                 : PHPMailer::ENCRYPTION_STARTTLS;
             $this->mailer->Port = $port;
             
-            // Set default from email
             $this->mailer->setFrom($fromAddress, $fromName);
             $this->mailer->CharSet = 'UTF-8';
             
@@ -75,9 +74,7 @@ class MailService
         return '';
     }
 
-    /**
-     * Send approver action required email
-     */
+    // Send approver action required email
     public function sendRequestActionRequiredEmail(
         string $recipientEmail,
         string $approverName,
@@ -136,9 +133,7 @@ class MailService
         }
     }
 
-    /**
-     * Send final request approved email to requester
-     */
+    // Send final request approved email to requester
     public function sendRequestApprovedEmail(
         string $recipientEmail,
         string $employeeName,
@@ -186,9 +181,7 @@ class MailService
         }
     }
 
-    /**
-     * Send request rejected email to requester
-     */
+    // Send request rejected email to requester
     public function sendRequestRejectedEmail(
         string $recipientEmail,
         string $employeeName,
@@ -230,9 +223,7 @@ class MailService
         }
     }
 
-    /**
-     * Send ticket reassignment email to the new approver
-     */
+    // Send ticket reassignment email to the new approver
     public function sendTicketReassignmentEmail(
         string $recipientEmail,
         string $newApproverName,
@@ -270,9 +261,7 @@ class MailService
         }
     }
 
-    /**
-     * Send password reset email
-     */
+    // Send password reset email
     public function sendPasswordResetEmail(string $recipientEmail, string $employeeName, string $resetLink, int $expiryMinutes = 60): bool
     {
         if (!$this->configured) {
@@ -297,9 +286,7 @@ class MailService
         }
     }
 
-    /**
-     * Send new user account creation email
-     */
+    // Send new user account creation email
     public function sendNewUserEmail(string $recipientEmail, string $employeeName, string $temporaryPassword, string $loginLink, int $expiryMinutes = 60): bool
     {
         if (!$this->configured) {
@@ -344,9 +331,7 @@ class MailService
         ]);
     }
 
-    /**
-     * Send generic email
-     */
+
     public function send(string $to, string $subject, string $htmlBody): bool
     {
         if (!$this->configured) {

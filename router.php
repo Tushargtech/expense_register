@@ -63,6 +63,11 @@ if (str_starts_with($route, 'api/')) {
 $auth = new AuthController();
 $resetController = new PasswordResetController();
 
+// Debug logging for password reset route
+if ($route === 'password-reset' || $route === '/password-reset') {
+    error_log('Password reset route matched. Token: ' . ($_GET['token'] ?? '(none)'));
+}
+
 switch ($route) {
     case 'login':
     case '/login':
