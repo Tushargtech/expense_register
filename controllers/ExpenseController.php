@@ -759,7 +759,7 @@ class ExpenseController
             $requestDescription = (string) ($requestRecord['request_description'] ?? '');
             $requesterEmail = trim((string) ($requestRecord['submitter_email'] ?? ''));
             $requesterName = trim((string) ($requestRecord['submitter_name'] ?? ''));
-            $requestLink = buildCleanRouteUrl('expenses/review', ['id' => $requestId]);
+            $requestLink = buildAbsoluteUrl('expenses/review', ['id' => $requestId]);
             $mailService = new MailService();
 
             // Request submission email to requester removed - now requester gets CC on approver email
@@ -898,7 +898,7 @@ class ExpenseController
                         $requestDescription = (string) ($updatedRequest['request_description'] ?? '');
                         $requesterName = trim((string) ($updatedRequest['submitter_name'] ?? ''));
                         $previousActor = (string) ($this->model->getLatestRequestActionActorName($requestId) ?? 'Previous Approver');
-                        $requestLink = buildCleanRouteUrl('expenses/review', ['id' => $requestId]);
+                        $requestLink = buildAbsoluteUrl('expenses/review', ['id' => $requestId]);
                         $mailService = new MailService();
 
                         $approverNotifications = $this->model->getCurrentStepApproverNotifications($requestId);
@@ -959,7 +959,7 @@ class ExpenseController
                                 $requestAmount,
                                 $requestBudgetHead !== '' ? $requestBudgetHead : '—',
                                 $requestDescription,
-                                buildCleanRouteUrl('expenses/review', ['id' => $requestId])
+                                buildAbsoluteUrl('expenses/review', ['id' => $requestId])
                             );
 
                             if (!$sent) {
@@ -999,7 +999,7 @@ class ExpenseController
                                 $actorName,
                                 $rejectionStepTitle,
                                 $actionComment !== '' ? $actionComment : null,
-                                buildCleanRouteUrl('expenses/review', ['id' => $requestId])
+                                buildAbsoluteUrl('expenses/review', ['id' => $requestId])
                             );
 
                             if (!$sent) {
@@ -1013,7 +1013,7 @@ class ExpenseController
                     $updatedRequest = $this->model->getRequestReviewDetails($requestId);
                     if (is_array($updatedRequest)) {
                         $requestNo = (string) ($updatedRequest['request_reference_no'] ?? '');
-                        $requestLink = buildCleanRouteUrl('expenses/review', ['id' => $requestId]);
+                        $requestLink = buildAbsoluteUrl('expenses/review', ['id' => $requestId]);
                         $userModel = new UserModel();
                         $newApprover = $reassignTo > 0 ? $userModel->getUserById($reassignTo) : null;
                         $actorUser = $userModel->getUserById($currentUserId);

@@ -187,10 +187,7 @@ class UserApiController extends ApiBaseController
 
             if ($tempPassword) {
                 // Generate login link
-                $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-                $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
-                $basePath = '/expense_register';
-                $loginLink = "{$scheme}://{$host}{$basePath}/";
+                $loginLink = buildAbsoluteUrl('');
 
                 // Send welcome email with login link and temporary password
                 $mailService = new MailService();

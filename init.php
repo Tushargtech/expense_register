@@ -126,6 +126,39 @@ if (!function_exists('buildCleanRouteUrl')) {
 	}
 }
 
+if (!function_exists('buildAbsoluteUrl')) {
+
+	function buildAbsoluteUrl(string $route, array $query = []): string
+	{
+		static $baseUrl = null;
+		if ($baseUrl === null) {
+			// Try to get APP_URL from config
+			if (defined('APP_URL') && APP_URL !== '') {
+				$baseUrl = rtrim(APP_URL, '/');
+			} else {
+				$baseUrl = null;
+			}
+		}
+		
+		$path = buildCleanRouteUrl($route, $query);
+		
+		// Ensure path starts with /
+		if (strpos($path, '/') !== 0) {
+			$path = '/' . $path;
+		}
+		
+		if ($baseUrl !== null) {
+			// Use the configured base URL
+			return $baseUrl . $path;
+		}
+		
+		// Fallback to dynamic detection from current request
+		$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+		$scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+		return "{$scheme}://{$host}{$path}";
+	}
+}
+
 if (!function_exists('legacyRouteSpecToCleanUrl')) {
 	function legacyRouteSpecToCleanUrl(string $routeSpec): string
 	{

@@ -202,10 +202,6 @@ class PasswordResetController
      */
     private function getResetLink(string $token): string
     {
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
-        $basePath = '/expense_register';
-
-        return "{$scheme}://{$host}{$basePath}/password-reset?token=" . urlencode($token);
+        return buildAbsoluteUrl('password-reset', ['token' => $token]);
     }
 }

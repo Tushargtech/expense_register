@@ -49,6 +49,10 @@ if (!defined('FILE_UPLOAD_MAX_SIZE_MB')) {
 	define('FILE_UPLOAD_MAX_SIZE_MB', 5);
 }
 
+if (!defined('APP_URL')) {
+	define('APP_URL', 'http://localhost/expense_register');
+}
+
 if (!function_exists('getDB')) {
 	function getDB(): PDO
 	{
@@ -75,7 +79,7 @@ if (!function_exists('getDB')) {
 return [
 	'app' => [
 		'name' => 'Expense Register',
-		'base_path' => '/expense_portal',
+		'base_path' => '/expense_register',
 		'session_timeout_minutes' => SESSION_TIMEOUT_MINUTES,
 		'auth_max_login_attempts' => AUTH_MAX_LOGIN_ATTEMPTS,
 		'auth_lockout_minutes' => AUTH_LOCKOUT_MINUTES,
