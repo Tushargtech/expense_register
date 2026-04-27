@@ -39,12 +39,7 @@ if (!defined('MAIL_FROM_NAME')) {
 if (!defined('SESSION_TIMEOUT_MINUTES')) {
 	define('SESSION_TIMEOUT_MINUTES', 30);
 }
-if (!defined('AUTH_MAX_LOGIN_ATTEMPTS')) {
-	define('AUTH_MAX_LOGIN_ATTEMPTS', 5);
-}
-if (!defined('AUTH_LOCKOUT_MINUTES')) {
-	define('AUTH_LOCKOUT_MINUTES', 15);
-}
+
 if (!defined('FILE_UPLOAD_MAX_SIZE_MB')) {
 	define('FILE_UPLOAD_MAX_SIZE_MB', 5);
 }
@@ -81,8 +76,6 @@ return [
 		'name' => 'Expense Register',
 		'base_path' => '/expense_register',
 		'session_timeout_minutes' => SESSION_TIMEOUT_MINUTES,
-		'auth_max_login_attempts' => AUTH_MAX_LOGIN_ATTEMPTS,
-		'auth_lockout_minutes' => AUTH_LOCKOUT_MINUTES,
 		'file_upload_max_size_mb' => FILE_UPLOAD_MAX_SIZE_MB,
 	],
 	'db' => [
